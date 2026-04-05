@@ -1,0 +1,889 @@
+// schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ОСНОВНЫЕ ПОЛЬЗОВАТЕЛИ ====================
+
+model User {
+  id           Int       @id @default(autoincrement())
+  username     String    @unique
+  email        String    @unique
+  passwordHash String
+  refreshToken String?
+  avatarUrl    String?
+  discordId    String?   @unique
+  apiId        String?   @unique
+  isActive     Boolean   @default(true)
+  isBanned     Boolean   @default(false)
+  banReason    String?
+  lastLogin    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  characters          Character[]
+  sessions            Session[]
+  auditLogs           AuditLog[]
+  assignedRoles       CharacterRole[] @relation("RoleAssigner")
+  assignedSupervisors Supervisor[]    @relation("SupervisorAssigner")
+
+  @@index([username])
+  @@index([email])
+  @@index([discordId])
+  @@index([isActive])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    Int
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  ipAddress String?
+  userAgent String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([expiresAt])
+}
+
+// ==================== ПЕРСОНАЖИ ====================
+
+model Character {
+  id     Int    @id @default(autoincrement())
+  userId Int
+  slug   String @unique
+
+  firstName  String
+  lastName   String
+  middleName String?
+  nickname   String?
+  birthDate  DateTime
+
+  gender      Gender  @default(male)
+  height      Int?
+  weight      Int?
+  description String?
+  photoUrl    String?
+
+  status      CharacterStatus @default(active)
+  isAlive     Boolean         @default(true)
+  deathReason String?
+  deathDate   DateTime?
+
+  balance     Float @default(1000)
+  bankBalance Float @default(0)
+
+  ssn String? @unique
+
+  experience Int      @default(0)
+  level      Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  jobId Int?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job? @relation(fields: [jobId], references: [id])
+
+  departmentMembers    DepartmentMember[]
+  roles                CharacterRole[]
+  businesses           Business[]
+  businessEmployees    BusinessEmployee[]
+  licenses             CharacterLicense[]
+  incidentParticipants IncidentParticipant[]
+  callParticipants     CallParticipant[]
+  reportsAuthored      Report[]              @relation("AuthoredReports")
+  reportsReviewed      Report[]              @relation("ReviewedReports")
+  messagesSent         Message[]             @relation("SentMessages")
+  messagesReceived     Message[]             @relation("ReceivedMessages")
+  callsDispatched      Call[]                @relation("DispatcherCalls")
+  callsClosed          Call[]                @relation("CloserCalls")
+  incidentsClosed      Incident[]            @relation("CloserIncidents")
+  licensesIssued       CharacterLicense[]    @relation("IssuerLicenses")
+  supervised           Supervisor[]          @relation("SupervisorRelation")
+  subordinates         Supervisor[]          @relation("SubordinateRelation")
+  assignedVehicles     DepartmentVehicle[]   @relation("VehicleAssignments")
+  calls911             Call911[]             @relation("CitizenCalls911")
+  unit                 Unit?
+  vehicles             CivilianVehicle[]
+  weapons              CivilianWeapon[]
+
+  @@unique([userId, firstName, lastName])
+  @@index([userId])
+  @@index([status])
+  @@index([slug])
+  @@index([jobId])
+}
+
+// ==================== ДЕПАРТАМЕНТЫ ====================
+
+model Department {
+  id          Int            @id @default(autoincrement())
+  name        String         @unique
+  code        String         @unique
+  type        DepartmentType
+  description String?
+  motto       String?
+
+  parentId Int?
+
+  headquarters String?
+  jurisdiction String?
+  city         String?
+
+  budget        Float     @default(0)
+  employeeCount Int       @default(0)
+  foundedAt     DateTime?
+  isActive      Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent      Department?         @relation("DepartmentHierarchy", fields: [parentId], references: [id])
+  children    Department[]        @relation("DepartmentHierarchy")
+  ranks       DepartmentRank[]
+  members     DepartmentMember[]
+  vehicles    DepartmentVehicle[]
+  calls       Call[]
+  incidents   Incident[]
+  supervisors Supervisor[]
+
+  @@index([type])
+  @@index([parentId])
+  @@index([isActive])
+}
+
+model DepartmentRank {
+  id           Int     @id @default(autoincrement())
+  departmentId Int
+  name         String
+  shortName    String?
+  level        Int
+  salary       Float   @default(0)
+  badgePrefix  String?
+
+  permissions  Json
+  isSupervisor Boolean @default(false)
+  isChief      Boolean @default(false)
+  isCommand    Boolean @default(false)
+
+  description String?
+  createdAt   DateTime @default(now())
+
+  department Department         @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  members    DepartmentMember[]
+
+  @@unique([departmentId, level])
+  @@unique([departmentId, name])
+  @@index([departmentId])
+  @@index([level])
+}
+
+model DepartmentMember {
+  id           Int @id @default(autoincrement())
+  characterId  Int
+  departmentId Int
+  rankId       Int
+
+  badgeNumber   String    @unique
+  callSign      String?
+  division      String?
+  joinedAt      DateTime  @default(now())
+  leftAt        DateTime?
+  isActive      Boolean   @default(true)
+  suspensionEnd DateTime?
+  notes         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  character            Character             @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  department           Department            @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  rank                 DepartmentRank        @relation(fields: [rankId], references: [id])
+  callParticipants     CallParticipant[]
+  incidentParticipants IncidentParticipant[]
+  unit                 Unit?
+
+  @@unique([characterId, departmentId])
+  @@index([characterId])
+  @@index([departmentId])
+  @@index([rankId])
+  @@index([isActive])
+  @@index([badgeNumber])
+}
+
+// ==================== РОЛИ ====================
+
+model Role {
+  id          Int     @id @default(autoincrement())
+  name        String  @unique
+  slug        String  @unique
+  description String?
+  priority    Int     @default(0)
+  permissions Json
+
+  type      RoleType @default(player)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  characters CharacterRole[]
+
+  @@index([type])
+  @@index([priority])
+}
+
+model CharacterRole {
+  id          Int       @id @default(autoincrement())
+  characterId Int
+  roleId      Int
+  assignedBy  Int?
+  assignedAt  DateTime  @default(now())
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  role      Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  assigner  User?     @relation("RoleAssigner", fields: [assignedBy], references: [id])
+
+  @@unique([characterId, roleId])
+  @@index([characterId])
+  @@index([roleId])
+  @@index([isActive])
+}
+
+// ==================== СУПЕРВАЙЗЕРЫ ====================
+
+model Supervisor {
+  id            Int            @id @default(autoincrement())
+  supervisorId  Int
+  subordinateId Int
+  departmentId  Int?
+  type          SupervisorType @default(department)
+  assignedAt    DateTime       @default(now())
+  assignedBy    Int?
+  isActive      Boolean        @default(true)
+  notes         String?
+
+  supervisor  Character   @relation("SupervisorRelation", fields: [supervisorId], references: [id])
+  subordinate Character   @relation("SubordinateRelation", fields: [subordinateId], references: [id])
+  department  Department? @relation(fields: [departmentId], references: [id])
+  assigner    User?       @relation("SupervisorAssigner", fields: [assignedBy], references: [id])
+
+  @@unique([supervisorId, subordinateId, departmentId])
+  @@index([supervisorId])
+  @@index([subordinateId])
+  @@index([departmentId])
+  @@index([isActive])
+}
+
+// ==================== ГРАЖДАНСКАЯ СИСТЕМА: РАБОТЫ ====================
+
+model Job {
+  id            Int         @id @default(autoincrement())
+  name          String      @unique
+  slug          String      @unique
+  category      JobCategory
+  description   String?
+  baseSalary    Float       @default(0)
+  requirements  String?
+  isWhitelisted Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+
+  characters Character[]
+
+  @@index([category])
+}
+
+// ==================== ГРАЖДАНСКАЯ СИСТЕМА: БИЗНЕСЫ ====================
+
+model Business {
+  id       Int              @id @default(autoincrement())
+  ownerId  Int
+  name     String           @unique
+  slug     String           @unique
+  type     BusinessType
+  category BusinessCategory @default(commercial)
+
+  description String?
+  address     String?
+  location    Json?
+
+  balance       Float @default(0)
+  dailyIncome   Float @default(0)
+  dailyExpenses Float @default(0)
+
+  isActive Boolean @default(true)
+  isOpen   Boolean @default(true)
+  rating   Float   @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner     Character          @relation(fields: [ownerId], references: [id])
+  employees BusinessEmployee[]
+
+  @@index([ownerId])
+  @@index([type])
+  @@index([isActive])
+  @@index([slug])
+}
+
+model BusinessEmployee {
+  id          Int      @id @default(autoincrement())
+  businessId  Int
+  characterId Int
+  position    String
+  salary      Float    @default(0)
+  hiredAt     DateTime @default(now())
+  isActive    Boolean  @default(true)
+  canManage   Boolean  @default(false)
+  notes       String?
+
+  business  Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, characterId])
+  @@index([businessId])
+  @@index([characterId])
+}
+
+// ==================== ЛИЦЕНЗИИ ====================
+
+model License {
+  id           Int         @id @default(autoincrement())
+  name         String      @unique
+  slug         String      @unique
+  type         LicenseType
+  description  String?
+  price        Float       @default(0)
+  requiresExam Boolean     @default(true)
+  validDays    Int?
+  issuedBy     String?
+
+  minAge            Int?
+  requiredLicenseId Int?
+
+  createdAt DateTime @default(now())
+
+  requiredLicense   License?           @relation("LicenseRequirement", fields: [requiredLicenseId], references: [id])
+  characterLicenses CharacterLicense[]
+  licensesRequiring License[]          @relation("LicenseRequirement")
+
+  @@index([type])
+}
+
+model CharacterLicense {
+  id          Int       @id @default(autoincrement())
+  characterId Int
+  licenseId   Int
+  issuedAt    DateTime  @default(now())
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+  issuedBy    Int?
+  examScore   Int?
+  notes       String?
+
+  character Character  @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  license   License    @relation(fields: [licenseId], references: [id])
+  issuer    Character? @relation("IssuerLicenses", fields: [issuedBy], references: [id])
+
+  @@unique([characterId, licenseId])
+  @@index([characterId])
+  @@index([licenseId])
+  @@index([isActive])
+}
+
+// ==================== ВЫЗОВЫ ====================
+
+model Call {
+  id         Int          @id @default(autoincrement())
+  callNumber String       @unique
+  type       CallType
+  priority   CallPriority @default(routine)
+  status     CallStatus   @default(pending)
+
+  location      Json
+  description   String?
+  reporterName  String?
+  reporterPhone String?
+
+  departmentId Int?
+  dispatcherId Int?
+
+  createdAt    DateTime  @default(now())
+  dispatchedAt DateTime?
+  resolvedAt   DateTime?
+  closedAt     DateTime?
+
+  resolution String?
+  closedBy   Int?
+
+  department   Department?       @relation(fields: [departmentId], references: [id])
+  dispatcher   Character?        @relation("DispatcherCalls", fields: [dispatcherId], references: [id])
+  closer       Character?        @relation("CloserCalls", fields: [closedBy], references: [id])
+  participants CallParticipant[]
+  incidents    Incident[]
+
+  @@index([status])
+  @@index([priority])
+  @@index([departmentId])
+  @@index([createdAt])
+  @@index([callNumber])
+}
+
+model CallParticipant {
+  id                 Int       @id @default(autoincrement())
+  callId             Int
+  characterId        Int
+  departmentMemberId Int?
+  role               CallRole
+  notes              String?
+  joinedAt           DateTime  @default(now())
+  leftAt             DateTime?
+
+  call             Call              @relation(fields: [callId], references: [id], onDelete: Cascade)
+  character        Character         @relation(fields: [characterId], references: [id])
+  departmentMember DepartmentMember? @relation(fields: [departmentMemberId], references: [id])
+
+  @@unique([callId, characterId])
+  @@index([callId])
+  @@index([characterId])
+  @@index([departmentMemberId])
+}
+
+// ==================== ВЫЗОВЫ 911 ОТ ГРАЖДАН ====================
+
+model Call911 {
+  id            Int        @id @default(autoincrement())
+  callerId      Int?
+  callerName    String
+  location      String
+  description   String
+  status        CallStatus @default(pending)
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  caller        Character? @relation("CitizenCalls911", fields: [callerId], references: [id])
+  notes         Call911Note[]
+
+  @@index([callerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Call911Note {
+  id        Int      @id @default(autoincrement())
+  callId    Int
+  author    String
+  text      String
+  createdAt DateTime @default(now())
+
+  call      Call911  @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@index([callId])
+}
+
+
+// ==================== ИНЦИДЕНТЫ ====================
+
+model Incident {
+  id             Int            @id @default(autoincrement())
+  incidentNumber String         @unique
+  type           IncidentType
+  status         IncidentStatus @default(open)
+
+  location    Json
+  description String?
+
+  departmentId Int?
+  callId       Int?
+
+  reportedAt DateTime  @default(now())
+  closedAt   DateTime?
+
+  closedBy   Int?
+  resolution String?
+
+  department   Department?           @relation(fields: [departmentId], references: [id])
+  call         Call?                 @relation(fields: [callId], references: [id])
+  closer       Character?            @relation("CloserIncidents", fields: [closedBy], references: [id])
+  participants IncidentParticipant[]
+  reports      Report[]
+
+  @@index([status])
+  @@index([type])
+  @@index([departmentId])
+  @@index([incidentNumber])
+}
+
+model IncidentParticipant {
+  id                 Int          @id @default(autoincrement())
+  incidentId         Int
+  characterId        Int
+  departmentMemberId Int?
+  role               IncidentRole
+  status             String?
+  notes              String?
+  createdAt          DateTime     @default(now())
+
+  incident         Incident          @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  character        Character         @relation(fields: [characterId], references: [id])
+  departmentMember DepartmentMember? @relation(fields: [departmentMemberId], references: [id])
+
+  @@unique([incidentId, characterId])
+  @@index([incidentId])
+  @@index([characterId])
+  @@index([departmentMemberId])
+  @@index([role])
+}
+
+// ==================== ОТЧЕТЫ ====================
+
+model Report {
+  id           Int        @id @default(autoincrement())
+  reportNumber String     @unique
+  type         ReportType
+  incidentId   Int?
+  authorId     Int
+
+  title   String
+  content String
+
+  status         ReportStatus @default(draft)
+  isConfidential Boolean      @default(false)
+
+  createdAt   DateTime  @default(now())
+  publishedAt DateTime?
+
+  reviewedBy  Int?
+  reviewedAt  DateTime?
+  reviewNotes String?
+  approvedAt  DateTime?
+
+  incident Incident?  @relation(fields: [incidentId], references: [id])
+  author   Character  @relation("AuthoredReports", fields: [authorId], references: [id])
+  reviewer Character? @relation("ReviewedReports", fields: [reviewedBy], references: [id])
+
+  @@index([type])
+  @@index([status])
+  @@index([authorId])
+  @@index([reportNumber])
+}
+
+// ==================== СООБЩЕНИЯ ====================
+
+model Message {
+  id         Int       @id @default(autoincrement())
+  senderId   Int
+  receiverId Int
+  subject    String?
+  content    String
+  isRead     Boolean   @default(false)
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  type     MessageType @default(direct)
+  isSystem Boolean     @default(false)
+
+  sender   Character @relation("SentMessages", fields: [senderId], references: [id])
+  receiver Character @relation("ReceivedMessages", fields: [receiverId], references: [id])
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([isRead])
+  @@index([type])
+}
+
+// ==================== ДЕПАРТАМЕНТ ТРАНСПОРТ ====================
+
+model DepartmentVehicle {
+  id           Int           @id @default(autoincrement())
+  departmentId Int
+  vehicleType  VehicleType
+  plateNumber  String        @unique
+  model        String
+  color        String?
+  assignedTo   Int?
+  status       VehicleStatus @default(available)
+  acquiredAt   DateTime      @default(now())
+  notes        String?
+
+  department        Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  assignedCharacter Character? @relation("VehicleAssignments", fields: [assignedTo], references: [id])
+
+  @@index([departmentId])
+  @@index([status])
+  @@index([plateNumber])
+}
+
+// ==================== АУДИТ ЛОГИ ====================
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  action     String
+  entityType String
+  entityId   Int?
+  oldValues  Json?
+  newValues  Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([entityType])
+  @@index([createdAt])
+}
+
+// ==================== ENUMS ====================
+
+enum Gender {
+  male
+  female
+  other
+}
+
+enum CharacterStatus {
+  active
+  suspended
+  incarcerated
+  deceased
+  vacation
+}
+
+enum DepartmentType {
+  police
+  sheriff
+  trooper
+  fire
+  ems
+  dispatch
+  corrections
+  admin
+}
+
+enum RoleType {
+  admin
+  moderator
+  game_master
+  supervisor
+  player
+}
+
+enum SupervisorType {
+  department
+  role
+  temporary
+  training
+}
+
+enum JobCategory {
+  government
+  legal
+  illegal
+  freelance
+}
+
+enum BusinessType {
+  restaurant
+  bar
+  shop
+  garage
+  mechanic
+  real_estate
+  lawyer
+  hospital
+  taxi
+  news
+  other
+}
+
+enum BusinessCategory {
+  commercial
+  public_service
+  illegal
+}
+
+enum LicenseType {
+  driver
+  weapon
+  pilot
+  boat
+  business
+  medical
+  security
+  fishing
+  hunting
+}
+
+enum CallType {
+  traffic_stop
+  accident
+  fire
+  medical
+  disturbance
+  robbery
+  assault
+  domestic
+  suspicious
+  welfare_check
+  animal
+  other
+}
+
+enum CallPriority {
+  routine
+  low
+  medium
+  high
+  emergency
+}
+
+enum CallStatus {
+  pending
+  dispatched
+  enroute
+  on_scene
+  resolving
+  resolved
+  closed
+  cancelled
+}
+
+enum CallRole {
+  caller
+  responder
+  witness
+  backup
+}
+
+enum IncidentType {
+  crime
+  accident
+  fire
+  medical
+  violation
+  other
+}
+
+enum IncidentStatus {
+  open
+  investigating
+  closed
+  archived
+}
+
+enum IncidentRole {
+  suspect
+  victim
+  witness
+  officer
+  firefighter
+  medic
+  civilian
+}
+
+enum ReportType {
+  arrest
+  incident
+  traffic
+  investigation
+  daily
+  special
+}
+
+enum ReportStatus {
+  draft
+  submitted
+  approved
+  rejected
+  archived
+}
+
+enum MessageType {
+  direct
+  department
+  system
+  broadcast
+}
+
+enum VehicleType {
+  patrol_car
+  suv
+  motorcycle
+  truck
+  ambulance
+  fire_truck
+  unmarked
+}
+
+enum VehicleStatus {
+  available
+  in_use
+  maintenance
+  impounded
+  damaged
+}
+
+model Unit {
+  id                 Int      @id @default(autoincrement())
+  departmentMemberId Int      @unique
+  characterId        Int      @unique
+  status             String   @default("Available")
+  beat               String?  @default("N/A")
+  callSign           String?
+  subdivision        String?
+  vehicleModel       String?
+  vehiclePlate       String?
+  onDutyAt           DateTime @default(now())
+  lastStatusAt       DateTime @default(now())
+
+  character        Character        @relation(fields: [characterId], references: [id])
+  departmentMember DepartmentMember @relation(fields: [departmentMemberId], references: [id])
+
+  @@index([characterId])
+  @@index([departmentMemberId])
+  @@index([status])
+}
+model CivilianVehicle {
+  id          Int      @id @default(autoincrement())
+  characterId Int
+  plate       String   @unique
+  model       String
+  color       String?
+  status      String   @default("Valid")
+  insurance   String   @default("Valid")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@index([plate])
+  @@index([characterId])
+}
+
+model CivilianWeapon {
+  id          Int      @id @default(autoincrement())
+  characterId Int
+  serial      String   @unique
+  model       String
+  status      String   @default("Valid")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@index([serial])
+  @@index([characterId])
+}

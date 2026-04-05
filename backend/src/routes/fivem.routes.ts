@@ -1,0 +1,122 @@
+import { Router } from 'express';
+import prisma from '../lib/prisma';
+
+const router = Router();
+
+// /api/fivem/link
+// Привязывает FiveM идентификатор к юзеру по его API ID
+router.post('/link', async (req, res) => {
+    try {
+        const { apiId, discordId, steamId, license } = req.body;
+
+        if (!apiId) {
+            return res.status(400).json({ error: 'API ID is required' });
+        }
+
+        // Ищем юзера по API ID
+        const user = await prisma.user.findUnique({
+            where: { apiId: apiId }
+        });
+
+        if (!user) {
+            return res.status(404).json({ error: 'Invalid API ID' });
+        }
+
+        // Обновляем discordId (или другой идентификатор) у пользователя
+        // Это связывает веб-аккаунт с игровым
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { 
+                discordId: discordId || user.discordId 
+                // Можно добавить доп. поля для steamId если нужно
+            }
+        });
+
+        res.json({ 
+            success: true, 
+            message: 'Account linked successfully',
+            username: user.username 
+        });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Кэш для хранения последних обогащенных блипов в памяти
+let lastEnrichedBlips: any[] = [];
+
+// GET /api/fivem/active-units
+// Отдает текущий список юнитов на карте (для начальной загрузки)
+router.get('/active-units', (req, res) => {
+    res.json({ units: lastEnrichedBlips });
+});
+
+// POST /api/fivem/update-map
+router.post('/update-map', async (req, res) => {
+    try {
+        const { blips } = req.body;
+        const enrichedBlips: any[] = [];
+
+        for (const blip of blips) {
+            if (!blip.discordId) continue;
+            
+            const unit = await prisma.unit.findFirst({
+                where: { character: { user: { discordId: blip.discordId } } },
+                include: {
+                    character: true,
+                    departmentMember: { include: { department: true } }
+                }
+            });
+
+            if (unit) {
+                const dept = unit.departmentMember.department;
+                let type = 'police';
+                let color = '#3b82f6';
+                if (dept.type === 'ems' || dept.type === 'fire') { type = 'ems'; color = '#ef4444'; }
+                else if (dept.type === 'dispatch') { type = 'dispatch'; color = '#8b5cf6'; }
+
+                enrichedBlips.push({
+                    identifier: blip.identifier,
+                    label: `[${unit.departmentMember.badgeNumber}] ${unit.character.firstName} ${unit.character.lastName}`,
+                    x: blip.x, y: blip.y, z: blip.z, heading: blip.heading,
+                    type, color, status: unit.status, location: blip.location, department: dept.name,
+                    inVehicle: blip.inVehicle,
+                    subdivision: unit.subdivision,
+                    vehicleModel: unit.vehicleModel,
+                    vehiclePlate: unit.vehiclePlate
+                });
+            }
+        }
+
+        // Обновляем кэш
+        lastEnrichedBlips = enrichedBlips;
+
+        const { getIO } = await import('../lib/socket');
+        const io = getIO();
+        
+        io.emit('blips_updated', enrichedBlips.map((b: any) => ({ ...b, lastSeen: Date.now() })));
+
+        // Получаем новые вызовы 911 (за последнюю минуту)
+        const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
+        const activeCalls = await prisma.call911.findMany({
+            where: {
+                status: { in: ['pending', 'dispatched'] },
+                createdAt: { gte: oneMinuteAgo }
+            },
+            select: { id: true, location: true, description: true }
+        });
+
+        // Также возвращаем ВСЕХ активных юнитов для миникарты в игре
+        // (те же данные, что мы только что обогатили, но для игрового клиента)
+        res.json({ 
+            success: true, 
+            newCalls: activeCalls,
+            units: enrichedBlips // Список всех, кто на смене в CAD
+        });
+    } catch (error: any) {
+        console.error('[CAD-SYNC] Error enrichment:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+export default router;

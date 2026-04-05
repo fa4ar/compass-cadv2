@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="5b6a052c-b679-4391-95f5-8ab3453f0eaa" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/copilot.data.migration.agent.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/jsLibraryMappings.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/controllers/auth/auth.controller.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/controllers/characters/characters.controller.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/lib/prisma.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/middleware/auth.middleware.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/routes/auth.routes.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/routes/characters.routes.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/routes/index.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/server.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/services/auth.service.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/services/bcrypt.service.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/services/characters/characters.service.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/services/jwt.service.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/types/socket.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../public/sw.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/app/auth/signup/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/app/citizen/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/app/hooks/useNavigationLoader.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/components/ConnectBadge.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/components/Footer.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/components/GlobalLoader.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/components/LoadingScreen.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/components/dnd/DragDropProvider.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/components/dnd/Draggable.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/components/dnd/DropZone.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/components/login-form.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../src/context/SocketContext.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/../package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/app/globals.css" beforeDir="false" afterPath="$PROJECT_DIR$/../src/app/globals.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/app/layout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../src/app/layout.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/app/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../src/app/page.tsx" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="CopilotPersistence">
+    <persistenceIdMap>
+      <entry key="_Z:/cadnew/cad/backend" value="3BG8k7e1KloI3PVPebW9DI5xRSF" />
+    </persistenceIdMap>
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="TypeScript File" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 8
+}]]></component>
+  <component name="ProjectId" id="3BG8k7e1KloI3PVPebW9DI5xRSF" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "master",
+    "javascript.nodejs.core.library.configured.version": "24.12.0",
+    "javascript.nodejs.core.library.typings.version": "24.12.0",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_interpreter_path": "node",
+    "nodejs_package_manager_path": "npm",
+    "ts.external.directory.path": "Z:\\cadnew\\cad\\backend\\node_modules\\typescript\\lib",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="Z:\cadnew\cad\backend\src\controllers\characters" />
+    </key>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-a71380e98a7c-JavaScript-WS-252.28238.10" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="5b6a052c-b679-4391-95f5-8ab3453f0eaa" name="Changes" comment="" />
+      <created>1774104186552</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1774104186552</updated>
+      <workItem from="1774104187733" duration="12512000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="github-copilot-workspace">
+    <instructionFileLocations>
+      <option value=".github/instructions" />
+    </instructionFileLocations>
+    <promptFileLocations>
+      <option value=".github/prompts" />
+    </promptFileLocations>
+  </component>
+</project>
