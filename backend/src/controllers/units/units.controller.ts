@@ -137,10 +137,12 @@ export class UnitsController {
     static async acceptPairInvite(req: Request, res: Response, next: NextFunction) {
         try {
             const userId = (req as any).user?.userId;
+            console.log(`[acceptPairInvite controller] userId: ${userId}`);
             const result = await UnitsService.acceptPairInvite(Number(userId));
             res.json(result);
-        } catch (error) {
-            next(error);
+        } catch (error: any) {
+            console.error('[acceptPairInvite] Error:', error.message);
+            res.status(400).json({ error: error.message });
         }
     }
 

@@ -295,7 +295,9 @@ export class UnitsService {
     }
 
     static async acceptPairInvite(userId: number) {
+        console.log(`[acceptPairInvite] userId: ${userId}`);
         const pendingInvite = (global as any).pendingPairInvites?.[userId];
+        console.log(`[acceptPairInvite] pendingInvite:`, pendingInvite);
         
         if (!pendingInvite) {
             throw new Error('No pending invite found');
@@ -314,6 +316,8 @@ export class UnitsService {
         if (!senderUnit) {
             throw new Error('Sender unit not found');
         }
+
+        console.log(`[acceptPairInvite] Linking user ${userId} with ${pendingInvite.fromUserId}`);
 
         // Link both units
         await (prisma as any).unit.update({
