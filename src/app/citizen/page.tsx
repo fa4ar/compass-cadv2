@@ -659,7 +659,7 @@ export default function CitizenPage() {
     return (
         <div className="min-h-screen bg-background text-foreground flex flex-col" style={{ fontFamily: 'DM Sans, sans-serif' }}>
             <div className="flex-1 overflow-auto p-4 md:p-8">
-                {isLoading ? (
+                {authLoading || isLoading ? (
                     <div className="flex items-center justify-center h-64">
                         <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
                     </div>

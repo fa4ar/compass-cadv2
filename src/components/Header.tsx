@@ -74,6 +74,8 @@ export default function Header() {
     const CurrentIcon = current?.icon || IdCard;
 
     if (isLoading) return <HeaderSkeleton />;
+    
+    // Если не авторизован - не показываем шапку
     if (!isAuthenticated) return null;
 
     // Если забанен - показываем только лого и меню пользователя (чтобы можно было выйти)

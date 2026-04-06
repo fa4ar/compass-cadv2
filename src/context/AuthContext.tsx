@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { socket } from '@/lib/socket';
+import { socket } from '../lib/socket';
 
 interface User {
     id: number;
@@ -101,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             if (response.ok) {
                 const data = await response.json();
+                console.log('✅ [AUTH] User loaded:', data.user.username, 'Banned:', data.user.isBanned);
                 setUser(data.user);
                 
                 // Проверка на бан после загрузки
@@ -114,8 +115,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         document.cookie = 'accessToken=; path=/; max-age=0';
                         document.cookie = 'refreshToken=; path=/; max-age=0';
                         setUser(null);
+                        window.location.href = `/?banned=true&reason=${encodeURIComponent(data.user.banReason || '')}`;
+                    } else {
+                        // Для админов просто обновляем состояние, чтобы они могли разбаниться сами
+                        setUser(prev => prev ? { ...prev, isBanned: true, banReason: data.user.banReason || undefined } : null);
+                        // Редирект на главную для показа экрана бана
+                        if (window.location.pathname !== '/') {
+                            window.location.href = `/?banned=true&reason=${encodeURIComponent(data.user.banReason || '')}`;
+                        }
                     }
-                    window.location.href = `/?banned=true&reason=${encodeURIComponent(data.user.banReason || '')}`;
                 }
             } else {
                 localStorage.removeItem('accessToken');
