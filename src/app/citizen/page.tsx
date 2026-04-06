@@ -255,9 +255,11 @@ export default function CitizenPage() {
     };
 
     useEffect(() => {
-        fetchCharacters();
-        fetchDepartments();
-    }, []);
+        if (!authLoading && isAuthenticated && !user?.isBanned) {
+            fetchCharacters();
+            fetchDepartments();
+        }
+    }, [authLoading, isAuthenticated, user?.isBanned]);
 
     const handleRefresh = () => {
         setIsRefreshing(true);

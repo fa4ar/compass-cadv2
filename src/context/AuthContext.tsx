@@ -227,7 +227,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 socket.off('user_banned', handleUserBanned);
             };
         }
-    }, [user?.id]); // Перезапускаем при логине/смене юзера
+    }, [user?.id, socket]);
 
     const refreshUser = async () => {
         await fetchUser();
