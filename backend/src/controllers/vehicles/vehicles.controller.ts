@@ -14,8 +14,14 @@ export class VehiclesController {
 
     register = async (req: Request, res: Response) => {
         try {
-            const { characterId, plate, model, color } = req.body;
-            const vehicle = await VehiclesService.register({ characterId: Number(characterId), plate, model, color });
+            const { characterId, plate, model, color, imageUrl } = req.body;
+            const vehicle = await VehiclesService.register({ 
+                characterId: Number(characterId), 
+                plate, 
+                model, 
+                color,
+                imageUrl 
+            });
             res.status(201).json(vehicle);
         } catch (error: any) {
             res.status(500).json({ error: error.message });

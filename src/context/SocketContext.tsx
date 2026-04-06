@@ -1,7 +1,7 @@
 // context/SocketContext.tsx
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 import { socket } from "@/lib/socket";
 
 interface SocketContextType {
@@ -15,46 +15,56 @@ interface SocketContextType {
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
 export function SocketProvider({ children }: { children: ReactNode }) {
-    const [isConnected, setIsConnected] = useState(socket.connected);
+    const [isConnected, setIsConnected] = useState(false);
 
     useEffect(() => {
-        // Подписываемся на события подключения общего сокета
-        socket.on('connect', () => {
-            console.log('✅ [SocketContext] Global socket connected');
+        const handleConnect = () => {
+            console.log('✅ [SocketContext] Connected');
             setIsConnected(true);
-        });
+        };
 
-        socket.on('disconnect', () => {
-            console.log('❌ [SocketContext] Global socket disconnected');
+        const handleDisconnect = (reason: string) => {
+            console.log('❌ [SocketContext] Disconnected:', reason);
             setIsConnected(false);
-        });
+        };
 
-        socket.on('connect_error', (error: any) => {
-            console.error('⚠️ [SocketContext] Connection error:', error);
+        const handleConnectError = (error: any) => {
+            console.error('⚠️ [SocketContext] Connection error:', error?.message || error);
             setIsConnected(false);
-        });
+        };
 
-        // Если сокет уже подключен - обновляем статус
-        if (socket.connected) setIsConnected(true);
+        socket.on('connect', handleConnect);
+        socket.on('disconnect', handleDisconnect);
+        socket.on('connect_error', handleConnectError);
+
+        if (!socket.connected) {
+            socket.connect();
+        } else {
+            setIsConnected(true);
+        }
 
         return () => {
-            socket.off('connect');
-            socket.off('disconnect');
-            socket.off('connect_error');
+            socket.off('connect', handleConnect);
+            socket.off('disconnect', handleDisconnect);
+            socket.off('connect_error', handleConnectError);
         };
     }, []);
 
-    const emit = (event: string, data?: any) => {
-        if (socket) socket.emit(event, data);
-    };
+    const emit = useCallback((event: string, data?: any) => {
+        if (socket?.connected) {
+            socket.emit(event, data);
+        } else {
+            console.warn('[SocketContext] Cannot emit, not connected');
+        }
+    }, []);
 
-    const on = (event: string, callback: (...args: any[]) => void) => {
-        if (socket) socket.on(event, callback);
-    };
+    const on = useCallback((event: string, callback: (...args: any[]) => void) => {
+        socket?.on(event, callback);
+    }, []);
 
-    const off = (event: string, callback?: (...args: any[]) => void) => {
-        if (socket) socket.off(event, callback);
-    };
+    const off = useCallback((event: string, callback?: (...args: any[]) => void) => {
+        socket?.off(event, callback);
+    }, []);
 
     return (
         <SocketContext.Provider value={{ socket, isConnected, emit, on, off }}>

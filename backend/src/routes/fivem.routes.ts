@@ -69,17 +69,17 @@ router.post('/update-map', async (req, res) => {
             });
 
             if (unit) {
-                const dept = unit.departmentMember.department;
+                const dept = unit.departmentMember?.department;
                 let type = 'police';
                 let color = '#3b82f6';
-                if (dept.type === 'ems' || dept.type === 'fire') { type = 'ems'; color = '#ef4444'; }
-                else if (dept.type === 'dispatch') { type = 'dispatch'; color = '#8b5cf6'; }
+                if (dept?.type === 'ems' || dept?.type === 'fire') { type = 'ems'; color = '#ef4444'; }
+                else if (dept?.type === 'dispatch') { type = 'dispatch'; color = '#8b5cf6'; }
 
                 enrichedBlips.push({
                     identifier: blip.identifier,
-                    label: `[${unit.departmentMember.badgeNumber}] ${unit.character.firstName} ${unit.character.lastName}`,
+                    label: `[${unit.departmentMember?.badgeNumber || 'Unit'}] ${unit.character?.firstName || 'System'} ${unit.character?.lastName || 'Unit'}`,
                     x: blip.x, y: blip.y, z: blip.z, heading: blip.heading,
-                    type, color, status: unit.status, location: blip.location, department: dept.name,
+                    type, color, status: unit.status, location: blip.location, department: dept?.name || 'Patrol',
                     inVehicle: blip.inVehicle,
                     subdivision: unit.subdivision,
                     vehicleModel: unit.vehicleModel,

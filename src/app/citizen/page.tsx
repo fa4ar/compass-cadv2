@@ -16,6 +16,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from '@/hooks/use-toast';
+import { ImageUpload } from '@/components/ImageUpload';
 
 interface Vehicle {
     id: number;
@@ -124,6 +125,7 @@ export default function CitizenPage() {
         height: '',
         weight: '',
         description: '',
+        photoUrl: '', // Теперь будет обязательным
     });
 
     const [editForm, setEditForm] = useState({
@@ -161,7 +163,7 @@ export default function CitizenPage() {
     const [showVehicleModal, setShowVehicleModal] = useState(false);
     const [showWeaponModal, setShowWeaponModal] = useState(false);
     const [showLicenseModal, setShowLicenseModal] = useState(false);
-    const [vehicleForm, setVehicleForm] = useState({ plate: '', model: '', color: '' });
+    const [vehicleForm, setVehicleForm] = useState({ plate: '', model: '', color: '', imageUrl: '' });
     const [weaponForm, setWeaponForm] = useState({ serial: '', model: '' });
 
     const fetchCivilianData = async (charId: string) => {
@@ -266,7 +268,7 @@ export default function CitizenPage() {
                 setShowCreateModal(false);
                 setFormData({
                     firstName: '', lastName: '', middleName: '', nickname: '',
-                    birthDate: '', gender: '', height: '', weight: '', description: ''
+                    birthDate: '', gender: '', height: '', weight: '', description: '', photoUrl: ''
                 });
                 fetchCharacters();
             }
@@ -328,7 +330,7 @@ export default function CitizenPage() {
             if (res.ok) {
                 toast({ title: "Vehicle Registered", description: `Plate: ${vehicleForm.plate}`, variant: "success" });
                 setShowVehicleModal(false);
-                setVehicleForm({ plate: '', model: '', color: '' });
+                setVehicleForm({ plate: '', model: '', color: '', imageUrl: '' });
                 fetchCivilianData(selectedCharacter.id);
             }
         } catch (err) {
@@ -467,7 +469,7 @@ export default function CitizenPage() {
         setStep(1);
         setFormData({
             firstName: '', lastName: '', middleName: '', nickname: '',
-            birthDate: '', gender: '', height: '', weight: '', description: ''
+            birthDate: '', gender: '', height: '', weight: '', description: '', photoUrl: ''
         });
     };
 
@@ -938,6 +940,11 @@ export default function CitizenPage() {
                                 onChange={e => setVehicleForm({...vehicleForm, color: e.target.value})}
                             />
                         </div>
+                        <ImageUpload 
+                            label="Vehicle Photo"
+                            currentValue={vehicleForm.imageUrl}
+                            onUploadSuccess={(url) => setVehicleForm({...vehicleForm, imageUrl: url})}
+                        />
                         <Button className="w-full bg-blue-600 hover:bg-blue-500" onClick={handleVehicleSubmit} disabled={isSubmitting}>
                             {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <Plus className="mr-2" />}
                             Register Vehicle

@@ -1,6 +1,6 @@
 // src/app/layout.tsx
 import type { Metadata } from "next";
-import { DM_Sans, JetBrains_Mono } from "next/font/google";
+import { DM_Sans } from "next/font/google";
 import "./globals.css";
 import { SocketProvider } from "../context/SocketContext";
 import { AuthProvider } from "../context/AuthContext";
@@ -13,13 +13,7 @@ const dmSans = DM_Sans({
     subsets: ["latin"],
     weight: ["400", "500", "600", "700", "800", "900"],
     variable: "--font-dm",
-    display: "swap",
-});
-
-const jetbrains = JetBrains_Mono({
-    subsets: ["latin"],
-    variable: "--font-mono",
-    display: "swap",
+    display: "optional",
 });
 
 export const metadata: Metadata = {
@@ -35,15 +29,15 @@ export default function RootLayout({
     return (
         <html
             lang="ru"
-            className={`${dmSans.variable} ${jetbrains.variable} h-full antialiased dark`}
+            className={`${dmSans.variable} h-full antialiased dark`}
             suppressHydrationWarning
         >
-            <body className="min-h-full flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+            <body className="min-h-full flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
                 <SocketProvider>
                     <AuthProvider>
                         <TooltipProvider>
                             <Header />
-                            <main className="flex-1 pb-10"> {/* pb-10 to account for the footer height */}
+                            <main className="flex-1 pb-10">
                                 {children}
                             </main>
                             <Toaster />

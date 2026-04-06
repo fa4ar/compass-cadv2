@@ -23,13 +23,13 @@ export class UnitsController {
 
     static async goOnDuty(req: Request, res: Response, next: NextFunction) {
         try {
+            const userId = (req as any).user?.userId;
             const { characterId, departmentMemberId, callSign, subdivision, vehicleModel, vehiclePlate } = req.body;
-            if (!characterId) {
-                return res.status(400).json({ error: 'characterId is required' });
-            }
+            
             const unit = await UnitsService.goOnDuty(
-                Number(characterId), 
-                Number(departmentMemberId), 
+                Number(userId),
+                characterId ? Number(characterId) : null, 
+                departmentMemberId ? Number(departmentMemberId) : null, 
                 callSign,
                 subdivision,
                 vehicleModel,
@@ -43,8 +43,9 @@ export class UnitsController {
 
     static async updateStatus(req: Request, res: Response, next: NextFunction) {
         try {
-            const { characterId, status } = req.body;
-            const unit = await UnitsService.updateStatus(Number(characterId), status);
+            const userId = (req as any).user?.userId;
+            const { status } = req.body;
+            const unit = await UnitsService.updateStatus(Number(userId), status);
             res.json(unit);
         } catch (error) {
             next(error);
@@ -53,9 +54,43 @@ export class UnitsController {
 
     static async goOffDuty(req: Request, res: Response, next: NextFunction) {
         try {
-            const { characterId } = req.params;
-            await UnitsService.goOffDuty(Number(characterId));
+            const userId = (req as any).user?.userId;
+            await UnitsService.goOffDuty(Number(userId));
             res.status(204).send();
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    static async sendMessageToUnit(req: Request, res: Response, next: NextFunction) {
+        try {
+            const senderUserId = (req as any).user?.userId;
+            const { targetUserId, message } = req.body;
+
+            if (!targetUserId || !message) {
+                return res.status(400).json({ error: 'Missing targetUserId or message' });
+            }
+
+            const result = await UnitsService.sendMessageToUnit(
+                Number(senderUserId),
+                Number(targetUserId),
+                message
+            );
+            res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    static async unassignFromCall(req: Request, res: Response, next: NextFunction) {
+        try {
+            const targetUserId = parseInt(req.params.userId);
+            if (isNaN(targetUserId)) {
+                return res.status(400).json({ error: 'Invalid userId' });
+            }
+
+            const result = await UnitsService.unassignFromCall(targetUserId);
+            res.json(result);
         } catch (error) {
             next(error);
         }

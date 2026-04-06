@@ -2,28 +2,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Clock, Calendar, Compass, Shield, Wifi, Terminal } from 'lucide-react';
+import { Clock, Calendar, Compass, Wifi } from 'lucide-react';
 import { useSocket } from '@/context/SocketContext';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 export default function FooterBar() {
-    const [currentTime, setCurrentTime] = useState(new Date());
+    const [currentTime, setCurrentTime] = useState(() => new Date());
     const [mounted, setMounted] = useState(false);
     const { isConnected } = useSocket();
 
     useEffect(() => {
         setMounted(true);
-        const timer = setInterval(() => {
-            setCurrentTime(new Date());
-        }, 1000);
-
+        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
 
@@ -40,19 +29,14 @@ export default function FooterBar() {
                 
                 {/* Левая часть: Системная информация */}
                 <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-2 group cursor-pointer">
-                        <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)] animate-pulse' : 'bg-red-500'}`} />
-                        <span className={isConnected ? 'text-emerald-500/90' : 'text-red-500/90'}>
-                            {isConnected ? 'SYSTEM ONLINE' : 'SYSTEM OFFLINE'}
+                    <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full transition-all duration-300 ${isConnected ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'}`} />
+                        <span className={`transition-colors ${isConnected ? 'text-emerald-500' : 'text-red-500'}`}>
+                            {isConnected ? 'ONLINE' : 'OFFLINE'}
                         </span>
                     </div>
 
                     <div className="h-3 w-px bg-zinc-800" />
-
-                    <div className="flex items-center gap-2 text-zinc-500">
-                        <Terminal className="w-3.5 h-3.5" />
-                        <span>V2.4.0-STABLE</span>
-                    </div>
 
                     <div className="flex items-center gap-2 text-zinc-500">
                         <Wifi className="w-3.5 h-3.5" />
@@ -60,7 +44,7 @@ export default function FooterBar() {
                     </div>
                 </div>
 
-                {/* Центр: Логотип/Название (опционально) */}
+                {/* Центр: Логотип */}
                 <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 opacity-50 hover:opacity-100 transition-opacity cursor-default">
                     <Compass className="w-3 h-3 text-blue-500" />
                     <span className="text-zinc-400 font-bold uppercase tracking-[0.2em]">Compass Command</span>
@@ -78,24 +62,6 @@ export default function FooterBar() {
                             <span>{time}</span>
                         </div>
                     </div>
-
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <button className="flex items-center gap-2 text-zinc-500 hover:text-white transition-colors outline-none group">
-                                <Shield className="w-3.5 h-3.5 group-hover:text-blue-500 transition-colors" />
-                                <span>SECURE TERMINAL</span>
-                            </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48 bg-zinc-900 border-zinc-800 text-zinc-200">
-                            <DropdownMenuLabel className="text-[10px] uppercase font-bold text-zinc-500">Terminal Control</DropdownMenuLabel>
-                            <DropdownMenuSeparator className="bg-zinc-800" />
-                            <DropdownMenuItem className="cursor-pointer text-xs">System Diagnostics</DropdownMenuItem>
-                            <DropdownMenuItem className="cursor-pointer text-xs">Encryption Settings</DropdownMenuItem>
-                            <DropdownMenuItem className="cursor-pointer text-xs">Access Logs</DropdownMenuItem>
-                            <DropdownMenuSeparator className="bg-zinc-800" />
-                            <DropdownMenuItem className="cursor-pointer text-xs text-red-400 focus:text-red-400">Emergency Lockdown</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
                 </div>
             </div>
         </div>

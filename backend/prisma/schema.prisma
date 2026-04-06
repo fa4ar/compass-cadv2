@@ -33,10 +33,24 @@ model User {
   assignedRoles       CharacterRole[] @relation("RoleAssigner")
   assignedSupervisors Supervisor[]    @relation("SupervisorAssigner")
 
-  @@index([username])
+  unit Unit?
+
   @@index([email])
   @@index([discordId])
   @@index([isActive])
+}
+
+model Notification {
+  id          Int      @id @default(autoincrement())
+  characterId Int
+  type        String
+  title       String
+  message     String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([characterId])
+  @@index([isRead])
 }
 
 model Session {
@@ -462,18 +476,19 @@ model CallParticipant {
 // ==================== ВЫЗОВЫ 911 ОТ ГРАЖДАН ====================
 
 model Call911 {
-  id            Int        @id @default(autoincrement())
-  callerId      Int?
-  callerName    String
-  location      String
-  description   String
-  status        CallStatus @default(pending)
-  
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id          Int        @id @default(autoincrement())
+  callerId    Int?
+  callerName  String
+  location    String
+  description String
+  status      CallStatus @default(pending)
 
-  caller        Character? @relation("CitizenCalls911", fields: [callerId], references: [id])
-  notes         Call911Note[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  caller Character?    @relation("CitizenCalls911", fields: [callerId], references: [id])
+  notes  Call911Note[]
+  units  Unit[]
 
   @@index([callerId])
   @@index([status])
@@ -487,11 +502,10 @@ model Call911Note {
   text      String
   createdAt DateTime @default(now())
 
-  call      Call911  @relation(fields: [callId], references: [id], onDelete: Cascade)
+  call Call911 @relation(fields: [callId], references: [id], onDelete: Cascade)
 
   @@index([callId])
 }
-
 
 // ==================== ИНЦИДЕНТЫ ====================
 
@@ -838,24 +852,30 @@ enum VehicleStatus {
 
 model Unit {
   id                 Int      @id @default(autoincrement())
-  departmentMemberId Int      @unique
-  characterId        Int      @unique
+  userId             Int      @unique
+  departmentMemberId Int?     @unique
+  characterId        Int?     @unique
   status             String   @default("Available")
   beat               String?  @default("N/A")
   callSign           String?
   subdivision        String?
   vehicleModel       String?
   vehiclePlate       String?
+  callId             Int?
   onDutyAt           DateTime @default(now())
   lastStatusAt       DateTime @default(now())
 
-  character        Character        @relation(fields: [characterId], references: [id])
-  departmentMember DepartmentMember @relation(fields: [departmentMemberId], references: [id])
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  character        Character?        @relation(fields: [characterId], references: [id], onDelete: SetNull)
+  departmentMember DepartmentMember? @relation(fields: [departmentMemberId], references: [id], onDelete: SetNull)
+  call             Call911?          @relation(fields: [callId], references: [id], onDelete: SetNull)
 
+  @@index([userId])
   @@index([characterId])
-  @@index([departmentMemberId])
   @@index([status])
+  @@index([callId])
 }
+
 model CivilianVehicle {
   id          Int      @id @default(autoincrement())
   characterId Int
@@ -864,6 +884,7 @@ model CivilianVehicle {
   color       String?
   status      String   @default("Valid")
   insurance   String   @default("Valid")
+  imageUrl    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

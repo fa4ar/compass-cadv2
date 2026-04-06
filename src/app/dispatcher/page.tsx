@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Radio, Users, FileSearch, Laptop, Map, Phone, AlertTriangle, Search, Navigation, MapPinned, CheckCircle, BarChart3, MessageCircle, PlusSquare, Ambulance, Clock, Car, Footprints, Siren, FileText, MapPin, Send, User, Building2, Car as CarIcon, Package, X, RefreshCw, Trash2, LogOut } from 'lucide-react';
+import { Radio, Users, FileSearch, Laptop, Map, Phone, AlertTriangle, Search, Navigation, MapPinned, CheckCircle, BarChart3, MessageCircle, PlusSquare, Ambulance, Clock, Car, Footprints, Siren, FileText, MapPin, Send, User, Building2, Car as CarIcon, Package, X, RefreshCw, Trash2, LogOut, ChevronDown } from 'lucide-react';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +10,13 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { socket } from '@/lib/socket';
+import { useSound } from '@/hooks/useSound';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface Unit {
     unit: string;
@@ -21,6 +28,7 @@ interface Unit {
     nature: string;
     location: string;
     characterId?: number;
+    userId?: number;
 }
 
 interface Call911 {
@@ -42,6 +50,13 @@ interface CallNote {
     createdAt: string;
 }
 
+interface SearchResult {
+    type: string;
+    data: any;
+}
+
+type SearchType = 'person' | 'vehicle' | 'weapon';
+
 export default function DispatcherPage() {
     return (
         <ProtectedRoute allowedRoles={['dispatcher']}>
@@ -61,6 +76,20 @@ function DispatcherPageContent() {
     const [showDutyModal, setShowDutyModal] = useState(true);
     const [callSign, setCallSign] = useState("");
     const [onDuty, setOnDuty] = useState(false);
+    
+    // Search functionality
+    const [searchType, setSearchType] = useState<SearchType>('person');
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+    
+    // Message to unit
+    const [showMessageModal, setShowMessageModal] = useState(false);
+    const [messageText, setMessageText] = useState("");
+    const [messageUnit, setMessageUnit] = useState<Unit | null>(null);
+
+    // Sounds
+    const { playSound } = useSound();
 
     // PERSISTENCE: Load from localStorage on mount
     useEffect(() => {
@@ -91,6 +120,7 @@ function DispatcherPageContent() {
 
         socket.on('new_911_call', (newCall: Call911) => {
             setCalls(prev => [newCall, ...prev]);
+            playSound('new_call_911').then(() => console.log('[Dispatcher] Sound played')).catch(e => console.error('[Dispatcher] Sound error:', e));
             toast({ title: 'Новый вызов!', description: `${newCall.callerName}: ${newCall.description}` });
         });
 
@@ -118,11 +148,23 @@ function DispatcherPageContent() {
             if (selectedCall?.id === id) setSelectedCall(null);
         });
 
+        socket.on('supervisor_request', (data: { unit: string; message: string }) => {
+            playSound('supervisor_request');
+            toast({ title: 'Запрос супервайзера!', description: `Юнит ${data.unit}: ${data.message}`, variant: 'destructive' });
+        });
+
+        socket.on('dispatcher_message', (data: { message: string; from: string }) => {
+            playSound('message_received');
+            toast({ title: 'Сообщение', description: `${data.from}: ${data.message}` });
+        });
+
         return () => {
             socket.off('new_911_call');
             socket.off('update_911_call');
             socket.off('new_911_note');
             socket.off('delete_911_call');
+            socket.off('supervisor_request');
+            socket.off('dispatcher_message');
             socket.disconnect();
         };
     }, [selectedCall?.id]);
@@ -270,6 +312,95 @@ function DispatcherPageContent() {
             }
         } catch (err) {
             console.error('Failed to add note', err);
+        }
+    };
+
+    const handleSearch = async () => {
+        if (!searchQuery.trim()) return;
+        
+        setIsSearching(true);
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            
+            let endpoint = '';
+            let body: any = {};
+            
+            if (searchType === 'person') {
+                const [firstName, lastName, ssn] = searchQuery.split(' ');
+                endpoint = `${apiUrl}/api/dispatcher/search/person`;
+                body = { firstName: firstName || '', lastName: lastName || '', ssn: ssn || '' };
+            } else if (searchType === 'vehicle') {
+                endpoint = `${apiUrl}/api/dispatcher/search/vehicle`;
+                body = { plate: searchQuery };
+            } else if (searchType === 'weapon') {
+                endpoint = `${apiUrl}/api/dispatcher/search/weapon`;
+                body = { serialNumber: searchQuery };
+            }
+            
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(body)
+            });
+            
+            if (res.ok) {
+                const data = await res.json();
+                setSearchResults(Array.isArray(data) ? data : [data]);
+                if (data && data.length > 0) {
+                    playSound('search_success');
+                } else {
+                    playSound('search_error');
+                }
+            } else {
+                setSearchResults([]);
+                playSound('search_error');
+            }
+        } catch (err) {
+            console.error('Search failed', err);
+            setSearchResults([]);
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    const handleSendMessageToUnit = async () => {
+        if (!messageText.trim() || !messageUnit) return;
+        
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            
+            const res = await fetch(`${apiUrl}/api/dispatcher/message-unit`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    characterId: messageUnit.characterId || null,
+                    userId: messageUnit.userId || null,
+                    message: messageText,
+                    from: callSign
+                })
+            });
+            
+            if (res.ok) {
+                toast({ title: 'Message Sent', description: `Message sent to ${messageUnit.unit}` });
+                playSound('notification');
+                setMessageText("");
+                setShowMessageModal(false);
+                setMessageUnit(null);
+            } else {
+                const data = await res.json();
+                toast({ title: 'Error', description: data.error || 'Failed to send message', variant: 'destructive' });
+            }
+        } catch (err) {
+            console.error('Failed to send message', err);
+            toast({ title: 'Error', description: 'Failed to send message', variant: 'destructive' });
         }
     };
 
@@ -567,6 +698,18 @@ function DispatcherPageContent() {
                                                 <Button size="sm" variant="outline" className="h-7 text-[10px] bg-blue-900/20 border-blue-700/50 text-blue-400" onClick={() => selectedUnit.characterId && handleUpdateUnitStatus(selectedUnit.characterId, 'Enroute')}>10-97</Button>
                                                 <Button size="sm" variant="outline" className="h-7 text-[10px] bg-red-900/20 border-red-700/50 text-red-400" onClick={() => selectedUnit.characterId && handleUpdateUnitStatus(selectedUnit.characterId, 'On Scene')}>10-23</Button>
                                             </div>
+                                            <Button 
+                                                size="sm" 
+                                                variant="outline" 
+                                                className="w-full h-7 text-[10px] bg-blue-900/20 border-blue-700/50 text-blue-400"
+                                                onClick={() => {
+                                                    setMessageUnit(selectedUnit);
+                                                    setShowMessageModal(true);
+                                                }}
+                                            >
+                                                <Send className="w-3 h-3 mr-1" />
+                                                Отправить сообщение
+                                            </Button>
                                         </div>
                                     ) : (
                                         <p className="text-xs text-zinc-600 italic">Выберите юнит для управления</p>
@@ -576,15 +719,59 @@ function DispatcherPageContent() {
                                 <div className="rounded-lg border border-zinc-700 p-3 bg-zinc-900/40">
                                     <span className="text-xs font-medium text-zinc-400 block mb-2">Быстрый поиск NCIC</span>
                                     <div className="space-y-2">
-                                        <Input placeholder="Номера или Имя..." className="bg-zinc-800/50 border-zinc-700 h-8 text-xs" />
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <Button variant="outline" size="sm" className="h-7 text-[10px] bg-zinc-800/50 border-zinc-700">
-                                                <User className="w-3 h-3 mr-1" /> Личность
-                                            </Button>
-                                            <Button variant="outline" size="sm" className="h-7 text-[10px] bg-zinc-800/50 border-zinc-700">
-                                                <CarIcon className="w-3 h-3 mr-1" /> Авто
-                                            </Button>
+                                        <div className="flex gap-2">
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="outline" size="sm" className="h-8 text-xs bg-zinc-800/50 border-zinc-700 flex-shrink-0">
+                                                        {searchType === 'person' ? 'Личность' : searchType === 'vehicle' ? 'Авто' : 'Оружие'}
+                                                        <ChevronDown className="w-3 h-3 ml-1" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent className="bg-zinc-800 border-zinc-700">
+                                                    <DropdownMenuItem onClick={() => setSearchType('person')} className="text-zinc-200">Личность</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => setSearchType('vehicle')} className="text-zinc-200">Авто</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => setSearchType('weapon')} className="text-zinc-200">Оружие</DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                            <Input 
+                                                placeholder={searchType === 'person' ? 'Имя Фамилия SSN' : searchType === 'vehicle' ? 'Гос. номер' : 'Серийный номер'} 
+                                                className="bg-zinc-800/50 border-zinc-700 h-8 text-xs"
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                                            />
                                         </div>
+                                        <Button variant="outline" size="sm" className="w-full h-7 text-[10px] bg-zinc-800/50 border-zinc-700" onClick={handleSearch} disabled={isSearching}>
+                                            <Search className="w-3 h-3 mr-1" />
+                                            {isSearching ? 'Поиск...' : 'Поиск'}
+                                        </Button>
+                                        
+                                        {searchResults.length > 0 && (
+                                            <div className="mt-2 space-y-1 max-h-32 overflow-auto">
+                                                {searchResults.map((result, idx) => (
+                                                    <div key={idx} className="text-[10px] p-1.5 bg-zinc-800/50 rounded border border-zinc-700">
+                                                        {result.type === 'person' && (
+                                                            <div>
+                                                                <span className="text-blue-400 font-bold">{result.data.firstName} {result.data.lastName}</span>
+                                                                {result.data.ssn && <span className="text-zinc-500 ml-1">SSN: {result.data.ssn}</span>}
+                                                            </div>
+                                                        )}
+                                                        {result.type === 'vehicle' && (
+                                                            <div>
+                                                                <span className="text-green-400 font-bold">{result.data.make} {result.data.model}</span>
+                                                                <span className="text-zinc-500 ml-1">({result.data.plate})</span>
+                                                            </div>
+                                                        )}
+                                                        {result.type === 'weapon' && (
+                                                            <div>
+                                                                <span className="text-red-400 font-bold">{result.data.weaponType}</span>
+                                                                <span className="text-zinc-500 ml-1">SN: {result.data.serialNumber}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -637,6 +824,43 @@ function DispatcherPageContent() {
                             >
                                 Встать на смену
                             </Button>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {showMessageModal && messageUnit && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+                    <Card className="w-full max-w-md bg-zinc-900 border-zinc-800">
+                        <CardHeader className="pb-2">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-lg text-zinc-100">
+                                    Отправить сообщение юниту {messageUnit.unit}
+                                </CardTitle>
+                                <Button variant="ghost" size="sm" onClick={() => setShowMessageModal(false)}>
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <Label className="text-zinc-400 text-xs uppercase">Сообщение</Label>
+                                <textarea 
+                                    className="w-full h-32 bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-zinc-200 resize-none"
+                                    placeholder="Введите сообщение для юнита..."
+                                    value={messageText}
+                                    onChange={(e) => setMessageText(e.target.value)}
+                                />
+                            </div>
+                            <div className="flex gap-2">
+                                <Button variant="outline" className="flex-1" onClick={() => setShowMessageModal(false)}>
+                                    Отмена
+                                </Button>
+                                <Button className="flex-1 bg-blue-600 hover:bg-blue-500" onClick={handleSendMessageToUnit}>
+                                    <Send className="w-4 h-4 mr-2" />
+                                    Отправить
+                                </Button>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>

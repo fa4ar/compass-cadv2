@@ -8,13 +8,14 @@ export class VehiclesService {
         });
     }
 
-    static async register(data: { characterId: number; plate: string; model: string; color?: string }) {
+    static async register(data: { characterId: number; plate: string; model: string; color?: string; imageUrl?: string }) {
         return await (prisma as any).civilianVehicle.create({
             data: {
                 characterId: data.characterId,
                 plate: data.plate.toUpperCase(),
                 model: data.model,
-                color: data.color || 'Unknown'
+                color: data.color || 'Unknown',
+                imageUrl: data.imageUrl
             }
         });
     }

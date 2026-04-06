@@ -1,82 +1,98 @@
 import prisma from '../../lib/prisma';
+import { io } from '../../server';
 
 export class UnitsService {
     static async getAllUnits() {
         const units = await (prisma as any).unit.findMany({
             include: {
                 character: true,
-                departmentMember: true
+                departmentMember: true,
+                call: true
             }
         });
 
         // Map to frontend format
         return units.map((u: any) => ({
-            unit: u.callSign || u.departmentMember.callSign || u.departmentMember.badgeNumber,
-            officer: `${u.character.firstName} ${u.character.lastName}`,
+            unit: u.callSign || u.departmentMember?.callSign || u.departmentMember?.badgeNumber || 'Unit',
+            officer: u.character ? `${u.character.firstName} ${u.character.lastName}` : 'System Unit',
             status: u.status,
             beat: u.beat || "N/A",
-            call: "Available", // Simplified for now
+            call: u.call ? `#${u.call.id}` : "Available",
+            callId: u.callId,
             time: u.lastStatusAt.toLocaleTimeString(),
-            nature: "None",
-            location: "On Patrol",
-            characterId: u.characterId
+            nature: u.call?.description || "None",
+            location: u.call?.location || "On Patrol",
+            characterId: u.characterId,
+            userId: u.userId
         }));
     }
 
     static async goOnDuty(
-        characterId: number, 
-        departmentMemberId: number, 
+        userId: number,
+        characterId?: number | null, 
+        departmentMemberId?: number | null, 
         callSign?: string,
         subdivision?: string,
         vehicleModel?: string,
         vehiclePlate?: string
     ) {
-        // Upsert unit session
-        const unit = await (prisma as any).unit.upsert({
-            where: { characterId },
-            update: {
-                departmentMemberId,
-                status: "Available",
-                callSign,
-                subdivision,
-                vehicleModel,
-                vehiclePlate,
-                lastStatusAt: new Date()
-            },
-            create: {
-                characterId,
-                departmentMemberId,
-                status: "Available",
-                callSign,
-                subdivision,
-                vehicleModel,
-                vehiclePlate
-            },
-            include: {
-                character: true,
-                departmentMember: true
-            }
-        });
+        console.log(`[UnitsService] Going on duty for userId: ${userId}`, { characterId, departmentMemberId, callSign });
+        
+        try {
+            // Upsert unit session using userId as unique key
+            const unit = await (prisma as any).unit.upsert({
+                where: { userId },
+                update: {
+                    characterId: characterId || null,
+                    departmentMemberId: departmentMemberId || null,
+                    status: "Available",
+                    callSign,
+                    subdivision,
+                    vehicleModel,
+                    vehiclePlate,
+                    lastStatusAt: new Date()
+                },
+                create: {
+                    userId,
+                    characterId: characterId || null,
+                    departmentMemberId: departmentMemberId || null,
+                    status: "Available",
+                    callSign,
+                    subdivision,
+                    vehicleModel,
+                    vehiclePlate
+                },
+                include: {
+                    character: true,
+                    departmentMember: true
+                }
+            });
 
-        return {
-            unit: unit.callSign || unit.departmentMember.callSign || unit.departmentMember.badgeNumber,
-            officer: `${unit.character.firstName} ${unit.character.lastName}`,
-            status: unit.status,
-            beat: unit.beat || "N/A",
-            call: "Available",
-            time: unit.lastStatusAt.toLocaleTimeString(),
-            nature: "None",
-            location: "On Patrol",
-            characterId: unit.characterId,
-            subdivision: unit.subdivision,
-            vehicleModel: unit.vehicleModel,
-            vehiclePlate: unit.vehiclePlate
-        };
+            console.log(`[UnitsService] Unit upserted successfully: ${unit.id}`);
+
+            return {
+                unit: unit.callSign || unit.departmentMember?.callSign || unit.departmentMember?.badgeNumber || 'Unit',
+                officer: unit.character ? `${unit.character.firstName} ${unit.character.lastName}` : 'System Unit',
+                status: unit.status,
+                beat: unit.beat || "N/A",
+                call: "Available",
+                time: unit.lastStatusAt.toLocaleTimeString(),
+                nature: "None",
+                location: "On Patrol",
+                characterId: unit.characterId,
+                subdivision: unit.subdivision,
+                vehicleModel: unit.vehicleModel,
+                vehiclePlate: unit.vehiclePlate
+            };
+        } catch (error: any) {
+            console.error(`[UnitsService] Error in goOnDuty:`, error);
+            throw error;
+        }
     }
 
-    static async updateStatus(characterId: number, status: string) {
+    static async updateStatus(userId: number, status: string) {
         return await (prisma as any).unit.update({
-            where: { characterId },
+            where: { userId },
             data: { 
                 status,
                 lastStatusAt: new Date()
@@ -85,12 +101,8 @@ export class UnitsService {
     }
 
     static async getCurrentUnit(userId: number) {
-        const unit = await (prisma as any).unit.findFirst({
-            where: {
-                character: {
-                    userId
-                }
-            },
+        const unit = await (prisma as any).unit.findUnique({
+            where: { userId },
             include: {
                 character: {
                     include: {
@@ -116,18 +128,96 @@ export class UnitsService {
 
         return {
             ...unit,
-            unit: unit.callSign || unit.departmentMember.callSign || unit.departmentMember.badgeNumber,
-            officer: `${unit.character.firstName} ${unit.character.lastName}`,
+            unit: unit.callSign || unit.departmentMember?.callSign || unit.departmentMember?.badgeNumber || 'Unit',
+            officer: unit.character ? `${unit.character.firstName} ${unit.character.lastName}` : 'System Unit',
             time: unit.lastStatusAt.toLocaleTimeString(),
             // Additional info for frontend state
             departmentMember: unit.departmentMember,
-            characterId: unit.characterId.toString()
+            characterId: unit.characterId?.toString()
         };
     }
 
-    static async goOffDuty(characterId: number) {
+    static async goOffDuty(userId: number) {
         return await (prisma as any).unit.delete({
-            where: { characterId }
+            where: { userId }
         });
+    }
+
+    static async sendMessageToUnit(senderUserId: number, targetUserId: number, message: string) {
+        const sender = await (prisma as any).user.findUnique({
+            where: { id: senderUserId },
+            select: { username: true }
+        });
+
+        const targetUnit = await (prisma as any).unit.findUnique({
+            where: { userId: targetUserId },
+            include: { character: true }
+        });
+
+        if (!targetUnit) {
+            throw new Error('Unit not found');
+        }
+
+        // Create notification for the target user
+        if (targetUnit.characterId) {
+            await (prisma as any).notification.create({
+                data: {
+                    characterId: targetUnit.characterId,
+                    type: 'dispatcher_message',
+                    title: `Message from ${sender?.username || 'Supervisor'}`,
+                    message,
+                    isRead: false
+                }
+            });
+        }
+
+        // Emit socket event
+        if (io) {
+            io.emit('dispatcher_message', {
+                message,
+                from: sender?.username || 'Supervisor',
+                targetUserId
+            });
+        }
+
+        return { success: true, message: 'Message sent successfully' };
+    }
+
+    static async unassignFromCall(userId: number) {
+        const unit = await (prisma as any).unit.findUnique({
+            where: { userId },
+            include: { call: true }
+        });
+
+        if (!unit) {
+            throw new Error('Unit not found');
+        }
+
+        if (!unit.callId) {
+            return { success: true, message: 'Unit is not assigned to any call' };
+        }
+
+        const callId = unit.callId;
+
+        // Update unit - remove call assignment
+        await (prisma as any).unit.update({
+            where: { userId },
+            data: {
+                callId: null,
+                status: 'Available',
+                lastStatusAt: new Date()
+            }
+        });
+
+        // Emit socket event
+        if (io) {
+            io.emit('unit_unassigned', {
+                userId,
+                unitCallSign: unit.callSign,
+                callId
+            });
+        }
+
+        return { success: true, message: 'Unit unassigned from call', callId };
     }
 }

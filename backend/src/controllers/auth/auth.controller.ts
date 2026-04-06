@@ -58,18 +58,45 @@ export class AuthController {
                 return res.status(401).json({ error: 'Unauthorized' });
             }
             
+            // Получаем свежие данные пользователя из БД (включая discordId)
             const user = await prisma.user.findUnique({
                 where: { id: req.user.userId },
-                select: { avatarUrl: true }
+                select: { 
+                    id: true,
+                    username: true,
+                    email: true,
+                    discordId: true,
+                    avatarUrl: true 
+                }
             });
+
+            if (!user) {
+                return res.status(404).json({ error: 'User not found' });
+            }
+
+            // Если привязан Дискорд - тянем СВЕЖИЕ роли прямо сейчас
+            let freshRoles = req.user.roles;
+            if (user.discordId) {
+                try {
+                    freshRoles = await discordService.getUserRoles(user.discordId);
+                    console.log(`[AUTH-ME] Fresh roles for ${user.username} (${user.discordId}):`, freshRoles);
+                } catch (discordErr) {
+                    console.error(`[AUTH-ME] Failed to fetch fresh discord roles for ${user.id}:`, discordErr);
+                    // Оставляем старые роли из токена, если дискорд упал
+                }
+            }
             
             res.json({ 
                 user: {
-                    ...req.user,
-                    avatarUrl: user?.avatarUrl || req.user.avatarUrl,
+                    id: user.id,
+                    username: user.username,
+                    email: user.email,
+                    avatarUrl: user.avatarUrl,
+                    roles: freshRoles,
                 }
             });
         } catch (error: any) {
+            console.error('[AUTH-ME] General error:', error);
             res.status(500).json({ error: error.message });
         }
     };

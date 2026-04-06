@@ -1,7 +1,7 @@
 "use client";
 
-import React from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import React, { useMemo } from 'react';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { ChevronDown, IdCard, Shield, Radio, Heart, Settings, Compass } from 'lucide-react';
 
@@ -33,31 +33,25 @@ const ROLE_PAGES: RolePage[] = [
 
 export default function Header() {
     const pathname = usePathname();
-    const router = useRouter();
-    const { user, hasRole, isAuthenticated } = useAuth();
+    const { hasRole, isAuthenticated } = useAuth();
     
-    // Администратор - это отдельный статус
-    const isAdmin = hasRole(['admin', 'Admin']);
+    const isAdmin = useMemo(() => hasRole(['admin', 'Admin']), [hasRole]);
     
-    // ОТРИСОВКА: Фильтруем страницы СТРОГО по ролям
-    const availablePages = ROLE_PAGES.filter(role => {
-        if (role.disabled) return false;
-        
-        // Каждая страница требует свою роль. 
-        // Даже админ видит "Полицию" только если у него есть роль "police"
-        if (role.requiredRoles && role.requiredRoles.length > 0) {
-            return hasRole(role.requiredRoles);
-        }
-        
-        return true;
-    });
+    const availablePages = useMemo(() => 
+        ROLE_PAGES.filter(role => !role.disabled && (!role.requiredRoles?.length || hasRole(role.requiredRoles))),
+        [hasRole]
+    );
     
-    const adminPage = isAdmin ? { key: 'admin', label: 'Admin Panel', path: '/admin', icon: Settings } : null;
+    const adminPage = useMemo(() => 
+        isAdmin ? { key: 'admin', label: 'Admin Panel', path: '/admin', icon: Settings } : null,
+        [isAdmin]
+    );
     
-    // Пытаемся найти текущую страницу среди доступных. 
-    // Если страница, на которой мы находимся, недоступна по ролям - current будет null или дефолтным
-    const current =
-        [...(adminPage ? [adminPage] : []), ...availablePages].find((role) => role.path && pathname?.startsWith(role.path)) || availablePages[0];
+    const current = useMemo(() => {
+        const pages = adminPage ? [adminPage, ...availablePages] : availablePages;
+        return pages.find(p => p.path && pathname?.startsWith(p.path)) || pages[0];
+    }, [adminPage, availablePages, pathname]);
+
     const CurrentIcon = current?.icon || IdCard;
 
     if (!isAuthenticated) return null;

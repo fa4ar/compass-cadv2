@@ -21,7 +21,7 @@ function AuthCallbackContent() {
             document.cookie = `accessToken=${accessToken}; path=/; expires=${expires.toUTCString()}`;
             document.cookie = `refreshToken=${refreshToken}; path=/; expires=${expires.toUTCString()}`;
             
-            window.location.href = newUser === 'true' ? '/citizen?newUser=true' : '/citizen';
+            window.location.href = newUser === 'true' ? '/?newUser=true' : '/';
         } else {
             router.replace('/auth/login');
         }

@@ -1,6 +1,6 @@
 import { Router, RequestHandler } from 'express';
 import { UnitsController } from '../controllers/units/units.controller';
-import { authMiddleware } from '../middleware/auth.middleware';
+import { authMiddleware, requireRoles } from '../middleware/auth.middleware';
 
 const router = Router();
 
@@ -17,6 +17,12 @@ router.post('/', authMiddleware as RequestHandler, UnitsController.goOnDuty);
 router.patch('/status', authMiddleware as RequestHandler, UnitsController.updateStatus);
 
 // Go off duty
-router.delete('/:characterId', authMiddleware as RequestHandler, UnitsController.goOffDuty);
+router.delete('/', authMiddleware as RequestHandler, UnitsController.goOffDuty);
+
+// Supervisor: send message to unit
+router.post('/message', authMiddleware as RequestHandler, requireRoles('supervisor', 'admin', 'dispatcher') as RequestHandler, UnitsController.sendMessageToUnit);
+
+// Supervisor: unassign unit from call
+router.delete('/:userId/call', authMiddleware as RequestHandler, requireRoles('supervisor', 'admin', 'dispatcher') as RequestHandler, UnitsController.unassignFromCall);
 
 export default router;

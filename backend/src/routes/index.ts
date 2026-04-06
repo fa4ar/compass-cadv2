@@ -8,6 +8,9 @@ import unitsRoutes from "./units.routes";
 import ncicRoutes from "./ncic.routes";
 import civilianRoutes from "./civilian.routes";
 import fivemRoutes from "./fivem.routes";
+import dispatcherRoutes from "./dispatcher.routes";
+
+import uploadRoutes from './upload.routes';
 
 const router = Router();
 
@@ -21,6 +24,8 @@ router.use('/units', unitsRoutes);
 router.use('/ncic', ncicRoutes);
 router.use('/civilian', civilianRoutes);
 router.use('/fivem', fivemRoutes);
+router.use('/dispatcher', dispatcherRoutes);
+router.use('/upload', uploadRoutes);
 
 // Корневой эндпоинт API
 router.get('/', (req: Request, res: Response) => {
@@ -30,6 +35,7 @@ router.get('/', (req: Request, res: Response) => {
         endpoints: {
             characters: "/api/characters",
             auth: "/api/auth",
+            upload: "/api/upload",
             test: "GET /api/test"
         }
     });

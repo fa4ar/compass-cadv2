@@ -187,18 +187,27 @@ export const ViewCharacterModal: React.FC<ViewCharacterModalProps> = ({
                             ) : (
                                 charVehicles.map(v => (
                                     <div key={v.id} className="flex items-center justify-between p-2 bg-zinc-800/40 rounded border border-zinc-800">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded bg-zinc-700 flex items-center justify-center">
-                                                <Car className="w-4 h-4 text-zinc-400" />
+                                        <div className="flex items-center gap-3 shrink-0">
+                                            <div className="w-12 h-10 rounded bg-zinc-800 border border-zinc-700 overflow-hidden flex items-center justify-center">
+                                                {v.imageUrl ? (
+                                                    <img 
+                                                        src={getImageUrl(v.imageUrl)!} 
+                                                        alt={v.model} 
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => (e.currentTarget.src = "/placeholder-car.png")}
+                                                    />
+                                                ) : (
+                                                    <Car className="w-5 h-5 text-zinc-600" />
+                                                )}
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2">
-                                                    <p className="text-sm font-bold text-zinc-200">{v.plate}</p>
-                                                    <span className={`text-[8px] px-1.5 py-0.5 rounded-full border uppercase ${v.status === 'Valid' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                                                    <p className="text-sm font-bold text-zinc-100">{v.plate}</p>
+                                                    <span className={`text-[8px] px-1.5 py-0.5 rounded-full border uppercase tracking-wider font-bold ${v.status === 'Valid' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
                                                         {v.status}
                                                     </span>
                                                 </div>
-                                                <p className="text-[10px] text-zinc-500 uppercase">{v.color} {v.model}</p>
+                                                <p className="text-[10px] text-zinc-500 font-medium uppercase">{v.color} {v.model}</p>
                                             </div>
                                         </div>
                                         <div className="flex gap-1">
