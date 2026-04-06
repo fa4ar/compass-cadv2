@@ -157,7 +157,12 @@ function DispatcherPageContent() {
 
         socket.on('dispatcher_message', (data: { message: string; from: string }) => {
             playSound('message_received');
-            toast({ title: 'Сообщение', description: `${data.from}: ${data.message}` });
+            toast({ title: 'Сообщение от супервайзера', description: `${data.from}: ${data.message}` });
+        });
+
+        socket.on('supervisor_message', (data: { message: string; from: string }) => {
+            playSound('message_received');
+            toast({ title: 'Сообщение от супервайзера', description: `${data.from}: ${data.message}` });
         });
 
         return () => {
@@ -167,6 +172,7 @@ function DispatcherPageContent() {
             socket.off('delete_911_call');
             socket.off('supervisor_request');
             socket.off('dispatcher_message');
+            socket.off('supervisor_message');
             socket.disconnect();
         };
     }, [selectedCall?.id]);

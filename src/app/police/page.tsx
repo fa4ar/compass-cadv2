@@ -226,7 +226,12 @@ function PolicePageContent() {
 
         socket.on('dispatcher_message', (data: { message: string; from: string }) => {
             playSound('message_received');
-            toast({ title: 'Сообщение от диспетчера', description: `${data.from}: ${data.message}` });
+            toast({ title: 'Сообщение от супервайзера', description: `${data.from}: ${data.message}` });
+        });
+
+        socket.on('supervisor_message', (data: { message: string; from: string }) => {
+            playSound('message_received');
+            toast({ title: 'Сообщение от супервайзера', description: `${data.from}: ${data.message}` });
         });
 
         socket.on('unit_unassigned', () => {
@@ -292,6 +297,7 @@ function PolicePageContent() {
             socket.off('new_911_note');
             socket.off('delete_911_call');
             socket.off('dispatcher_message');
+            socket.off('supervisor_message');
             socket.off('unit_unassigned');
             socket.off('unit_assigned');
             socket.off('unit_status_changed');
@@ -472,8 +478,14 @@ function PolicePageContent() {
     };
 
     const handleUpdateStatus = async (status: string) => {
-        if (!onDuty || !selectedCharacter) {
-            console.log('[handleUpdateStatus] Skipped - onDuty:', onDuty, 'selectedCharacter:', selectedCharacter);
+        if (!onDuty) {
+            console.log('[handleUpdateStatus] Skipped - not onDuty');
+            return;
+        }
+
+        const charId = selectedCharacter || currentUnit?.characterId;
+        if (!charId && !user?.id) {
+            console.log('[handleUpdateStatus] Skipped - no characterId or userId');
             return;
         }
 
@@ -486,10 +498,10 @@ function PolicePageContent() {
 
             // Update local state immediately for instant feedback
             setCurrentUnit(prev => prev ? { ...prev, status } : null);
-            setUnits(prev => prev.map(u => u.userId === (selectedCharacter ? parseInt(selectedCharacter) : currentUnit?.userId) ? { ...u, status } : u));
+            setUnits(prev => prev.map(u => u.userId === (charId ? parseInt(String(charId)) : currentUnit?.userId || user?.id) ? { ...u, status } : u));
             
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-            console.log('[handleUpdateStatus] Sending request with characterId:', selectedCharacter, 'status:', status);
+            console.log('[handleUpdateStatus] Sending request with targetId:', charId || user?.id, 'status:', status);
             
             const res = await fetch(`${apiUrl}/api/units/status`, {
                 method: 'PATCH',
@@ -498,7 +510,8 @@ function PolicePageContent() {
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    characterId: parseInt(selectedCharacter),
+                    characterId: charId ? parseInt(String(charId)) : undefined,
+                    userId: !charId ? user?.id : undefined,
                     status
                 })
             });

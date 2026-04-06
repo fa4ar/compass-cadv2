@@ -163,8 +163,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     setUser(null);
                     window.location.href = `/?banned=true&reason=${encodeURIComponent(data.reason || '')}`;
                 } else if (user?.id === data.userId && !data.isBanned) {
-                    console.log('✅ [AUTH] You have been unbanned. Refreshing...');
-                    window.location.reload();
+                    console.log('✅ [AUTH] You have been unbanned. Redirecting to login...');
+                    window.location.href = '/auth/login';
                 }
             };
 

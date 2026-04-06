@@ -5,6 +5,8 @@ import { User, RefreshCw, Plus, X, Loader2, ChevronDown, Eye, Pencil, Trash2, Ph
 import { CreateCharacterModal } from './components/CreateCharacterModal';
 import { ViewCharacterModal } from './components/ViewCharacterModal';
 import { ViewVehicleModal } from './components/ViewVehicleModal';
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -99,9 +101,18 @@ interface DepartmentRank {
 
 
 export default function CitizenPage() {
+    const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+    const router = useRouter();
     const [characters, setCharacters] = useState<Character[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
+
+    useEffect(() => {
+        if (!authLoading && !isAuthenticated) {
+            router.push('/auth/login');
+        }
+    }, [authLoading, isAuthenticated, router]);
+
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showCallModal, setShowCallModal] = useState(false);
     const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);

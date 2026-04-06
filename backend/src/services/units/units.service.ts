@@ -229,21 +229,30 @@ export class UnitsService {
             await (prisma as any).notification.create({
                 data: {
                     characterId: targetUnit.characterId,
-                    type: 'dispatcher_message',
-                    title: `Message from ${sender?.username || 'Supervisor'}`,
+                    type: 'supervisor_message',
+                    title: `Message from Supervisor ${sender?.username || ''}`,
                     message,
                     isRead: false
                 }
             });
         }
 
-        // Emit socket event
+        // Emit socket event to target user only
         if (io) {
-            io.emit('dispatcher_message', {
-                message,
-                from: sender?.username || 'Supervisor',
-                targetUserId
-            });
+            const importMap = await import('../../server');
+            const sessions = importMap.activeUserSessions;
+            const targetSocketIds = sessions.get(targetUserId);
+            
+            if (targetSocketIds && targetSocketIds.size > 0) {
+                for (const socketId of targetSocketIds) {
+                    io.to(socketId).emit('supervisor_message', {
+                        message,
+                        from: sender?.username || 'Supervisor',
+                        targetUserId
+                    });
+                }
+                console.log(`[SupervisorMessage] Sent to target user ${targetUserId} sockets:`, Array.from(targetSocketIds));
+            }
         }
 
         return { success: true, message: 'Message sent successfully' };
