@@ -672,36 +672,43 @@ export default function CitizenPage() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
                             {characters.map((char) => {
                                 const imgUrl = getImageUrl(char.photoUrl);
                                 const isAlive = char.isAlive !== false;
+                                const birthDate = char.birthDate ? new Date(char.birthDate) : null;
+                                const age = birthDate ? Math.floor((Date.now() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null;
                                 return (
                                     <div 
                                         key={char.id} 
-                                        className="relative bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden hover:border-zinc-700 transition-all cursor-pointer"
+                                        className="relative bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden hover:border-zinc-700 transition-all cursor-pointer"
                                         onClick={() => viewCharacter(char)}
                                     >
                                         {/* Status strip */}
                                         <div className={`absolute left-0 top-0 bottom-0 w-1 ${isAlive ? 'bg-green-500' : 'bg-red-500'}`} />
                                         
                                         {/* Photo */}
-                                        <div className="aspect-square bg-zinc-800 overflow-hidden">
+                                        <div className="aspect-[3/4] bg-zinc-800 overflow-hidden">
                                             {imgUrl ? (
                                                 <img src={imgUrl} alt={`${char.firstName} ${char.lastName}`} className="w-full h-full object-cover" />
                                             ) : (
                                                 <div className="w-full h-full flex items-center justify-center">
-                                                    <User className="w-12 h-12 text-zinc-600" />
+                                                    <User className="w-8 h-8 text-zinc-600" />
                                                 </div>
                                             )}
                                             {!isAlive && <div className="absolute inset-0 bg-red-950/40" />}
                                         </div>
                                         
                                         {/* Info */}
-                                        <div className="p-3">
-                                            <h3 className="font-bold text-white truncate">{char.firstName} {char.lastName}</h3>
-                                            {char.job && <p className="text-xs text-zinc-500 truncate">{char.job.name}</p>}
-                                            {char.description && <p className="text-xs text-zinc-600 truncate mt-1">{char.description}</p>}
+                                        <div className="p-2 space-y-1">
+                                            <h3 className="font-semibold text-white text-sm truncate">{char.firstName} {char.lastName}</h3>
+                                            {birthDate && (
+                                                <p className="text-[10px] text-zinc-500">
+                                                    {birthDate.toLocaleDateString('ru-RU')} {age ? `(${age}y)` : ''}
+                                                </p>
+                                            )}
+                                            {char.job && <p className="text-[10px] text-zinc-400 truncate">{char.job.name}</p>}
+                                            {char.description && <p className="text-[9px] text-zinc-500 truncate">{char.description}</p>}
                                         </div>
                                     </div>
                                 );
