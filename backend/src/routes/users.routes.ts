@@ -3,6 +3,7 @@ import { UsersControl } from '../controllers/users/users.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { requireRoles } from '../middleware/auth.middleware';
 import prisma from '../lib/prisma';
+import { io } from '../server';
 
 const router = Router();
 
@@ -46,6 +47,15 @@ router.post('/:id/ban', authMiddleware as RequestHandler, requireRoles('admin') 
                 banReason: ban ? reason : null
             }
         });
+
+        // Emit socket event for real-time ban
+        if (io) {
+            io.emit('user_banned', {
+                userId: parseInt(id),
+                isBanned: ban,
+                reason: ban ? reason : null
+            });
+        }
 
         res.json(user);
     } catch (error) {

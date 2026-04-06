@@ -144,10 +144,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 }
             };
 
+            const handleUserBanned = (data: { userId: number; isBanned: boolean; reason: string | null }) => {
+                if (user?.userId === data.userId && data.isBanned) {
+                    console.log('🚫 [AUTH] You have been banned:', data.reason);
+                    localStorage.removeItem('accessToken');
+                    localStorage.removeItem('refreshToken');
+                    setUser(null);
+                    window.location.href = '/?banned=true';
+                }
+            };
+
             socket.on('roles_updated', handleRolesUpdated);
+            socket.on('user_banned', handleUserBanned);
 
             return () => {
                 socket.off('roles_updated', handleRolesUpdated);
+                socket.off('user_banned', handleUserBanned);
             };
         }
     }, [user?.id]); // Перезапускаем при логине/смене юзера

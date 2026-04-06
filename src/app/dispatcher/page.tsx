@@ -81,6 +81,7 @@ function DispatcherPageContent() {
     const [searchType, setSearchType] = useState<SearchType>('person');
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+    const [selectedCharacter, setSelectedCharacter] = useState<any | null>(null);
     const [isSearching, setIsSearching] = useState(false);
     
     // Message to unit
@@ -740,13 +741,29 @@ function DispatcherPageContent() {
                                                     <DropdownMenuItem onClick={() => setSearchType('weapon')} className="text-zinc-200">Оружие</DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
-                                            <Input 
-                                                placeholder={searchType === 'person' ? 'Имя Фамилия SSN' : searchType === 'vehicle' ? 'Гос. номер' : 'Серийный номер'} 
-                                                className="bg-zinc-800/50 border-zinc-700 h-8 text-xs"
-                                                value={searchQuery}
-                                                onChange={(e) => setSearchQuery(e.target.value)}
-                                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                                            />
+                                            {searchType === 'person' ? (
+                                                <div className="flex gap-1 flex-1">
+                                                    <Input 
+                                                        placeholder="Имя" 
+                                                        className="bg-zinc-800/50 border-zinc-700 h-8 text-xs flex-1"
+                                                        value={searchQuery.split(' ')[0] || ''}
+                                                        onChange={(e) => setSearchQuery(e.target.value + (searchQuery.split(' ')[1] ? ' ' + searchQuery.split(' ')[1] : ''))}
+                                                    />
+                                                    <Input 
+                                                        placeholder="Фамилия" 
+                                                        className="bg-zinc-800/50 border-zinc-700 h-8 text-xs flex-1"
+                                                        value={searchQuery.split(' ')[1] || ''}
+                                                        onChange={(e) => setSearchQuery((searchQuery.split(' ')[0] || '') + ' ' + e.target.value)}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <Input 
+                                                    placeholder={searchType === 'vehicle' ? 'Гос. номер' : 'Серийный номер'} 
+                                                    className="bg-zinc-800/50 border-zinc-700 h-8 text-xs flex-1"
+                                                    value={searchQuery}
+                                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                                />
+                                            )}
                                         </div>
                                         <Button variant="outline" size="sm" className="w-full h-7 text-[10px] bg-zinc-800/50 border-zinc-700" onClick={handleSearch} disabled={isSearching}>
                                             <Search className="w-3 h-3 mr-1" />
@@ -756,7 +773,11 @@ function DispatcherPageContent() {
                                         {searchResults.length > 0 && (
                                             <div className="mt-2 space-y-1 max-h-32 overflow-auto">
                                                 {searchResults.map((result, idx) => (
-                                                    <div key={idx} className="text-[10px] p-1.5 bg-zinc-800/50 rounded border border-zinc-700">
+                                                    <div 
+                                                        key={idx} 
+                                                        className="text-[10px] p-1.5 bg-zinc-800/50 rounded border border-zinc-700 cursor-pointer hover:bg-zinc-700"
+                                                        onClick={() => result.type === 'person' && setSelectedCharacter(result.data)}
+                                                    >
                                                         {result.type === 'person' && (
                                                             <div>
                                                                 <span className="text-blue-400 font-bold">{result.data.firstName} {result.data.lastName}</span>
@@ -861,6 +882,48 @@ function DispatcherPageContent() {
                             </div>
                         </CardContent>
                     </Card>
+                </div>
+            )}
+
+            {/* Character Details Modal */}
+            {selectedCharacter && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setSelectedCharacter(null)}>
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+                        <div className="aspect-square bg-zinc-800 overflow-hidden">
+                            {selectedCharacter.photoUrl ? (
+                                <img src={selectedCharacter.photoUrl} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                    <User className="w-16 h-16 text-zinc-600" />
+                                </div>
+                            )}
+                        </div>
+                        <div className="p-4 space-y-3">
+                            <div>
+                                <h2 className="text-xl font-bold text-white">{selectedCharacter.firstName} {selectedCharacter.lastName}</h2>
+                                {selectedCharacter.nickname && <p className="text-sm text-blue-400">"{selectedCharacter.nickname}"</p>}
+                            </div>
+                            {selectedCharacter.birthDate && (
+                                <div>
+                                    <p className="text-[10px] text-zinc-500 uppercase">Birth Date</p>
+                                    <p className="text-zinc-200">{new Date(selectedCharacter.birthDate).toLocaleDateString('ru-RU')}</p>
+                                </div>
+                            )}
+                            {selectedCharacter.job && (
+                                <div>
+                                    <p className="text-[10px] text-zinc-500 uppercase">Job</p>
+                                    <p className="text-zinc-200">{selectedCharacter.job.name}</p>
+                                </div>
+                            )}
+                            {selectedCharacter.description && (
+                                <div>
+                                    <p className="text-[10px] text-zinc-500 uppercase">Description</p>
+                                    <p className="text-zinc-300 text-sm">{selectedCharacter.description}</p>
+                                </div>
+                            )}
+                            <Button variant="outline" className="w-full" onClick={() => setSelectedCharacter(null)}>Закрыть</Button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
