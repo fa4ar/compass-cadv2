@@ -110,11 +110,12 @@ export default function CitizenPage() {
     useEffect(() => {
         if (!authLoading && !isAuthenticated) {
             router.push('/auth/login');
-        } else if (isAuthenticated && user?.isBanned) {
+        } else if (!authLoading && isAuthenticated && user?.isBanned) {
             // Use window.location for a hard redirect to ensure the ban screen is shown
+            console.log('🚫 [CitizenPage] User is banned, redirecting to ban screen...');
             window.location.href = `/?banned=true&reason=${encodeURIComponent(user.banReason || '')}`;
         }
-    }, [authLoading, isAuthenticated, user, router]);
+    }, [authLoading, isAuthenticated, user?.isBanned, user?.banReason, router]);
 
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showCallModal, setShowCallModal] = useState(false);
