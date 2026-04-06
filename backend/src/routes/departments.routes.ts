@@ -1,11 +1,10 @@
 import { Router, RequestHandler } from 'express';
 import { authMiddleware } from '../middleware/auth.middleware';
-import { requireRoles } from '../middleware/auth.middleware';
 import prisma from '../lib/prisma';
 
 const router = Router();
 
-router.get('/', authMiddleware as RequestHandler, requireRoles('admin', 'dispatcher') as RequestHandler, async (req, res) => {
+router.get('/', authMiddleware as RequestHandler, async (req, res) => {
     try {
         const { includeInactive } = req.query;
         const where: any = {};

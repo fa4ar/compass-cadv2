@@ -43,9 +43,14 @@ export const requireRoles = (...allowedRoles: string[]) => {
             return res.status(401).json({ error: 'Unauthorized' });
         }
 
-        const hasRole = req.user.roles.some(role => allowedRoles.includes(role));
+        // Case-insensitive role check - normalize both sides
+        const userRoles = (req.user.roles || []).map((r: string) => r.toLowerCase());
+        const allowedRolesLower = allowedRoles.map(r => r.toLowerCase());
+        
+        const hasRole = userRoles.some(role => allowedRolesLower.includes(role));
 
         if (!hasRole) {
+            console.log(`[RBAC] Access denied. User roles: ${req.user.roles}, Required: ${allowedRoles}`);
             return res.status(403).json({ error: 'Forbidden' });
         }
 

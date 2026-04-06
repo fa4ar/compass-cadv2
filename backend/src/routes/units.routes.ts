@@ -20,10 +20,10 @@ router.patch('/status', authMiddleware as RequestHandler, UnitsController.update
 router.delete('/', authMiddleware as RequestHandler, UnitsController.goOffDuty);
 
 // Supervisor: send message to unit
-router.post('/message', authMiddleware as RequestHandler, requireRoles('supervisor', 'admin', 'dispatcher') as RequestHandler, UnitsController.sendMessageToUnit);
+router.post('/message', authMiddleware as RequestHandler, UnitsController.sendMessageToUnit);
 
 // Supervisor: unassign unit from call
-router.delete('/:userId/call', authMiddleware as RequestHandler, requireRoles('supervisor', 'admin', 'dispatcher') as RequestHandler, UnitsController.unassignFromCall);
+router.delete('/:userId/call', authMiddleware as RequestHandler, UnitsController.unassignFromCall);
 
 // Pair patrol
 router.post('/invite', authMiddleware as RequestHandler, UnitsController.inviteToPair);

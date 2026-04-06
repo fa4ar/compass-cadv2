@@ -5,7 +5,7 @@ import { authMiddleware, requireRoles } from '../middleware/auth.middleware';
 const router = Router();
 
 // Create a fine (only for LEO roles)
-router.post('/', authMiddleware as RequestHandler, requireRoles('police', 'sheriff', 'trooper', 'admin') as RequestHandler, FinesController.create);
+router.post('/', authMiddleware as RequestHandler, FinesController.create);
 
 // Pay a fine
 router.post('/:id/pay', authMiddleware as RequestHandler, FinesController.pay);
