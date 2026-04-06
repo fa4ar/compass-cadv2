@@ -36,7 +36,10 @@ export const authMiddleware = async (
             select: { isBanned: true, banReason: true }
         });
 
-        if (user?.isBanned) {
+        const userRoles = (payload.roles || []).map((r: string) => r.toLowerCase());
+        const isAdmin = userRoles.includes('admin') || userRoles.includes('supervisor');
+
+        if (user?.isBanned && !isAdmin) {
             return res.status(403).json({ 
                 error: 'Account is banned', 
                 reason: user.banReason,

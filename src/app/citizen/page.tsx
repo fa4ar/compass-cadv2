@@ -110,8 +110,10 @@ export default function CitizenPage() {
     useEffect(() => {
         if (!authLoading && !isAuthenticated) {
             router.push('/auth/login');
+        } else if (isAuthenticated && user?.isBanned) {
+            router.push(`/?banned=true&reason=${encodeURIComponent(user.banReason || '')}`);
         }
-    }, [authLoading, isAuthenticated, router]);
+    }, [authLoading, isAuthenticated, user, router]);
 
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showCallModal, setShowCallModal] = useState(false);

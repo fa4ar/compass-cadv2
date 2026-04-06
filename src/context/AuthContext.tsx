@@ -105,11 +105,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 
                 // Проверка на бан после загрузки
                 if (data.user?.isBanned) {
-                    localStorage.removeItem('accessToken');
-                    localStorage.removeItem('refreshToken');
-                    document.cookie = 'accessToken=; path=/; max-age=0';
-                    document.cookie = 'refreshToken=; path=/; max-age=0';
-                    setUser(null);
+                    const userRoles = (data.user.roles || []).map((r: string) => r.toLowerCase());
+                    const isAdmin = userRoles.includes('admin') || userRoles.includes('supervisor');
+
+                    if (!isAdmin) {
+                        localStorage.removeItem('accessToken');
+                        localStorage.removeItem('refreshToken');
+                        document.cookie = 'accessToken=; path=/; max-age=0';
+                        document.cookie = 'refreshToken=; path=/; max-age=0';
+                        setUser(null);
+                    }
                     window.location.href = `/?banned=true&reason=${encodeURIComponent(data.user.banReason || '')}`;
                 }
             } else {
@@ -171,9 +176,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const handleUserBanned = (data: { userId: number; isBanned: boolean; reason: string | null }) => {
                 if (user?.id === data.userId && data.isBanned) {
                     console.log('🚫 [AUTH] You have been banned:', data.reason);
-                    localStorage.removeItem('accessToken');
-                    localStorage.removeItem('refreshToken');
-                    setUser(null);
+                    
+                    const userRoles = (user?.roles || []).map((r: string) => r.toLowerCase());
+                    const isAdmin = userRoles.includes('admin') || userRoles.includes('supervisor');
+
+                    if (!isAdmin) {
+                        localStorage.removeItem('accessToken');
+                        localStorage.removeItem('refreshToken');
+                        document.cookie = 'accessToken=; path=/; max-age=0';
+                        document.cookie = 'refreshToken=; path=/; max-age=0';
+                        setUser(null);
+                    } else {
+                        // Для админов просто обновляем состояние, чтобы они могли разбаниться сами
+                        setUser(prev => prev ? { ...prev, isBanned: true, banReason: data.reason || undefined } : null);
+                    }
                     window.location.href = `/?banned=true&reason=${encodeURIComponent(data.reason || '')}`;
                 } else if (user?.id === data.userId && !data.isBanned) {
                     console.log('✅ [AUTH] You have been unbanned. Logging out for clean state...');

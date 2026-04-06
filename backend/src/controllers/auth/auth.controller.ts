@@ -66,7 +66,9 @@ export class AuthController {
                     username: true,
                     email: true,
                     discordId: true,
-                    avatarUrl: true 
+                    avatarUrl: true,
+                    isBanned: true,
+                    banReason: true
                 }
             });
 
@@ -92,6 +94,8 @@ export class AuthController {
                     username: user.username,
                     email: user.email,
                     avatarUrl: user.avatarUrl,
+                    isBanned: user.isBanned,
+                    banReason: user.banReason,
                     roles: freshRoles,
                 }
             });

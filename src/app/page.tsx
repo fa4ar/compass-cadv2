@@ -111,6 +111,30 @@ function SelectorPageContent() {
     }
 
     if (isBanned) {
+        const userRoles = (user?.roles || []).map((r: string) => r.toLowerCase());
+        const isAdmin = userRoles.includes('admin') || userRoles.includes('supervisor');
+
+        const handleUnbanSelf = async () => {
+            if (!user) return;
+            try {
+                const token = localStorage.getItem('accessToken');
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+                const res = await fetch(`${apiUrl}/api/users/${user.id}/ban`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ isBanned: false })
+                });
+                if (res.ok) {
+                    window.location.href = '/';
+                }
+            } catch (err) {
+                console.error('Failed to unban self:', err);
+            }
+        };
+
         return (
             <div className="min-h-screen bg-black text-zinc-100 flex flex-col font-sans selection:bg-red-500/30 items-center justify-center p-6">
                 <motion.div 
@@ -124,9 +148,9 @@ function SelectorPageContent() {
                         </div>
                         
                         <div className="space-y-2">
-                            <h1 className="text-3xl font-black tracking-tight text-white uppercase">Access Revoked</h1>
+                            <h1 className="text-3xl font-black tracking-tight text-white uppercase tracking-wider">Access Revoked</h1>
                             <p className="text-zinc-500 text-sm font-medium">
-                                Your account has been permanently suspended from the Compass CAD network.
+                                Your account has been suspended from the Compass CAD network.
                             </p>
                         </div>
 
@@ -138,6 +162,14 @@ function SelectorPageContent() {
                         </div>
 
                         <div className="pt-4 space-y-3">
+                            {isAdmin && (
+                                <Button 
+                                    onClick={handleUnbanSelf}
+                                    className="w-full bg-red-600 hover:bg-red-700 text-white font-bold"
+                                >
+                                    <Shield className="w-4 h-4 mr-2" /> Unban Myself (Admin)
+                                </Button>
+                            )}
                             <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-wider">
                                 If you believe this is an error, contact support.
                             </p>
