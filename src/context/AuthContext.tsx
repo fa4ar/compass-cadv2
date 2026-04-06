@@ -145,7 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             };
 
             const handleUserBanned = (data: { userId: number; isBanned: boolean; reason: string | null }) => {
-                if (user?.userId === data.userId && data.isBanned) {
+                if (user?.id === data.userId && data.isBanned) {
                     console.log('🚫 [AUTH] You have been banned:', data.reason);
                     localStorage.removeItem('accessToken');
                     localStorage.removeItem('refreshToken');
