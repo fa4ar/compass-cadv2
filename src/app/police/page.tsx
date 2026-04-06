@@ -112,7 +112,7 @@ function PolicePageContent() {
     const [unitMessage, setUnitMessage] = useState("");
 
     const isSupervisor = currentMember?.rank?.isSupervisor || user?.roles?.some(r => r.toLowerCase() === 'admin' || r.toLowerCase() === 'supervisor') || false;
-    const canManageUnits = isSupervisor || user?.roles?.some(r => r.toLowerCase() === 'dispatcher') || false;
+    const canManageUnits = isSupervisor || false;
     const isInPair = currentUnit?.partnerUserId || false;
 
     // Sounds
