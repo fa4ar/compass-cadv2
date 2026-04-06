@@ -333,13 +333,24 @@ export class UnitsService {
         // Clear pending invite
         delete (global as any).pendingPairInvites?.[userId];
 
-        // Emit events
+        // Get both units' info for the frontend
+        const receiverUnit = await (prisma as any).unit.findUnique({
+            where: { userId },
+            include: { character: true }
+        });
+
+        // Emit events to ALL clients to refresh unit list
         if (io) {
             io.emit('pair_formed', {
                 userId1: pendingInvite.fromUserId,
-                userId2: userId
+                userId2: userId,
+                partner1CallSign: senderUnit?.callSign,
+                partner1Officer: senderUnit?.character ? `${senderUnit.character.firstName} ${senderUnit.character.lastName}` : senderUnit?.callSign,
+                partner2CallSign: receiverUnit?.callSign,
+                partner2Officer: receiverUnit?.character ? `${receiverUnit.character.firstName} ${receiverUnit.character.lastName}` : receiverUnit?.callSign
             });
             io.emit('unit_pair_update', { userId });
+            io.emit('unit_pair_update', { userId: pendingInvite.fromUserId });
         }
 
         return { success: true, message: 'Pair formed' };
@@ -369,6 +380,8 @@ export class UnitsService {
 
         if (io) {
             io.emit('pair_disbanded', { userId1: userId, userId2: partnerUserId });
+            io.emit('unit_pair_update', { userId });
+            io.emit('unit_pair_update', { userId: partnerUserId });
         }
 
         return { success: true };

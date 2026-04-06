@@ -861,9 +861,17 @@ function PolicePageContent() {
                                                                         <div className="flex items-center gap-2">
                                                                             <span>{row.unit}</span>
                                                                             {row.partnerUserId && (
-                                                                                <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-500/20 rounded text-[10px] text-blue-400">
+                                                                                <div 
+                                                                                    className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-500/20 rounded text-[10px] text-blue-400 cursor-help group relative"
+                                                                                    title={row.partnerOfficer ? `Партнер: ${row.partnerOfficer}` : 'В паре'}
+                                                                                >
                                                                                     <User className="w-3 h-3" />
                                                                                     +2
+                                                                                    {row.partnerOfficer && (
+                                                                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-zinc-800 text-[10px] text-white rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                                                                            {row.partnerOfficer}
+                                                                                        </div>
+                                                                                    )}
                                                                                 </div>
                                                                             )}
                                                                         </div>
