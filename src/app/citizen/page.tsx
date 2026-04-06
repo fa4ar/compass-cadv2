@@ -310,6 +310,9 @@ export default function CitizenPage() {
                 toast({ title: "Вызов отправлен", description: "Вызов 911 успешно размещен", variant: "success" });
                 setShowCallModal(false);
                 setCallForm({ callerName: '', location: '', description: '', phoneNumber: '' });
+            } else {
+                const data = await res.json();
+                toast({ title: "Ошибка", description: data.error || "Не удалось отправить вызов 911", variant: "destructive" });
             }
         } catch (err) {
             console.error("Failed to place 911 call", err);
