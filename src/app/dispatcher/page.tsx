@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Radio, Users, FileSearch, Laptop, Map, Phone, AlertTriangle, Search, Navigation, MapPinned, CheckCircle, BarChart3, MessageCircle, PlusSquare, Ambulance, Clock, Car, Footprints, Siren, FileText, MapPin, Send, User, Building2, Car as CarIcon, Package, X, RefreshCw, Trash2, LogOut, ChevronDown } from 'lucide-react';
+import { Radio, Users, FileSearch, Laptop, Map, Phone, AlertTriangle, Search, Navigation, MapPinned, CheckCircle, BarChart3, MessageCircle, PlusSquare, Ambulance, Clock, Car, Footprints, Siren, FileText, MapPin, Send, User, Building2, Car as CarIcon, Package, X, RefreshCw, Trash2, LogOut, ChevronDown, Receipt } from 'lucide-react';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -83,6 +83,7 @@ function DispatcherPageContent() {
     const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
     const [selectedCharacter, setSelectedCharacter] = useState<any | null>(null);
     const [isSearching, setIsSearching] = useState(false);
+    const [searchError, setSearchError] = useState<string | null>(null);
     
     // Message to unit
     const [showMessageModal, setShowMessageModal] = useState(false);
@@ -327,6 +328,7 @@ function DispatcherPageContent() {
         if (!searchQuery.trim()) return;
         
         setIsSearching(true);
+        setSearchError(null);
         try {
             const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -360,16 +362,20 @@ function DispatcherPageContent() {
                 setSearchResults(Array.isArray(data) ? data : [data]);
                 if (data && data.length > 0) {
                     playSound('search_success');
+                    setSearchError(null);
                 } else {
                     playSound('search_error');
+                    setSearchError('Ничего не найдено');
                 }
             } else {
                 setSearchResults([]);
+                setSearchError('Ошибка поиска');
                 playSound('search_error');
             }
         } catch (err) {
             console.error('Search failed', err);
             setSearchResults([]);
+            setSearchError('Ошибка поиска');
         } finally {
             setIsSearching(false);
         }
@@ -770,6 +776,12 @@ function DispatcherPageContent() {
                                             {isSearching ? 'Поиск...' : 'Поиск'}
                                         </Button>
                                         
+                                        {searchError && (
+                                            <div className="mt-2 p-2 bg-red-500/10 border border-red-500/30 rounded text-[10px] text-red-400 text-center">
+                                                {searchError}
+                                            </div>
+                                        )}
+                                        
                                         {searchResults.length > 0 && (
                                             <div className="mt-2 space-y-1 max-h-32 overflow-auto">
                                                 {searchResults.map((result, idx) => (
@@ -888,8 +900,8 @@ function DispatcherPageContent() {
             {/* Character Details Modal */}
             {selectedCharacter && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setSelectedCharacter(null)}>
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-                        <div className="aspect-square bg-zinc-800 overflow-hidden">
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+                        <div className="aspect-video bg-zinc-800 shrink-0 relative">
                             {selectedCharacter.photoUrl ? (
                                 <img src={selectedCharacter.photoUrl} alt="" className="w-full h-full object-cover" />
                             ) : (
@@ -897,30 +909,180 @@ function DispatcherPageContent() {
                                     <User className="w-16 h-16 text-zinc-600" />
                                 </div>
                             )}
-                        </div>
-                        <div className="p-4 space-y-3">
-                            <div>
-                                <h2 className="text-xl font-bold text-white">{selectedCharacter.firstName} {selectedCharacter.lastName}</h2>
-                                {selectedCharacter.nickname && <p className="text-sm text-blue-400">"{selectedCharacter.nickname}"</p>}
+                            <div className="absolute top-2 right-2">
+                                <span className={`text-xs font-bold px-2 py-1 rounded-full ${selectedCharacter.isAlive ? 'bg-green-500/80 text-white' : 'bg-red-500/80 text-white'}`}>
+                                    {selectedCharacter.isAlive ? 'ЖИВ' : 'МЕРТВ' }
+                                </span>
                             </div>
-                            {selectedCharacter.birthDate && (
+                        </div>
+                        <div className="p-4 space-y-4 overflow-auto flex-1">
+                            <div className="flex items-start justify-between">
                                 <div>
-                                    <p className="text-[10px] text-zinc-500 uppercase">Birth Date</p>
-                                    <p className="text-zinc-200">{new Date(selectedCharacter.birthDate).toLocaleDateString('ru-RU')}</p>
+                                    <h2 className="text-xl font-bold text-white">{selectedCharacter.firstName} {selectedCharacter.lastName}</h2>
+                                    {selectedCharacter.nickname && <p className="text-sm text-blue-400">"{selectedCharacter.nickname}"</p>}
+                                    {selectedCharacter.middleName && <p className="text-xs text-zinc-500">Отчество: {selectedCharacter.middleName}</p>}
                                 </div>
-                            )}
+                                <span className={`text-xs font-bold px-2 py-1 rounded-full border ${selectedCharacter.status === 'Good' ? 'bg-emerald-900/30 border-emerald-700/40 text-emerald-400' : 'bg-red-900/30 border-red-700/40 text-red-400'}`}>
+                                    {selectedCharacter.status === 'Good' ? 'НЕТ ПРОБЛЕМ' : selectedCharacter.status }
+                                </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 text-xs">
+                                {selectedCharacter.ssn && (
+                                    <div className="bg-zinc-800/50 p-2 rounded border border-zinc-700">
+                                        <p className="text-zinc-500 uppercase">SSN</p>
+                                        <p className="text-zinc-200 font-mono">{selectedCharacter.ssn}</p>
+                                    </div>
+                                )}
+                                {selectedCharacter.birthDate && (
+                                    <div className="bg-zinc-800/50 p-2 rounded border border-zinc-700">
+                                        <p className="text-zinc-500 uppercase">Дата рождения</p>
+                                        <p className="text-zinc-200">{new Date(selectedCharacter.birthDate).toLocaleDateString('ru-RU')}</p>
+                                    </div>
+                                )}
+                            </div>
+
                             {selectedCharacter.job && (
-                                <div>
-                                    <p className="text-[10px] text-zinc-500 uppercase">Job</p>
+                                <div className="bg-zinc-800/50 p-2 rounded border border-zinc-700">
+                                    <p className="text-[10px] text-zinc-500 uppercase">Работа</p>
                                     <p className="text-zinc-200">{selectedCharacter.job.name}</p>
                                 </div>
                             )}
+
                             {selectedCharacter.description && (
-                                <div>
-                                    <p className="text-[10px] text-zinc-500 uppercase">Description</p>
+                                <div className="bg-zinc-800/50 p-2 rounded border border-zinc-700">
+                                    <p className="text-[10px] text-zinc-500 uppercase">Описание</p>
                                     <p className="text-zinc-300 text-sm">{selectedCharacter.description}</p>
                                 </div>
                             )}
+
+                            {/* Warrants */}
+                            <div>
+                                <p className="text-[10px] font-bold text-amber-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-zinc-800 pb-1.5">
+                                    <AlertTriangle className="w-3 h-3" /> Ордера
+                                </p>
+                                <div className="space-y-1.5 mt-2">
+                                    {selectedCharacter.warrants && selectedCharacter.warrants.length > 0 ? (
+                                        selectedCharacter.warrants.map((w: any) => (
+                                            <div key={w.id} className="bg-amber-500/10 rounded border border-amber-500/30 p-2">
+                                                <div className="flex justify-between items-start">
+                                                    <p className="text-xs font-bold text-amber-400">{w.crime}</p>
+                                                    <span className="text-[10px] text-amber-500">{w.status}</span>
+                                                </div>
+                                                <p className="text-[10px] text-zinc-400">{w.description}</p>
+                                            </div>
+                                        ))
+                                    ) : <p className="text-[10px] text-zinc-600 italic">Нет ордеров</p>}
+                                </div>
+                            </div>
+
+                            {/* Citations */}
+                            <div>
+                                <p className="text-[10px] font-bold text-blue-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-zinc-800 pb-1.5">
+                                    <Receipt className="w-3 h-3" /> Штрафы
+                                </p>
+                                <div className="space-y-1.5 mt-2">
+                                    {selectedCharacter.citations && selectedCharacter.citations.length > 0 ? (
+                                        selectedCharacter.citations.map((c: any) => (
+                                            <div key={c.id} className="bg-blue-500/10 rounded border border-blue-500/30 p-2">
+                                                <div className="flex justify-between items-start">
+                                                    <p className="text-xs font-bold text-blue-400">{c.reason}</p>
+                                                    <span className="text-xs font-mono text-blue-300">${c.amount}</span>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : <p className="text-[10px] text-zinc-600 italic">Нет штрафов</p>}
+                                </div>
+                            </div>
+
+                            {/* Licenses */}
+                            <div>
+                                <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-zinc-800 pb-1.5">
+                                    <FileText className="w-3 h-3" /> Лицензии
+                                </p>
+                                <div className="space-y-1.5 mt-2">
+                                    {selectedCharacter.licenses && selectedCharacter.licenses.length > 0 ? (
+                                        selectedCharacter.licenses.map((lic: any) => (
+                                            <div key={lic.id} className="flex items-center justify-between bg-zinc-800/30 rounded border border-zinc-800 p-1.5">
+                                                <div>
+                                                    <p className="text-xs text-zinc-200 font-medium">{lic.license?.name}</p>
+                                                    <p className="text-[10px] text-zinc-600">{lic.license?.type}</p>
+                                                </div>
+                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${lic.isActive ? 'bg-emerald-900/30 border-emerald-700/40 text-emerald-400' : 'bg-red-900/30 border-red-700/40 text-red-400'}`}>
+                                                    {lic.isActive ? 'ВАЛИДНА' : 'ОТЗВАНА'}
+                                                </span>
+                                            </div>
+                                        ))
+                                    ) : <p className="text-[10px] text-zinc-600 italic">Нет лицензий</p>}
+                                </div>
+                            </div>
+
+                            {/* Vehicles */}
+                            <div>
+                                <p className="text-[10px] font-bold text-blue-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-zinc-800 pb-1.5">
+                                    <Car className="w-3 h-3" /> Транспорт
+                                </p>
+                                <div className="space-y-2 mt-2">
+                                    {selectedCharacter.vehicles && selectedCharacter.vehicles.length > 0 ? (
+                                        selectedCharacter.vehicles.map((veh: any) => (
+                                            <div key={veh.id} className="bg-zinc-800/50 rounded-lg border border-zinc-800/80 overflow-hidden">
+                                                {veh.imageUrl && (
+                                                    <img src={veh.imageUrl} alt={veh.model} className="w-full h-16 object-cover" onError={e => (e.currentTarget.style.display = 'none')} />
+                                                )}
+                                                <div className="p-2 flex items-center justify-between">
+                                                    <div>
+                                                        <p className="text-xs font-bold text-white font-mono">{veh.plate}</p>
+                                                        <p className="text-[10px] text-zinc-400">{veh.make} {veh.model}{veh.color ? ` · ${veh.color}` : ''}</p>
+                                                    </div>
+                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${veh.status === 'Valid' ? 'bg-emerald-900/30 border-emerald-700/40 text-emerald-400' : 'bg-red-900/30 border-red-700/40 text-red-400'}`}>
+                                                        {veh.status === 'Valid' ? 'ВАЛИДЕН' : 'НЕВАЛИДЕН'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : <p className="text-[10px] text-zinc-600 italic">Нет транспорта</p>}
+                                </div>
+                            </div>
+
+                            {/* Weapons */}
+                            <div>
+                                <p className="text-[10px] font-bold text-amber-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-zinc-800 pb-1.5">
+                                    <AlertTriangle className="w-3 h-3" /> Оружие
+                                </p>
+                                <div className="space-y-1.5 mt-2">
+                                    {selectedCharacter.weapons && selectedCharacter.weapons.length > 0 ? (
+                                        selectedCharacter.weapons.map((w: any) => (
+                                            <div key={w.id} className="bg-zinc-800/50 rounded border border-zinc-800 p-2 flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-xs font-bold text-amber-400">{w.weaponType}</p>
+                                                    <p className="text-[10px] text-zinc-500">SN: {w.serialNumber}</p>
+                                                </div>
+                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${w.status === 'Valid' ? 'bg-emerald-900/30 border-emerald-700/40 text-emerald-400' : 'bg-red-900/30 border-red-700/40 text-red-400'}`}>
+                                                    {w.status === 'Valid' ? 'ВАЛИДНА' : 'НЕВАЛИДЕН'}
+                                                </span>
+                                            </div>
+                                        ))
+                                    ) : <p className="text-[10px] text-zinc-600 italic">Нет оружия</p>}
+                                </div>
+                            </div>
+
+                            {/* Notes */}
+                            {selectedCharacter.notes && selectedCharacter.notes.length > 0 && (
+                                <div>
+                                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-zinc-800 pb-1.5">
+                                        <FileText className="w-3 h-3" /> Заметки
+                                    </p>
+                                    <div className="space-y-1 mt-2">
+                                        {selectedCharacter.notes.map((n: any) => (
+                                            <div key={n.id} className="text-[10px] p-2 bg-zinc-800/30 rounded border border-zinc-800">
+                                                <span className="text-zinc-400">{n.text}</span>
+                                                <div className="text-[9px] text-zinc-600 mt-1">{new Date(n.createdAt).toLocaleString('ru-RU')}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <Button variant="outline" className="w-full" onClick={() => setSelectedCharacter(null)}>Закрыть</Button>
                         </div>
                     </div>

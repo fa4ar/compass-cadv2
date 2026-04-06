@@ -1258,48 +1258,71 @@ function PolicePageContent() {
                                 </div>
 
                                 <div className="rounded-lg border border-zinc-700 p-3">
-                                    <span className="text-xs font-medium text-zinc-400 block mb-2">Быстрый статус</span>
-                                    <div className="space-y-2">
+                                    <span className="text-xs font-medium text-zinc-400 block mb-2">Мой статус</span>
+                                    {onDuty ? (
+                                        <div className="space-y-2">
+                                            <div className={`text-center py-2 rounded-lg font-bold text-sm ${
+                                                currentUnit?.status === 'Available' ? 'bg-green-900/30 text-green-400 border border-green-700/50' :
+                                                currentUnit?.status === 'Busy' ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-700/50' :
+                                                currentUnit?.status === 'Enroute' ? 'bg-blue-900/30 text-blue-400 border border-blue-700/50' :
+                                                'bg-zinc-800/50 text-zinc-400 border border-zinc-700'
+                                            }`}>
+                                                {currentUnit?.status === 'Available' ? '10-8 ДОСТУПЕН' :
+                                                 currentUnit?.status === 'Busy' ? '10-6 ЗАНЯТ' :
+                                                 currentUnit?.status === 'Enroute' ? '10-97 В ПУТИ' :
+                                                 currentUnit?.status === 'On Scene' ? '10-23 НА ВЫЗОВЕ' :
+                                                 'НЕИЗВЕСТНО'}
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleUpdateStatus("Available")}
+                                                    className="w-full bg-green-900/30 border-green-700/50 text-green-400 hover:bg-green-900/50"
+                                                >
+                                                    <Car className="w-4 h-4 mr-2" />
+                                                    10-8 (Доступен)
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleUpdateStatus("Busy")}
+                                                    className="w-full bg-yellow-900/30 border-yellow-700/50 text-yellow-400 hover:bg-yellow-900/50"
+                                                >
+                                                    <Siren className="w-4 h-4 mr-2" />
+                                                    10-6 (Занят)
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleUpdateStatus("Enroute")}
+                                                    className="w-full bg-blue-900/30 border-blue-700/50 text-blue-400 hover:bg-blue-900/50"
+                                                >
+                                                    <Footprints className="w-4 h-4 mr-2" />
+                                                    10-97 (В пути)
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={handleDutyEnd}
+                                                    className="w-full bg-zinc-900/30 border-zinc-700/50 text-zinc-400 hover:bg-zinc-800/50"
+                                                >
+                                                    <LogOut className="w-4 h-4 mr-2" />
+                                                    10-7 (Вне смены)
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : (
                                         <Button
                                             variant="outline"
                                             size="sm"
-                                            onClick={() => onDuty ? handleUpdateStatus("Available") : setShowDutyModal(true)}
-                                            className={`w-full bg-green-900/30 border-green-700/50 text-green-400 hover:bg-green-900/50 ${onDuty ? 'hover:bg-green-600/20' : ''}`}
+                                            onClick={() => setShowDutyModal(true)}
+                                            className="w-full bg-green-900/30 border-green-700/50 text-green-400 hover:bg-green-900/50"
                                         >
                                             <Car className="w-4 h-4 mr-2" />
-                                            10-8 (Доступен)
+                                            Выйти на смену
                                         </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            disabled={!onDuty}
-                                            onClick={() => handleUpdateStatus("Busy")}
-                                            className="w-full bg-yellow-900/30 border-yellow-700/50 text-yellow-400 hover:bg-yellow-900/50 disabled:opacity-30"
-                                        >
-                                            <Siren className="w-4 h-4 mr-2" />
-                                            10-6 (Занят)
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            disabled={!onDuty}
-                                            onClick={() => handleUpdateStatus("Enroute")}
-                                            className="w-full bg-red-900/30 border-red-700/50 text-red-400 hover:bg-red-900/50 disabled:opacity-30"
-                                        >
-                                            <Footprints className="w-4 h-4 mr-2" />
-                                            10-97 (В пути)
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            disabled={!onDuty}
-                                            onClick={handleDutyEnd}
-                                            className="w-full bg-zinc-900/30 border-zinc-700/50 text-zinc-400 hover:bg-zinc-800/50 disabled:opacity-30"
-                                        >
-                                            <LogOut className="w-4 h-4 mr-2" />
-                                            10-7 (Вне смены)
-                                        </Button>
-                                    </div>
+                                    )}
                                 </div>
 
 

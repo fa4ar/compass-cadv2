@@ -28,14 +28,19 @@ router.post('/search/person', async (req: Request, res: Response) => {
 
         const characters = await (prisma as any).character.findMany({
             where,
-            select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                middleName: true,
-                ssn: true,
-                status: true,
-                isAlive: true,
+            include: {
+                job: true,
+                warrants: true,
+                citations: true,
+                vehicles: true,
+                weapons: true,
+                licenses: {
+                    include: { license: true }
+                },
+                notes: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 10
+                }
             },
             take: 10
         });
