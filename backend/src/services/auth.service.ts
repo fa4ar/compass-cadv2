@@ -47,6 +47,7 @@ export class AuthService {
             username: user.username,
             roles,
             avatarUrl: user.avatarUrl || undefined,
+            discordId: user.discordId || undefined,
         };
 
         const tokens = jwtService.generateTokens(payload);
@@ -99,6 +100,7 @@ export class AuthService {
             username: user.username,
             roles,
             avatarUrl: user.avatarUrl || undefined,
+            discordId: user.discordId || undefined,
         };
 
         const tokens = jwtService.generateTokens(payload);
@@ -151,6 +153,7 @@ export class AuthService {
             username: user.username,
             roles,
             avatarUrl: user.avatarUrl || undefined,
+            discordId: user.discordId || undefined,
         };
 
         const tokens = jwtService.generateTokens(newPayload);

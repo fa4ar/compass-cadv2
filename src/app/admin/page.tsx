@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { 
     Users, Shield, Building2, UserPlus, Ban, Settings, 
-    Plus, X, Save, Trash2, User, ChevronRight, Star, Edit, UserCog
+    Plus, X, Save, Trash2, User, ChevronRight, Star, Edit, UserCog, PhoneCall, FlaskConical
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -99,7 +99,34 @@ interface Character {
     }[];
 }
 
-type Tab = 'users' | 'departments' | 'characters';
+interface ClosedCall911 {
+    id: number;
+    callerName: string;
+    location: string;
+    description: string;
+    status: string;
+    userUsername?: string;
+    userDiscordId?: string;
+    userAvatarUrl?: string;
+    createdAt: string;
+    updatedAt: string;
+    caller?: {
+        user?: {
+            id: number;
+            username: string;
+            discordId?: string;
+            avatarUrl?: string;
+        };
+    };
+    notes?: {
+        id: number;
+        author: string;
+        text: string;
+        createdAt: string;
+    }[];
+}
+
+type Tab = 'users' | 'departments' | 'characters' | 'closedCalls911' | 'settings';
 
 const DEPARTMENT_TYPES = [
     { value: 'police', label: 'Police' },
@@ -145,7 +172,9 @@ export default function AdminPage() {
     const [users, setUsers] = useState<User[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
     const [characters, setCharacters] = useState<Character[]>([]);
+    const [closedCalls911, setClosedCalls911] = useState<ClosedCall911[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [betaTestEnabled, setBetaTestEnabled] = useState(false);
 
     const [showUserModal, setShowUserModal] = useState(false);
     const [showDepartmentModal, setShowDepartmentModal] = useState(false);
@@ -156,6 +185,7 @@ export default function AdminPage() {
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [selectedMember, setSelectedMember] = useState<DepartmentMember | null>(null);
     const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
+    const [selectedClosedCall911, setSelectedClosedCall911] = useState<ClosedCall911 | null>(null);
 
     const [userForm, setUserForm] = useState({ action: 'ban', reason: '' });
     const [departmentForm, setDepartmentForm] = useState({
@@ -182,8 +212,33 @@ export default function AdminPage() {
     useEffect(() => {
         if (user && user.roles?.includes('admin')) {
             fetchData();
+            fetchBetaTestSettings();
         }
     }, [user]);
+
+    useEffect(() => {
+        if (activeTab === 'closedCalls911') {
+            fetchClosedCalls911();
+        }
+    }, [activeTab]);
+
+    const fetchClosedCalls911 = async () => {
+        const token = localStorage.getItem('accessToken');
+        if (!token) return;
+
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+        try {
+            const res = await fetch(`${apiUrl}/api/calls911/closed`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                setClosedCalls911(await res.json());
+            }
+        } catch (err) {
+            console.error('Failed to fetch closed calls 911:', err);
+        }
+    };
 
     const fetchData = async () => {
         setIsLoading(true);
@@ -209,6 +264,56 @@ export default function AdminPage() {
         }
     };
 
+    const fetchBetaTestSettings = async () => {
+        const token = localStorage.getItem('accessToken');
+        if (!token) return;
+
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+        try {
+            const res = await fetch(`${apiUrl}/api/settings/beta-test`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setBetaTestEnabled(data.enabled);
+            }
+        } catch (err) {
+            console.error('Failed to fetch beta test settings:', err);
+        }
+    };
+
+    const handleBetaTestToggle = async () => {
+        const token = localStorage.getItem('accessToken');
+        if (!token) return;
+
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+        try {
+            const res = await fetch(`${apiUrl}/api/settings/beta-test`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ enabled: !betaTestEnabled })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setBetaTestEnabled(data.enabled);
+                toast({ 
+                    title: data.enabled ? 'BETA TEST включен' : 'BETA TEST выключен', 
+                    description: data.enabled 
+                        ? 'Теперь доступ ограничен ролью из ENV' 
+                        : 'Все страницы доступны всем авторизованным' 
+                });
+            }
+        } catch (err) {
+            toast({ title: 'Ошибка', description: 'Не удалось изменить настройку', variant: 'destructive' });
+        }
+    };
+
     const fetchDepartmentDetails = async (deptId: number) => {
         const token = localStorage.getItem('accessToken');
         if (!token) return;
@@ -225,6 +330,34 @@ export default function AdminPage() {
             }
         } catch (err) {
             console.error('Failed to fetch department details:', err);
+        }
+    };
+
+    const handleDeleteClosedCall911 = async (callId: number) => {
+        if (!confirm('Вы уверены, что хотите удалить этот вызов 911? Это действие необратимо.')) {
+            return;
+        }
+
+        const token = localStorage.getItem('accessToken');
+        if (!token) return;
+
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+        try {
+            const res = await fetch(`${apiUrl}/api/calls911/${callId}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (res.ok) {
+                toast({ title: 'Успешно', description: 'Вызов 911 удален' });
+                setSelectedClosedCall911(null);
+                fetchClosedCalls911();
+            } else {
+                toast({ title: 'Ошибка', description: 'Не удалось удалить вызов', variant: 'destructive' });
+            }
+        } catch (err) {
+            toast({ title: 'Ошибка', description: 'Не удалось удалить вызов', variant: 'destructive' });
         }
     };
 
@@ -525,6 +658,36 @@ export default function AdminPage() {
                             </TooltipTrigger>
                             <TooltipContent>
                                 <p>Управление персонажами. Редактирование, создание, удаление.</p>
+                            </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button 
+                                    variant={activeTab === 'closedCalls911' ? 'default' : 'outline'}
+                                    onClick={() => setActiveTab('closedCalls911')}
+                                    className={activeTab === 'closedCalls911' ? 'bg-blue-600' : ''}
+                                >
+                                    <PhoneCall className="w-4 h-4 mr-2" />
+                                    911 Архив
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Закрытые вызовы 911. Просмотр и удаление.</p>
+                            </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button 
+                                    variant={activeTab === 'settings' ? 'default' : 'outline'}
+                                    onClick={() => setActiveTab('settings')}
+                                    className={activeTab === 'settings' ? 'bg-blue-600' : ''}
+                                >
+                                    <Settings className="w-4 h-4 mr-2" />
+                                    Настройки
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Настройки проекта и системы.</p>
                             </TooltipContent>
                         </Tooltip>
                     </div>
@@ -859,6 +1022,125 @@ export default function AdminPage() {
                                         ))}
                                     </tbody>
                                 </table>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {activeTab === 'closedCalls911' && (
+                        <Card className="flex-1 bg-zinc-900/50 border-zinc-800">
+                            <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                                <CardTitle className="text-lg">Архив 911 вызовов</CardTitle>
+                                <span className="text-sm text-zinc-500">{closedCalls911.length} записей</span>
+                            </CardHeader>
+                            <CardContent className="overflow-auto">
+                                {isLoading ? (
+                                    <div className="flex items-center justify-center h-32 text-zinc-500">Загрузка...</div>
+                                ) : closedCalls911.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center h-32 text-zinc-500">
+                                        <PhoneCall className="w-8 h-8 mb-2" />
+                                        <p>Нет закрытых вызовов</p>
+                                    </div>
+                                ) : (
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-zinc-800/30 sticky top-0">
+                                            <tr>
+                                                <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">ID</th>
+                                                <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Заявитель</th>
+                                                <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Локация</th>
+                                                <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Описание</th>
+                                                <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Пользователь</th>
+                                                <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Discord ID</th>
+                                                <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Дата</th>
+                                                <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Действия</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {closedCalls911.map((call) => (
+                                                <tr key={call.id} className="border-t border-zinc-800">
+                                                    <td className="px-3 py-2 text-zinc-500">#{call.id}</td>
+                                                    <td className="px-3 py-2 text-zinc-200 font-medium">{call.callerName}</td>
+                                                    <td className="px-3 py-2 text-zinc-400">{call.location}</td>
+                                                    <td className="px-3 py-2 text-zinc-300 max-w-[200px] truncate">{call.description}</td>
+                                                    <td className="px-3 py-2">
+                                                        <div className="flex items-center gap-2">
+                                                            {call.caller?.user?.avatarUrl && (
+                                                                <img 
+                                                                    src={call.caller.user.avatarUrl} 
+                                                                    alt="" 
+                                                                    className="w-6 h-6 rounded-full"
+                                                                />
+                                                            )}
+                                                            <span className="text-zinc-200">
+                                                                {call.caller?.user?.username || call.userUsername || 'Unknown'}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-3 py-2 text-zinc-500 font-mono text-xs">
+                                                        {call.caller?.user?.discordId || call.userDiscordId || '-'}
+                                                    </td>
+                                                    <td className="px-3 py-2 text-zinc-500 text-xs">
+                                                        {new Date(call.createdAt).toLocaleString('ru-RU')}
+                                                    </td>
+                                                    <td className="px-3 py-2">
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button 
+                                                                    variant="outline" 
+                                                                    size="sm"
+                                                                    className="border-red-800 text-red-400 hover:bg-red-900/20"
+                                                                    onClick={() => handleDeleteClosedCall911(call.id)}
+                                                                >
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>Удалить вызов</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {activeTab === 'settings' && (
+                        <Card className="flex-1 bg-zinc-900/50 border-zinc-800">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-lg">Настройки проекта</CardTitle>
+                            </CardHeader>
+                            <CardContent className="overflow-auto">
+                                <div className="space-y-6">
+                                    <div className="bg-zinc-800/40 p-4 rounded-lg border border-zinc-700">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <FlaskConical className={`w-6 h-6 ${betaTestEnabled ? 'text-purple-400' : 'text-zinc-500'}`} />
+                                                <div>
+                                                    <h3 className="text-zinc-200 font-medium">BETA TEST режим</h3>
+                                                    <p className="text-zinc-500 text-xs">Ограничить доступ к страницам ролью из ENV</p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={handleBetaTestToggle}
+                                                className={`relative w-12 h-6 rounded-full transition-colors ${
+                                                    betaTestEnabled ? 'bg-purple-600' : 'bg-zinc-700'
+                                                }`}
+                                            >
+                                                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                                                    betaTestEnabled ? 'left-7' : 'left-1'
+                                                }`} />
+                                            </button>
+                                        </div>
+                                        <div className="mt-3 pt-3 border-t border-zinc-700">
+                                            <p className="text-zinc-500 text-xs">
+                                                Role ID из ENV: <span className="text-zinc-300 font-mono">{process.env.BETA_TEST_ROLE_ID || 'не настроен'}</span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
                             </CardContent>
                         </Card>
                     )}

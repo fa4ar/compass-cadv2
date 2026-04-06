@@ -6,6 +6,7 @@ export interface TokenPayload {
     username: string;
     roles: string[];
     avatarUrl?: string;
+    discordId?: string;
     characterId?: number;
     departmentId?: number;
 }
@@ -80,6 +81,7 @@ export class JWTService {
             username: payload.username,
             roles: payload.roles,
             avatarUrl: payload.avatarUrl,
+            discordId: payload.discordId,
             characterId: payload.characterId,
             departmentId: payload.departmentId
         };

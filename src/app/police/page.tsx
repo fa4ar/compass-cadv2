@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { Shield, Users, FileSearch, Laptop, Map, AlertTriangle, Search, Navigation, MapPinned, ArrowRightLeft, CheckCircle, BarChart3, MessageCircle, PlusSquare, Ambulance, Clock, Car, Footprints, Siren, X, User, LogOut, MapPin, Send, Loader2, UserPlus, UserMinus } from 'lucide-react';
+import { Shield, Users, FileSearch, Laptop, Map, AlertTriangle, Search, Navigation, MapPinned, ArrowRightLeft, CheckCircle, BarChart3, MessageCircle, PlusSquare, Ambulance, Clock, Car, Footprints, Siren, X, User, LogOut, MapPin, Send, Loader2, UserPlus, UserMinus, Receipt, AlertCircle, DollarSign } from 'lucide-react';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 const LiveMap = dynamic(() => import('@/components/Map/LiveMap'), { 
@@ -11,7 +11,7 @@ const LiveMap = dynamic(() => import('@/components/Map/LiveMap'), {
         <div className="w-full h-full bg-zinc-950 flex items-center justify-center">
             <div className="flex flex-col items-center gap-3">
                 <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
-                <span className="text-[10px] text-zinc-600 uppercase tracking-widest font-bold">Loading Map...</span>
+                <span className="text-[10px] text-zinc-600 uppercase tracking-widest font-bold">Загрузка карты...</span>
             </div>
         </div>
     )
@@ -60,18 +60,20 @@ interface Unit {
     time: string;
     nature: string;
     location: string;
+    partnerUserId?: number;
+    callId?: number;
 }
 
 const TOP_ACTIONS = [
-    { label: "Unit Status", icon: BarChart3 },
+    { label: "Статус юнитов", icon: BarChart3 },
     { label: "NCIC", icon: FileSearch },
     { label: "BOLO", icon: AlertTriangle },
-    { label: "Reports", icon: PlusSquare },
-    { label: "Warrants", icon: Shield },
+    { label: "Отчеты", icon: PlusSquare },
+    { label: "Ордера", icon: Shield },
 ];
 
 const SUPERVISOR_ACTIONS = [
-    { label: "Map", icon: Map, requiredRole: "supervisor" },
+    { label: "Карта", icon: Map, requiredRole: "supervisor" },
 ];
 
 
@@ -89,7 +91,7 @@ function PolicePageContent() {
     const [calls, setCalls] = useState<any[]>([]);
     const [characters, setCharacters] = useState<Character[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<string>("Unit Status");
+    const [activeTab, setActiveTab] = useState<string>("Статус юнитов");
     const [notes, setNotes] = useState<string>("");
     const [showDutyModal, setShowDutyModal] = useState(false);
     const [selectedCharacter, setSelectedCharacter] = useState<string>('');
@@ -124,6 +126,14 @@ function PolicePageContent() {
     });
     const [ncicResults, setNcicResults] = useState<any[]>([]);
     const [isSearching, setIsSearching] = useState(false);
+
+    // Fines State
+    const [showFineModal, setShowFineModal] = useState(false);
+    const [fineForm, setFineForm] = useState({
+        characterId: null,
+        amount: "",
+        reason: ""
+    });
 
     useEffect(() => {
         fetchData();
@@ -182,17 +192,17 @@ function PolicePageContent() {
 
         socket.on('pair_invite', (data: { fromUserId: number; fromCallSign: string }) => {
             playSound('notification');
-            toast({ title: 'Pair Invite', description: `${data.fromCallSign} invited you to pair patrol` });
+            toast({ title: 'Приглашение в пару', description: `${data.fromCallSign} пригласил вас в патрульную пару` });
         });
 
         socket.on('pair_formed', () => {
             fetchData();
-            toast({ title: 'Pair Created', description: 'You are now in a patrol pair' });
+            toast({ title: 'Пара создана', description: 'Вы теперь в патрульной паре' });
         });
 
         socket.on('pair_disbanded', () => {
             fetchData();
-            toast({ title: 'Pair Disbanded', description: 'Patrol pair has been separated' });
+            toast({ title: 'Пара расформирована', description: 'Патрульная пара была разделена' });
         });
 
         return () => {
@@ -335,15 +345,15 @@ function PolicePageContent() {
                 setOnDuty(true);
                 setShowDutyModal(false);
                 playSound('notification');
-                toast({ title: 'On Duty', description: `You are now on duty as ${unitData.unit}` });
+                toast({ title: 'На смене', description: `Вы вышли на смену как ${unitData.unit}` });
                 fetchData();
             } else {
                 const data = await res.json();
-                toast({ title: 'Error', description: data.error || 'Failed to start duty', variant: 'destructive' });
+                toast({ title: 'Ошибка', description: data.error || 'Не удалось начать смену', variant: 'destructive' });
             }
         } catch (err) {
             console.error('Failed to start duty', err);
-            toast({ title: 'Error', description: 'Failed to start duty', variant: 'destructive' });
+            toast({ title: 'Ошибка', description: 'Не удалось начать смену', variant: 'destructive' });
         } finally {
             setIsSubmitting(false);
         }
@@ -405,13 +415,120 @@ function PolicePageContent() {
             });
 
             if (res.ok) {
-                toast({ title: 'Status Updated', description: `New status: ${status}` });
+                toast({ title: 'Статус обновлен', description: `Новый статус: ${status}` });
                 fetchData();
             } else {
-                toast({ title: 'Error', description: 'Failed to update status', variant: 'destructive' });
+                toast({ title: 'Ошибка', description: 'Не удалось обновить статус', variant: 'destructive' });
             }
         } catch (err) {
             console.error('Failed to update status', err);
+        }
+    };
+
+    const handleCloseCall = async (callId: number) => {
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+            const res = await fetch(`${apiUrl}/api/calls911/${callId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    status: 'closed'
+                })
+            });
+
+            if (res.ok) {
+                toast({ title: 'Вызов закрыт', description: `Вызов #${callId} успешно закрыт и перенесен в архив.` });
+                setSelectedCallForNotes(null);
+                fetchData();
+            } else {
+                toast({ title: 'Ошибка', description: 'Не удалось закрыть вызов', variant: 'destructive' });
+            }
+        } catch (err) {
+            console.error('Failed to close call', err);
+        }
+    };
+
+    const handleAttachToCall = async (callId: number) => {
+        if (!onDuty || !currentUnit) {
+            toast({ title: 'Ошибка', description: 'Вы не на смене', variant: 'destructive' });
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+            const res = await fetch(`${apiUrl}/api/calls911/${callId}/attach`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (res.ok) {
+                const updatedCall = await res.json();
+                toast({ title: 'Прикреплено', description: `Вы прикреплены к вызову #${callId}` });
+                setSelectedCallForNotes(updatedCall);
+                fetchData();
+            } else {
+                const data = await res.json();
+                toast({ title: 'Ошибка', description: data.error || 'Не удалось прикрепиться', variant: 'destructive' });
+            }
+        } catch (err) {
+            console.error('Failed to attach to call', err);
+        }
+    };
+
+    const handleDetachFromCall = async () => {
+        if (!currentUnit?.callId) return;
+
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+            const res = await fetch(`${apiUrl}/api/calls911/detach`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (res.ok) {
+                toast({ title: 'Откреплено', description: 'Вы откреплены от вызова' });
+                fetchData();
+            }
+        } catch (err) {
+            console.error('Failed to detach from call', err);
+        }
+    };
+
+    const handleSetMainUnit = async (callId: number, targetUserId: number) => {
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+            const res = await fetch(`${apiUrl}/api/calls911/${callId}/main-unit`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ userId: targetUserId })
+            });
+
+            if (res.ok) {
+                const updatedCall = await res.json();
+                toast({ title: 'Главный назначен', description: 'Новый главный юнит назначен' });
+                setSelectedCallForNotes(updatedCall);
+                fetchData();
+            }
+        } catch (err) {
+            console.error('Failed to set main unit', err);
         }
     };
 
@@ -429,7 +546,7 @@ function PolicePageContent() {
             });
 
             if (res.ok) {
-                toast({ title: 'Off Duty', description: 'You have ended your shift.' });
+                toast({ title: 'Конец смены', description: 'Вы закончили патрулирование.' });
                 setOnDuty(false);
                 setCurrentUnit(null);
                 setCurrentMember(null);
@@ -470,6 +587,41 @@ function PolicePageContent() {
         }
     };
 
+    const handleIssueFine = async () => {
+        if (!fineForm.characterId || !fineForm.amount || !fineForm.reason) return;
+        setIsSubmitting(true);
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+            const res = await fetch(`${apiUrl}/api/fines`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    characterId: fineForm.characterId,
+                    amount: parseFloat(fineForm.amount),
+                    reason: fineForm.reason,
+                    officerId: currentUnit?.characterId
+                })
+            });
+
+            if (res.ok) {
+                toast({ title: 'Штраф выписан', description: 'Нарушение успешно зафиксировано в базе.' });
+                setShowFineModal(false);
+                setFineForm({ characterId: null, amount: "", reason: "" });
+                handleNCICSearch(); // Refresh results to show new fine
+            }
+        } catch (err) {
+            console.error('Failed to issue fine', err);
+            toast({ title: 'Ошибка', description: 'Не удалось выписать штраф', variant: 'destructive' });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     const handleSendUnitMessage = async () => {
         if (!selectedUnit || !unitMessage.trim()) return;
 
@@ -491,13 +643,13 @@ function PolicePageContent() {
 
             if (res.ok) {
                 playSound('message_sent');
-                toast({ title: 'Message Sent', description: `Message sent to ${selectedUnit.unit}` });
+                toast({ title: 'Сообщение отправлено', description: `Сообщение для ${selectedUnit.unit} доставлено` });
                 setUnitMessage('');
                 setSelectedUnit(null);
             }
         } catch (err) {
             console.error('Failed to send message', err);
-            toast({ title: 'Error', description: 'Failed to send message', variant: 'destructive' });
+            toast({ title: 'Ошибка', description: 'Не удалось отправить сообщение', variant: 'destructive' });
         }
     };
 
@@ -515,13 +667,13 @@ function PolicePageContent() {
 
             if (res.ok) {
                 playSound('notification');
-                toast({ title: 'Unit Unassigned', description: `${selectedUnit.unit} removed from call` });
+                toast({ title: 'Юнит снят', description: `${selectedUnit.unit} снят с текущего вызова` });
                 setSelectedUnit(null);
                 fetchData();
             }
         } catch (err) {
             console.error('Failed to unassign unit', err);
-            toast({ title: 'Error', description: 'Failed to unassign unit', variant: 'destructive' });
+            toast({ title: 'Ошибка', description: 'Не удалось снять юнита', variant: 'destructive' });
         }
     };
 
@@ -536,7 +688,7 @@ function PolicePageContent() {
                 body: JSON.stringify({ targetUserId: selectedUnit.userId })
             });
             if (res.ok) {
-                toast({ title: 'Invite Sent', description: `Invite sent to ${selectedUnit.unit}` });
+                toast({ title: 'Приглашение отправлено', description: `Приглашение для ${selectedUnit.unit} отправлено` });
                 setSelectedUnit(null);
             }
         } catch (err) {
@@ -550,7 +702,7 @@ function PolicePageContent() {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
             const res = await fetch(`${apiUrl}/api/units/leave`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
             if (res.ok) {
-                toast({ title: 'Left Pair', description: 'You have left the patrol pair' });
+                toast({ title: 'Выход из пары', description: 'Вы покинули патрульную пару' });
                 fetchData();
             }
         } catch (err) {
@@ -566,7 +718,7 @@ function PolicePageContent() {
                         <CardTitle className="text-lg font-bold text-zinc-100 flex items-center justify-between">
                             <span className="flex items-center gap-2">
                                 <Shield className="w-5 h-5 text-blue-500" />
-                                Unit Status - {units.length} Active / {calls.length} Held Calls
+                                Статус юнитов - {units.length} Активно / {calls.length} Ожидающих вызовов
                             </span>
                         </CardTitle>
                     </CardHeader>
@@ -602,35 +754,35 @@ function PolicePageContent() {
                             })}
                             <Button variant="outline" size="sm" onClick={fetchData} className="bg-zinc-800/50 border-zinc-700 ml-auto">
                                 <Clock className="w-4 h-4 mr-1.5" />
-                                Refresh
+                                Обновить
                             </Button>
                         </div>
 
                         <div className="flex-1 flex gap-3 min-h-0">
-                            {activeTab === "Unit Status" && (
+                            {activeTab === "Статус юнитов" && (
                                 <div className="flex-1 space-y-3 min-h-0 flex flex-col">
                                     {isSupervisor && (
                                         <div className="rounded-lg border border-zinc-700 flex-1 overflow-hidden flex flex-col min-h-0">
                                             <div className="bg-zinc-800/50 px-3 py-2 border-b border-zinc-700 flex items-center gap-2 shrink-0">
                                                 <Users className="w-4 h-4 text-zinc-400" />
-                                                <span className="text-sm font-medium text-zinc-300">Units</span>
+                                                <span className="text-sm font-medium text-zinc-300">Юниты</span>
                                             </div>
                                             <div className="overflow-auto flex-1">
                                                 {isLoading ? (
-                                                    <div className="flex items-center justify-center h-32 text-zinc-500">Loading...</div>
+                                                    <div className="flex items-center justify-center h-32 text-zinc-500">Загрузка...</div>
                                                 ) : units.length === 0 ? (
-                                                    <div className="flex items-center justify-center h-32 text-zinc-500">No units available</div>
+                                                    <div className="flex items-center justify-center h-32 text-zinc-500">Нет доступных юнитов</div>
                                                 ) : (
                                                     <table className="w-full text-sm">
                                                         <thead className="bg-zinc-800/30 sticky top-0">
                                                             <tr>
-                                                                <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Unit</th>
-                                                                <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Beat</th>
-                                                                <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Call</th>
-                                                                <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Status</th>
-                                                                <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Time</th>
-                                                                <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Nature</th>
-                                                                <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Location</th>
+                                                                <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Юнит</th>
+                                                                <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Район</th>
+                                                                <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Вызов</th>
+                                                                <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Статус</th>
+                                                                <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Время</th>
+                                                                <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Тип</th>
+                                                                <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Локация</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
@@ -654,7 +806,7 @@ function PolicePageContent() {
                                                                     <td className="px-3 py-2 text-zinc-300">{row.beat}</td>
                                                                     <td className="px-3 py-2 text-zinc-300">{row.call}</td>
                                                                     <td className={`px-3 py-2 font-medium ${row.status === "Available" ? "text-green-400" : "text-blue-400"}`}>
-                                                                        {row.status}
+                                                                        {row.status === "Available" ? "Доступен" : row.status === "Enroute" ? "В пути" : row.status === "Busy" ? "Занят" : row.status}
                                                                     </td>
                                                                     <td className="px-3 py-2 text-zinc-400">{row.time}</td>
                                                                     <td className="px-3 py-2 text-zinc-300">{row.nature}</td>
@@ -671,24 +823,24 @@ function PolicePageContent() {
                                     <div className="rounded-lg border border-zinc-700 overflow-hidden flex-1 flex flex-col min-h-0">
                                         <div className="bg-zinc-800/50 px-3 py-2 border-b border-zinc-700 flex items-center gap-2 shrink-0">
                                             <AlertTriangle className="w-4 h-4 text-zinc-400" />
-                                            <span className="text-sm font-medium text-zinc-300">Active Calls</span>
+                                            <span className="text-sm font-medium text-zinc-300">Активные вызовы</span>
                                         </div>
                                         <div className="overflow-auto flex-1">
                                             {isLoading ? (
-                                                <div className="flex items-center justify-center h-32 text-zinc-500">Loading...</div>
+                                                <div className="flex items-center justify-center h-32 text-zinc-500">Загрузка...</div>
                                             ) : calls.length === 0 ? (
-                                                <div className="flex items-center justify-center h-32 text-zinc-500">No active calls</div>
+                                                <div className="flex items-center justify-center h-32 text-zinc-500">Нет активных вызовов</div>
                                             ) : (
                                                 <table className="w-full text-sm">
                                                     <thead className="bg-zinc-800/30 sticky top-0">
                                                         <tr>
                                                             <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">ID</th>
-                                                            <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Time</th>
-                                                            <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Caller</th>
-                                                            <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Location</th>
-                                                            <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Description</th>
-                                                            <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Status</th>
-                                                            <th className="px-3 py-2 text-right text-xs font-medium text-zinc-400">Info</th>
+                                                            <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Время</th>
+                                                            <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Заявитель</th>
+                                                            <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Локация</th>
+                                                            <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Описание</th>
+                                                            <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Статус</th>
+                                                            <th className="px-3 py-2 text-right text-xs font-medium text-zinc-400">Инфо</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -708,7 +860,7 @@ function PolicePageContent() {
                                                                         row.status === 'dispatched' ? 'bg-blue-500/20 text-blue-400' :
                                                                             'bg-zinc-500/20 text-zinc-400'
                                                                         }`}>
-                                                                        {row.status}
+                                                                        {row.status === 'pending' ? 'В Ожидании' : row.status === 'dispatched' ? 'Принят' : row.status}
                                                                     </span>
                                                                 </td>
                                                                 <td className="px-3 py-2 text-right">
@@ -729,10 +881,10 @@ function PolicePageContent() {
                                 </div>
                             )}
 
-                            {activeTab === "Messages" && (
+                            {activeTab === "Сообщения" && (
                                 <div className="flex-1 flex flex-col">
                                     <div className="rounded-lg border border-zinc-700 p-4">
-                                        <span className="text-sm font-medium text-zinc-300">Messages Panel</span>
+                                        <span className="text-sm font-medium text-zinc-300">Панель сообщений</span>
                                     </div>
                                 </div>
                             )}
@@ -742,7 +894,7 @@ function PolicePageContent() {
                                     <div className="bg-zinc-800/20 border border-zinc-700/50 p-4 rounded-xl mb-6 shadow-xl shrink-0">
                                         <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
                                             <div className="space-y-1.5">
-                                                <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">First Name</Label>
+                                                <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Имя</Label>
                                                 <Input
                                                     value={ncicFields.firstName}
                                                     onChange={(e) => setNcicFields({ ...ncicFields, firstName: e.target.value })}
@@ -751,7 +903,7 @@ function PolicePageContent() {
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
-                                                <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Last Name</Label>
+                                                <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Фамилия</Label>
                                                 <Input
                                                     value={ncicFields.lastName}
                                                     onChange={(e) => setNcicFields({ ...ncicFields, lastName: e.target.value })}
@@ -764,12 +916,12 @@ function PolicePageContent() {
                                                 <Input
                                                     value={ncicFields.ssn}
                                                     onChange={(e) => setNcicFields({ ...ncicFields, ssn: e.target.value })}
-                                                    placeholder="Optional"
+                                                    placeholder="Необязательно"
                                                     className="bg-zinc-900/50 border-zinc-700 h-9 text-sm"
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
-                                                <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Plate</Label>
+                                                <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Номер авто</Label>
                                                 <Input
                                                     value={ncicFields.plate}
                                                     onChange={(e) => setNcicFields({ ...ncicFields, plate: e.target.value })}
@@ -778,7 +930,7 @@ function PolicePageContent() {
                                                 />
                                             </div>
                                             <div className="space-y-1.5">
-                                                <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Weapon Serial</Label>
+                                                <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Серия оружия</Label>
                                                 <Input
                                                     value={ncicFields.weaponSerial}
                                                     onChange={(e) => setNcicFields({ ...ncicFields, weaponSerial: e.target.value })}
@@ -794,7 +946,7 @@ function PolicePageContent() {
                                                 onClick={() => setNcicFields({ firstName: '', lastName: '', ssn: '', plate: '', weaponSerial: '' })}
                                                 className="bg-zinc-800/50 border-zinc-700 text-xs text-zinc-400 hover:text-white"
                                             >
-                                                Clear All
+                                                Очистить всё
                                             </Button>
                                             <Button
                                                 onClick={handleNCICSearch}
@@ -803,7 +955,7 @@ function PolicePageContent() {
                                                 className="bg-blue-600 hover:bg-blue-500 min-w-[120px] shadow-lg shadow-blue-900/20"
                                             >
                                                 {isSearching ? <Clock className="w-3.5 h-3.5 animate-spin mr-2" /> : <Search className="w-3.5 h-3.5 mr-2" />}
-                                                {isSearching ? 'Searching...' : 'Search NCIC'}
+                                                {isSearching ? 'Поиск...' : 'Поиск в NCIC'}
                                             </Button>
                                         </div>
                                     </div>
@@ -812,8 +964,8 @@ function PolicePageContent() {
                                         {ncicResults.length === 0 ? (
                                             <div className="flex flex-col items-center justify-center h-64 border border-dashed border-zinc-700 rounded-xl bg-zinc-900/20">
                                                 <FileSearch className="w-12 h-12 text-zinc-800 mb-4" />
-                                                <p className="text-zinc-500 font-medium">No results found or system idle</p>
-                                                <p className="text-xs text-zinc-600 mt-1">Enter a query to search the database</p>
+                                                <p className="text-zinc-500 font-medium">Результатов не найдено</p>
+                                                <p className="text-xs text-zinc-600 mt-1">Введите запрос для поиска в базе данных</p>
                                             </div>
                                         ) : (
                                             ncicResults.map((result: any) => (
@@ -822,10 +974,10 @@ function PolicePageContent() {
                                                     <div className="bg-gradient-to-r from-blue-950/60 to-zinc-900/60 px-4 py-2 border-b border-zinc-800 flex items-center justify-between">
                                                         <div className="flex items-center gap-2">
                                                             <Shield className="w-3.5 h-3.5 text-blue-400" />
-                                                            <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">NCIC Record — ID #{result.id}</span>
+                                                            <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Запись NCIC — ID #{result.id}</span>
                                                         </div>
                                                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${result.isAlive === false ? 'bg-red-900/40 border-red-700/50 text-red-400' : result.status === 'incarcerated' ? 'bg-orange-900/40 border-orange-700/50 text-orange-400' : 'bg-emerald-900/30 border-emerald-700/40 text-emerald-400'}`}>
-                                                            {result.isAlive === false ? '● DECEASED' : result.status?.toUpperCase() || 'ACTIVE'}
+                                                            {result.isAlive === false ? '● МЕРТВ' : result.status === 'incarcerated' ? 'ЗАКЛЮЧЕН' : 'АКТИВЕН'}
                                                         </span>
                                                     </div>
 
@@ -842,19 +994,19 @@ function PolicePageContent() {
                                                             ) : (
                                                                 <div className="w-full h-52 rounded-xl border-2 border-dashed border-zinc-700 bg-zinc-800/50 flex flex-col items-center justify-center gap-2 text-zinc-600">
                                                                     <User className="w-12 h-12" />
-                                                                    <span className="text-[10px]">No photo on file</span>
+                                                                    <span className="text-[10px]">Нет фото</span>
                                                                 </div>
                                                             )}
 
                                                             {/* Bio */}
                                                             <div className="space-y-1.5 text-xs">
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-zinc-500">Name</span>
+                                                                    <span className="text-zinc-500">Имя</span>
                                                                     <span className="font-bold text-white">{result.firstName} {result.lastName}</span>
                                                                 </div>
                                                                 {result.nickname && (
                                                                     <div className="flex justify-between">
-                                                                        <span className="text-zinc-500">Alias</span>
+                                                                        <span className="text-zinc-500">Позывной</span>
                                                                         <span className="text-blue-400 italic">"{result.nickname}"</span>
                                                                     </div>
                                                                 )}
@@ -863,30 +1015,30 @@ function PolicePageContent() {
                                                                     <span className="font-mono text-zinc-300">{result.ssn || '—'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-zinc-500">DOB</span>
+                                                                    <span className="text-zinc-500">Д.Р.</span>
                                                                     <span className="text-zinc-300">{result.birthDate ? new Date(result.birthDate).toLocaleDateString('ru-RU') : '—'}</span>
                                                                 </div>
                                                                 <div className="flex justify-between">
-                                                                    <span className="text-zinc-500">Gender</span>
-                                                                    <span className="text-zinc-300 capitalize">{result.gender || '—'}</span>
+                                                                    <span className="text-zinc-500">Пол</span>
+                                                                    <span className="text-zinc-300 capitalize">{result.gender === 'male' ? 'Мужской' : result.gender === 'female' ? 'Женский' : result.gender || '—'}</span>
                                                                 </div>
                                                                 {result.height && (
                                                                     <div className="flex justify-between">
-                                                                        <span className="text-zinc-500">Height</span>
-                                                                        <span className="text-zinc-300">{result.height} cm</span>
+                                                                        <span className="text-zinc-500">Рост</span>
+                                                                        <span className="text-zinc-300">{result.height} см</span>
                                                                     </div>
                                                                 )}
                                                                 {result.weight && (
                                                                     <div className="flex justify-between">
-                                                                        <span className="text-zinc-500">Weight</span>
-                                                                        <span className="text-zinc-300">{result.weight} kg</span>
+                                                                        <span className="text-zinc-500">Вес</span>
+                                                                        <span className="text-zinc-300">{result.weight} кг</span>
                                                                     </div>
                                                                 )}
                                                             </div>
 
                                                             {result.description && (
                                                                 <div className="bg-zinc-800/40 border border-zinc-700/50 rounded-lg p-2">
-                                                                    <p className="text-[9px] text-zinc-500 uppercase font-bold mb-1">Notes</p>
+                                                                    <p className="text-[9px] text-zinc-500 uppercase font-bold mb-1">Заметки</p>
                                                                     <p className="text-[11px] text-zinc-400 leading-relaxed line-clamp-4">{result.description}</p>
                                                                 </div>
                                                             )}
@@ -897,7 +1049,7 @@ function PolicePageContent() {
                                                             {/* Licenses */}
                                                             <div className="space-y-2">
                                                                 <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-zinc-800 pb-1.5">
-                                                                    <Laptop className="w-3 h-3 text-blue-500" /> Licenses
+                                                                    <Laptop className="w-3 h-3 text-blue-500" /> Лицензии
                                                                 </p>
                                                                 <div className="space-y-1.5">
                                                                     {result.licenses?.length > 0 ? (
@@ -908,18 +1060,18 @@ function PolicePageContent() {
                                                                                     <p className="text-[10px] text-zinc-600">{lic.license?.type}</p>
                                                                                 </div>
                                                                                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${lic.isActive ? 'bg-emerald-900/30 border-emerald-700/40 text-emerald-400' : 'bg-red-900/30 border-red-700/40 text-red-400'}`}>
-                                                                                    {lic.isActive ? 'VALID' : 'REVOKED'}
+                                                                                    {lic.isActive ? 'ВАЛИДНА' : 'ОТЗВАНА'}
                                                                                 </span>
                                                                             </div>
                                                                         ))
-                                                                    ) : <p className="text-xs text-zinc-600 italic py-2">No licenses on record</p>}
+                                                                    ) : <p className="text-xs text-zinc-600 italic py-2">Нет лицензий</p>}
                                                                 </div>
                                                             </div>
 
                                                             {/* Vehicles */}
                                                             <div className="space-y-2">
                                                                 <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-zinc-800 pb-1.5">
-                                                                    <Car className="w-3 h-3 text-blue-500" /> Registered Vehicles
+                                                                    <Car className="w-3 h-3 text-blue-500" /> Транспорт
                                                                 </p>
                                                                 <div className="space-y-2">
                                                                     {result.vehicles?.length > 0 ? (
@@ -938,19 +1090,19 @@ function PolicePageContent() {
                                                                                         <p className="text-[10px] text-zinc-400">{veh.model}{veh.color ? ` · ${veh.color}` : ''}</p>
                                                                                     </div>
                                                                                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${veh.status === 'Valid' ? 'bg-emerald-900/30 border-emerald-700/40 text-emerald-400' : 'bg-red-900/30 border-red-700/40 text-red-400'}`}>
-                                                                                        {veh.status?.toUpperCase()}
+                                                                                        {veh.status === 'Valid' ? 'ВАЛИДЕН' : 'НЕВАЛИДЕН'}
                                                                                     </span>
                                                                                 </div>
                                                                             </div>
                                                                         ))
-                                                                    ) : <p className="text-xs text-zinc-600 italic py-2">No vehicles on record</p>}
+                                                                    ) : <p className="text-xs text-zinc-600 italic py-2">Нет транспорта</p>}
                                                                 </div>
                                                             </div>
 
                                                             {/* Weapons */}
                                                             <div className="space-y-2">
                                                                 <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-zinc-800 pb-1.5">
-                                                                    <AlertTriangle className="w-3 h-3 text-amber-500" /> Registered Firearms
+                                                                    <AlertTriangle className="w-3 h-3 text-amber-500" /> Оружие
                                                                 </p>
                                                                 <div className="space-y-1.5">
                                                                     {result.weapons?.length > 0 ? (
@@ -961,11 +1113,54 @@ function PolicePageContent() {
                                                                                     <p className="text-[10px] font-mono text-zinc-500">{wep.serial}</p>
                                                                                 </div>
                                                                                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${wep.status === 'Valid' ? 'bg-emerald-900/30 border-emerald-700/40 text-emerald-400' : 'bg-red-900/30 border-red-700/40 text-red-400'}`}>
-                                                                                    {wep.status?.toUpperCase()}
+                                                                                    {wep.status === 'Valid' ? 'ВАЛИДНО' : 'НЕВАЛИДНО'}
                                                                                 </span>
                                                                             </div>
                                                                         ))
-                                                                    ) : <p className="text-xs text-zinc-600 italic py-2">No firearms on record</p>}
+                                                                    ) : <p className="text-xs text-zinc-600 italic py-2">Нет оружия</p>}
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Fines */}
+                                                            <div className="space-y-2 col-span-1 md:col-span-3">
+                                                                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center justify-between border-b border-zinc-800 pb-1.5">
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <Receipt className="w-3 h-3 text-rose-500" /> Судимости / Штрафы
+                                                                    </div>
+                                                                    <Button 
+                                                                        size="sm" 
+                                                                        variant="ghost" 
+                                                                        className="h-5 px-1.5 text-[9px] text-blue-400 hover:text-blue-300 hover:bg-blue-400/5"
+                                                                        onClick={() => {
+                                                                            setFineForm({ ...fineForm, characterId: result.id });
+                                                                            setShowFineModal(true);
+                                                                        }}
+                                                                    >
+                                                                        <PlusSquare className="w-2.5 h-2.5 mr-1" /> ВЫПИСАТЬ ШТРАФ
+                                                                    </Button>
+                                                                </p>
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                                                    {result.fines?.length > 0 ? (
+                                                                        result.fines.map((fine: any) => (
+                                                                            <div key={fine.id} className="bg-zinc-800/50 p-2.5 rounded-lg border border-zinc-800/80 flex justify-between items-center group relative overflow-hidden">
+                                                                                <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${fine.status === 'paid' ? 'bg-emerald-500/50' : 'bg-rose-500/50'}`} />
+                                                                                <div className="pl-1">
+                                                                                    <p className="text-xs text-zinc-200 font-medium line-clamp-1">{fine.reason}</p>
+                                                                                    <p className="text-[9px] text-zinc-500 uppercase">
+                                                                                        {new Date(fine.issuedAt).toLocaleDateString('ru-RU')} • Офицер: {fine.officer ? `${fine.officer.firstName[0]}. ${fine.officer.lastName}` : 'Система'}
+                                                                                    </p>
+                                                                                </div>
+                                                                                <div className="text-right">
+                                                                                    <p className={`text-xs font-bold ${fine.status === 'paid' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                                                        ${fine.amount.toLocaleString()}
+                                                                                    </p>
+                                                                                    <span className={`text-[8px] font-bold px-1 rounded-full border ${fine.status === 'paid' ? 'bg-emerald-900/30 border-emerald-700/40 text-emerald-400' : 'bg-rose-900/30 border-red-700/40 text-rose-400'}`}>
+                                                                                        {fine.status === 'paid' ? 'ОПЛАЧЕН' : 'НЕ ОПЛАЧЕН'}
+                                                                                    </span>
+                                                                                </div>
+                                                                            </div>
+                                                                        ))
+                                                                    ) : <p className="text-xs text-zinc-600 italic py-2">Чистая история</p>}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -977,7 +1172,7 @@ function PolicePageContent() {
                                 </div>
                             )}
 
-                            {activeTab === "Map" && isSupervisor && (
+                            {activeTab === "Карта" && isSupervisor && (
                                 <div className="flex-1 flex flex-col min-h-0">
                                     <div className="flex-1 relative min-h-[500px] rounded-lg overflow-hidden border border-zinc-700">
                                         <LiveMap />
@@ -985,30 +1180,30 @@ function PolicePageContent() {
                                 </div>
                             )}
 
-                            {activeTab !== "Unit Status" && activeTab !== "NCIC" && activeTab !== "Map" && (
+                            {activeTab !== "Статус юнитов" && activeTab !== "NCIC" && activeTab !== "Карта" && (
                                 <div className="flex-1 flex items-center justify-center border border-dashed border-zinc-800 rounded-xl bg-zinc-900/10">
                                     <div className="text-center">
                                         <Laptop className="w-12 h-12 text-zinc-800 mx-auto mb-4" />
-                                        <h3 className="text-lg font-medium text-zinc-400">{activeTab} Module Offline</h3>
-                                        <p className="text-xs text-zinc-600 mt-1">This tactical module is scheduled for future deployment.</p>
+                                        <h3 className="text-lg font-medium text-zinc-400">Модуль {activeTab} оффлайн</h3>
+                                        <p className="text-xs text-zinc-600 mt-1">Этот тактический модуль запланирован для будущего развертывания.</p>
                                     </div>
                                 </div>
                             )}
 
-                            {activeTab === "Map" && !isSupervisor && (
+                            {activeTab === "Карта" && !isSupervisor && (
                                 <div className="flex-1 flex items-center justify-center border border-dashed border-zinc-800 rounded-xl bg-zinc-900/10">
                                     <div className="text-center">
                                         <Map className="w-12 h-12 text-zinc-800 mx-auto mb-4" />
-                                        <h3 className="text-lg font-medium text-zinc-400">Access Restricted</h3>
-                                        <p className="text-xs text-zinc-600 mt-1">Map view is available for supervisors only.</p>
+                                        <h3 className="text-lg font-medium text-zinc-400">Доступ ограничен</h3>
+                                        <p className="text-xs text-zinc-600 mt-1">Просмотр карты доступен только для супервайзеров.</p>
                                     </div>
                                 </div>
                             )}
 
                             <div className="w-56 space-y-3 shrink-0">
                                 <div className="rounded-lg border border-zinc-700 p-3 space-y-2">
-                                    <span className="text-xs font-medium text-zinc-400">Quick Actions</span>
-                                    {["2HR", "Plate", "DOT", "BOLO"].map((label) => (
+                                    <span className="text-xs font-medium text-zinc-400">Быстрые действия</span>
+                                    {["2HR", "Номер", "DOT", "BOLO"].map((label) => (
                                         <Button
                                             key={label}
                                             variant="outline"
@@ -1022,7 +1217,7 @@ function PolicePageContent() {
                                 </div>
 
                                 <div className="rounded-lg border border-zinc-700 p-3">
-                                    <span className="text-xs font-medium text-zinc-400 block mb-2">Quick Status</span>
+                                    <span className="text-xs font-medium text-zinc-400 block mb-2">Быстрый статус</span>
                                     <div className="space-y-2">
                                         <Button
                                             variant="outline"
@@ -1031,7 +1226,7 @@ function PolicePageContent() {
                                             className={`w-full bg-green-900/30 border-green-700/50 text-green-400 hover:bg-green-900/50 ${onDuty ? 'hover:bg-green-600/20' : ''}`}
                                         >
                                             <Car className="w-4 h-4 mr-2" />
-                                            10-8 (Available)
+                                            10-8 (Доступен)
                                         </Button>
                                         <Button
                                             variant="outline"
@@ -1041,7 +1236,7 @@ function PolicePageContent() {
                                             className="w-full bg-yellow-900/30 border-yellow-700/50 text-yellow-400 hover:bg-yellow-900/50 disabled:opacity-30"
                                         >
                                             <Siren className="w-4 h-4 mr-2" />
-                                            10-6 (Busy)
+                                            10-6 (Занят)
                                         </Button>
                                         <Button
                                             variant="outline"
@@ -1051,7 +1246,7 @@ function PolicePageContent() {
                                             className="w-full bg-red-900/30 border-red-700/50 text-red-400 hover:bg-red-900/50 disabled:opacity-30"
                                         >
                                             <Footprints className="w-4 h-4 mr-2" />
-                                            10-97 (Enroute)
+                                            10-97 (В пути)
                                         </Button>
                                         <Button
                                             variant="outline"
@@ -1061,17 +1256,17 @@ function PolicePageContent() {
                                             className="w-full bg-zinc-900/30 border-zinc-700/50 text-zinc-400 hover:bg-zinc-800/50 disabled:opacity-30"
                                         >
                                             <LogOut className="w-4 h-4 mr-2" />
-                                            10-7 (Off Duty)
+                                            10-7 (Вне смены)
                                         </Button>
                                     </div>
                                 </div>
 
 
                                 <div className="rounded-lg border border-zinc-700 p-3">
-                                    <span className="text-xs font-medium text-zinc-400 block mb-2">Notes</span>
+                                    <span className="text-xs font-medium text-zinc-400 block mb-2">Заметки</span>
                                     <textarea
                                         className="w-full h-32 bg-zinc-800/50 border border-zinc-700 rounded p-2 text-sm text-zinc-200 resize-none"
-                                        placeholder="Enter notes..."
+                                        placeholder="Введите заметки..."
                                         value={notes}
                                         onChange={handleNotesChange}
                                     />
@@ -1090,7 +1285,7 @@ function PolicePageContent() {
                             <div className="flex items-center justify-between">
                                 <CardTitle className="text-lg font-bold text-white flex items-center gap-2">
                                     <Shield className="w-5 h-5 text-blue-500" />
-                                    10-8 Duty
+                                    10-8 Выход на смену
                                 </CardTitle>
                                 <Button variant="ghost" size="icon" onClick={() => setShowDutyModal(false)} className="text-zinc-500 hover:text-white">
                                     <X className="w-4 h-4" />
@@ -1100,20 +1295,20 @@ function PolicePageContent() {
                         <CardContent className="p-4 space-y-4">
                             <div className="space-y-3">
                                 <div className="space-y-1">
-                                    <Label className="text-[10px] uppercase text-zinc-500">Callsign</Label>
+                                    <Label className="text-[10px] uppercase text-zinc-500">Позывной</Label>
                                     <Input placeholder="1A-12" value={callSign} onChange={(e) => setCallSign(e.target.value.toUpperCase())} className="bg-zinc-900 border-zinc-800" />
                                 </div>
                                 <div className="space-y-1">
-                                    <Label className="text-[10px] uppercase text-zinc-500">Subdivision</Label>
+                                    <Label className="text-[10px] uppercase text-zinc-500">Отдел / Дивизион</Label>
                                     <Input placeholder="Traffic" value={subdivision} onChange={(e) => setSubdivision(e.target.value)} className="bg-zinc-900 border-zinc-800" />
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
                                     <div className="space-y-1">
-                                        <Label className="text-[10px] uppercase text-zinc-500">Vehicle</Label>
-                                        <Input placeholder="Explorer" value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)} className="bg-zinc-900 border-zinc-800" />
+                                        <Label className="text-[10px] uppercase text-zinc-500">Транспорт</Label>
+                                        <Input placeholder="Ford Explorer" value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)} className="bg-zinc-900 border-zinc-800" />
                                     </div>
                                     <div className="space-y-1">
-                                        <Label className="text-[10px] uppercase text-zinc-500">Plate</Label>
+                                        <Label className="text-[10px] uppercase text-zinc-500">Номер</Label>
                                         <Input placeholder="89ABC123" value={vehiclePlate} onChange={(e) => setVehiclePlate(e.target.value.toUpperCase())} className="bg-zinc-900 border-zinc-800 font-mono" />
                                     </div>
                                 </div>
@@ -1121,14 +1316,14 @@ function PolicePageContent() {
 
                             {characters.length > 0 && (
                                 <div className="space-y-2 pt-2">
-                                    <Label className="text-[10px] uppercase text-zinc-500">Select Character</Label>
+                                    <Label className="text-[10px] uppercase text-zinc-500">Выберите персонажа</Label>
                                     <div className="flex gap-2 overflow-x-auto pb-2">
                                         <button
                                             type="button"
                                             onClick={() => setSelectedCharacter('')}
                                             className={`shrink-0 px-3 py-2 rounded-lg border text-xs ${!selectedCharacter ? 'bg-blue-600 border-blue-500 text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-500'}`}
                                         >
-                                            None
+                                            Нет
                                         </button>
                                         {characters.map((char) => (
                                             <button
@@ -1150,7 +1345,7 @@ function PolicePageContent() {
                             )}
 
                             <Button className="w-full bg-blue-600" onClick={handleDutyStart} disabled={isSubmitting || !callSign}>
-                                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Start Duty'}
+                                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Начать смену'}
                             </Button>
                         </CardContent>
                     </Card>
@@ -1176,6 +1371,80 @@ function PolicePageContent() {
                                 <p className="text-zinc-500 text-[10px] uppercase pt-2">Местоположение</p>
                                 <p className="text-zinc-200 flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-red-500" /> {selectedCallForNotes.location}</p>
                             </div>
+
+                            {selectedCallForNotes.units && selectedCallForNotes.units.length > 0 && (
+                                <div className="bg-zinc-800/40 p-3 rounded-lg border border-zinc-800">
+                                    <p className="text-zinc-500 text-[10px] uppercase mb-2">Прикрепленные юниты</p>
+                                    <div className="space-y-2">
+                                        {selectedCallForNotes.units.map((unit: any) => (
+                                            <div 
+                                                key={unit.userId} 
+                                                className={`flex items-center justify-between p-2 rounded border ${
+                                                    selectedCallForNotes.mainUnitId === unit.userId 
+                                                        ? 'bg-red-900/30 border-red-700' 
+                                                        : 'bg-zinc-800/50 border-zinc-700'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    {unit.user?.avatarUrl && (
+                                                        <img src={unit.user.avatarUrl} alt="" className="w-6 h-6 rounded-full" />
+                                                    )}
+                                                    <div>
+                                                        <p className="text-zinc-200 text-xs font-medium">
+                                                            {unit.callSign || unit.character?.firstName + ' ' + unit.character?.lastName || unit.user?.username}
+                                                        </p>
+                                                        {selectedCallForNotes.mainUnitId === unit.userId && (
+                                                            <span className="text-[10px] text-red-400 font-bold">ГЛАВНЫЙ</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                {canManageUnits && selectedCallForNotes.mainUnitId !== unit.userId && (
+                                                    <Button 
+                                                        size="sm" 
+                                                        variant="ghost"
+                                                        className="h-6 px-2 text-[10px] text-red-400 hover:bg-red-900/20"
+                                                        onClick={() => handleSetMainUnit(selectedCallForNotes.id, unit.userId)}
+                                                    >
+                                                        Назначить главным
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {currentUnit?.callId !== selectedCallForNotes.id && onDuty && (
+                                        <Button 
+                                            size="sm" 
+                                            className="w-full mt-2 bg-blue-600 hover:bg-blue-500"
+                                            onClick={() => handleAttachToCall(selectedCallForNotes.id)}
+                                        >
+                                            <PlusSquare className="w-3.5 h-3.5 mr-2" />
+                                            Прикрепиться к вызову
+                                        </Button>
+                                    )}
+                                    {currentUnit?.callId === selectedCallForNotes.id && (
+                                        <Button 
+                                            size="sm" 
+                                            variant="outline"
+                                            className="w-full mt-2 border-red-800 text-red-400 hover:bg-red-900/20"
+                                            onClick={handleDetachFromCall}
+                                        >
+                                            <X className="w-3.5 h-3.5 mr-2" />
+                                            Открепиться
+                                        </Button>
+                                    )}
+                                </div>
+                            )}
+
+                            {(!selectedCallForNotes.units || selectedCallForNotes.units.length === 0) && onDuty && (
+                                <Button 
+                                    size="sm" 
+                                    className="w-full bg-blue-600 hover:bg-blue-500"
+                                    onClick={() => handleAttachToCall(selectedCallForNotes.id)}
+                                >
+                                    <PlusSquare className="w-3.5 h-3.5 mr-2" />
+                                    Прикрепиться к вызову
+                                </Button>
+                            )}
 
                             <div className="flex-1 overflow-auto space-y-3 pr-1">
                                 <Label className="text-[10px] uppercase text-zinc-500">Дополнения (Чат)</Label>
@@ -1227,30 +1496,30 @@ function PolicePageContent() {
                         <div className="p-4 space-y-4">
                             <div className="grid grid-cols-2 gap-3 text-sm">
                                 <div className="bg-zinc-800/50 p-2 rounded">
-                                    <p className="text-[10px] text-zinc-500 uppercase">Officer</p>
+                                    <p className="text-[10px] text-zinc-500 uppercase">Офицер</p>
                                     <p className="text-zinc-200">{selectedUnit.officer}</p>
                                 </div>
                                 <div className="bg-zinc-800/50 p-2 rounded">
-                                    <p className="text-[10px] text-zinc-500 uppercase">Status</p>
+                                    <p className="text-[10px] text-zinc-500 uppercase">Статус</p>
                                     <p className={`font-medium ${selectedUnit.status === "Available" ? "text-green-400" : "text-blue-400"}`}>
-                                        {selectedUnit.status}
+                                        {selectedUnit.status === "Available" ? "Доступен" : selectedUnit.status === "Busy" ? "Занят" : selectedUnit.status}
                                     </p>
                                 </div>
                                 <div className="bg-zinc-800/50 p-2 rounded">
-                                    <p className="text-[10px] text-zinc-500 uppercase">Call</p>
+                                    <p className="text-[10px] text-zinc-500 uppercase">Вызов</p>
                                     <p className="text-zinc-200">{selectedUnit.call}</p>
                                 </div>
                                 <div className="bg-zinc-800/50 p-2 rounded">
-                                    <p className="text-[10px] text-zinc-500 uppercase">Location</p>
+                                    <p className="text-[10px] text-zinc-500 uppercase">Локация</p>
                                     <p className="text-zinc-200">{selectedUnit.location}</p>
                                 </div>
                             </div>
 
                             <div className="space-y-2">
-                                <Label className="text-xs text-zinc-400">Send Message</Label>
+                                <Label className="text-xs text-zinc-400">Отправить сообщение</Label>
                                 <div className="flex gap-2">
                                     <Input
-                                        placeholder="Type message..."
+                                        placeholder="Введите сообщение..."
                                         value={unitMessage}
                                         onChange={(e) => setUnitMessage(e.target.value)}
                                         onKeyDown={(e) => e.key === 'Enter' && handleSendUnitMessage()}
@@ -1269,25 +1538,91 @@ function PolicePageContent() {
                                     onClick={handleUnassignUnit}
                                 >
                                     <X className="w-4 h-4 mr-2" />
-                                    Unassign from Call
+                                    Снять с вызова
                                 </Button>
                             )}
 
                             {!selectedUnit.partnerUserId && !isInPair && (
                                 <Button variant="outline" className="w-full border-blue-800 text-blue-400 hover:bg-blue-900/20" onClick={handleInviteToPair}>
                                     <UserPlus className="w-4 h-4 mr-2" />
-                                    Invite to Pair
+                                    Пригласить в пару
                                 </Button>
                             )}
 
                             {isInPair && (
                                 <Button variant="outline" className="w-full border-orange-800 text-orange-400 hover:bg-orange-900/20" onClick={handleLeavePair}>
                                     <UserMinus className="w-4 h-4 mr-2" />
-                                    Leave Pair
+                                    Покинуть пару
                                 </Button>
                             )}
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Issue Fine Modal */}
+            {showFineModal && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[110] p-4">
+                    <Card className="w-full max-w-md bg-zinc-950 border-zinc-800 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <CardHeader className="border-b border-zinc-900 pb-4">
+                            <CardTitle className="text-xl font-bold text-white flex items-center gap-2">
+                                <Receipt className="w-5 h-5 text-rose-500" />
+                                Выписать штраф
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-6 space-y-5">
+                            <div className="p-4 bg-rose-500/5 border border-rose-500/10 rounded-xl flex items-center gap-3">
+                                <AlertCircle className="w-5 h-5 text-rose-500 shrink-0" />
+                                <p className="text-xs text-rose-500/80 leading-relaxed">
+                                    Внимание: Все штрафы записываются в систему NCIC и не могут быть изменены после выдачи.
+                                </p>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Причина нарушения</Label>
+                                    <Input
+                                        value={fineForm.reason}
+                                        onChange={(e) => setFineForm({ ...fineForm, reason: e.target.value })}
+                                        placeholder="Speeding, Reckless Driving, etc."
+                                        className="bg-zinc-900/50 border-zinc-800 h-10"
+                                    />
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Сумма штрафа ($)</Label>
+                                    <div className="relative">
+                                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                                        <Input
+                                            type="number"
+                                            value={fineForm.amount}
+                                            onChange={(e) => setFineForm({ ...fineForm, amount: e.target.value })}
+                                            placeholder="250"
+                                            className="bg-zinc-900/50 border-zinc-800 h-10 pl-9 font-mono"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3 pt-4 border-t border-zinc-900">
+                                <Button 
+                                    variant="ghost" 
+                                    onClick={() => setShowFineModal(false)} 
+                                    className="flex-1 text-zinc-400 hover:text-white"
+                                >
+                                    Отмена
+                                </Button>
+                                <Button
+                                    onClick={handleIssueFine}
+                                    disabled={isSubmitting || !fineForm.reason || !fineForm.amount}
+                                    className="flex-1 bg-rose-600 hover:bg-rose-500 shadow-lg shadow-rose-900/20"
+                                >
+                                    {isSubmitting ? <Clock className="w-4 h-4 animate-spin mr-2" /> : <Receipt className="w-4 h-4 mr-2" />}
+                                    Выписать штраф
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
             )}
         </div>

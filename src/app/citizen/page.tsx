@@ -1,14 +1,16 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { User, RefreshCw, Plus, X, Loader2, ChevronDown, Eye, Pencil, Trash2, Phone, FileText, AlertTriangle, Car, Shield } from 'lucide-react';
+import { User, RefreshCw, Plus, X, Loader2, ChevronDown, Eye, Pencil, Trash2, Phone, FileText, AlertTriangle, Car, Shield, BadgeCheck } from 'lucide-react';
 import { CreateCharacterModal } from './components/CreateCharacterModal';
 import { ViewCharacterModal } from './components/ViewCharacterModal';
+import { ViewVehicleModal } from './components/ViewVehicleModal';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -24,6 +26,8 @@ interface Vehicle {
     model: string;
     color: string;
     status: string;
+    imageUrl?: string;
+    insurance?: string;
 }
 
 interface Weapon {
@@ -104,6 +108,8 @@ export default function CitizenPage() {
     const [showViewModal, setShowViewModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showDepartmentModal, setShowDepartmentModal] = useState(false);
+    const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+    const [showViewVehicleModal, setShowViewVehicleModal] = useState(false);
     const [departments, setDepartments] = useState<Department[]>([]);
     const [step, setStep] = useState(1);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -159,6 +165,7 @@ export default function CitizenPage() {
     const [charVehicles, setCharVehicles] = useState<Vehicle[]>([]);
     const [charWeapons, setCharWeapons] = useState<Weapon[]>([]);
     const [charLicenses, setCharLicenses] = useState<any[]>([]);
+    const [charFines, setCharFines] = useState<any[]>([]);
     const [availableLicenses, setAvailableLicenses] = useState<any[]>([]);
     const [showVehicleModal, setShowVehicleModal] = useState(false);
     const [showWeaponModal, setShowWeaponModal] = useState(false);
@@ -170,16 +177,18 @@ export default function CitizenPage() {
         try {
             const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-            const [vRes, wRes, lRes, aRes] = await Promise.all([
+            const [vRes, wRes, lRes, aRes, fRes] = await Promise.all([
                 fetch(`${apiUrl}/api/civilian/characters/${charId}/vehicles`, { headers: { 'Authorization': `Bearer ${token}` } }),
                 fetch(`${apiUrl}/api/civilian/characters/${charId}/weapons`, { headers: { 'Authorization': `Bearer ${token}` } }),
                 fetch(`${apiUrl}/api/civilian/characters/${charId}/licenses`, { headers: { 'Authorization': `Bearer ${token}` } }),
-                fetch(`${apiUrl}/api/civilian/licenses`, { headers: { 'Authorization': `Bearer ${token}` } })
+                fetch(`${apiUrl}/api/civilian/licenses`, { headers: { 'Authorization': `Bearer ${token}` } }),
+                fetch(`${apiUrl}/api/fines/character/${charId}`, { headers: { 'Authorization': `Bearer ${token}` } })
             ]);
             if (vRes.ok) setCharVehicles(await vRes.json());
             if (wRes.ok) setCharWeapons(await wRes.json());
             if (lRes.ok) setCharLicenses(await lRes.json());
             if (aRes.ok) setAvailableLicenses(await aRes.json());
+            if (fRes.ok) setCharFines(await fRes.json());
         } catch (err) {
             console.error("Failed to fetch civilian data", err);
         }
@@ -264,7 +273,7 @@ export default function CitizenPage() {
             });
 
             if (res.ok) {
-                toast({ title: "Character created", description: `${formData.firstName} ${formData.lastName}`, variant: "success" });
+                toast({ title: "Персонаж создан", description: `${formData.firstName} ${formData.lastName}`, variant: "success" });
                 setShowCreateModal(false);
                 setFormData({
                     firstName: '', lastName: '', middleName: '', nickname: '',
@@ -274,7 +283,7 @@ export default function CitizenPage() {
             }
         } catch (err) {
             console.error("Failed to create character", err);
-            toast({ title: "Error", description: "Failed to create character", variant: "destructive" });
+            toast({ title: "Ошибка", description: "Не удалось создать персонажа", variant: "destructive" });
         } finally {
             setIsSubmitting(false);
         }
@@ -298,13 +307,13 @@ export default function CitizenPage() {
             });
 
             if (res.ok) {
-                toast({ title: "Call placed", description: "911 call has been placed successfully", variant: "success" });
+                toast({ title: "Вызов отправлен", description: "Вызов 911 успешно размещен", variant: "success" });
                 setShowCallModal(false);
                 setCallForm({ callerName: '', location: '', description: '', phoneNumber: '' });
             }
         } catch (err) {
             console.error("Failed to place 911 call", err);
-            toast({ title: "Error", description: "Failed to place 911 call", variant: "destructive" });
+            toast({ title: "Ошибка", description: "Не удалось отправить вызов 911", variant: "destructive" });
         } finally {
             setIsSubmitting(false);
         }
@@ -328,13 +337,13 @@ export default function CitizenPage() {
                 body: JSON.stringify({ ...vehicleForm, characterId: selectedCharacter.id })
             });
             if (res.ok) {
-                toast({ title: "Vehicle Registered", description: `Plate: ${vehicleForm.plate}`, variant: "success" });
+                toast({ title: "Транспорт зарегистрирован", description: `Номер: ${vehicleForm.plate}`, variant: "success" });
                 setShowVehicleModal(false);
                 setVehicleForm({ plate: '', model: '', color: '', imageUrl: '' });
                 fetchCivilianData(selectedCharacter.id);
             }
         } catch (err) {
-            toast({ title: "Error", description: "Failed to register vehicle", variant: "destructive" });
+            toast({ title: "Ошибка", description: "Не удалось зарегистрировать транспорт", variant: "destructive" });
         } finally { setIsSubmitting(false); }
     };
 
@@ -350,18 +359,18 @@ export default function CitizenPage() {
                 body: JSON.stringify({ ...weaponForm, characterId: selectedCharacter.id })
             });
             if (res.ok) {
-                toast({ title: "Weapon Registered", description: `Serial: ${weaponForm.serial}`, variant: "success" });
+                toast({ title: "Оружие зарегистрировано", description: `Серия: ${weaponForm.serial}`, variant: "success" });
                 setShowWeaponModal(false);
                 setWeaponForm({ serial: '', model: '' });
                 fetchCivilianData(selectedCharacter.id);
             }
         } catch (err) {
-            toast({ title: "Error", description: "Failed to register weapon", variant: "destructive" });
+            toast({ title: "Ошибка", description: "Не удалось зарегистрировать оружие", variant: "destructive" });
         } finally { setIsSubmitting(false); }
     };
 
     const deleteVehicle = async (id: number) => {
-        if (!confirm("Are you sure you want to unregister this vehicle?")) return;
+        if (!confirm("Вы уверены, что хотите снять этот транспорт с регистрации?")) return;
         try {
             const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -374,7 +383,7 @@ export default function CitizenPage() {
     };
 
     const deleteWeapon = async (id: number) => {
-        if (!confirm("Are you sure you want to unregister this weapon?")) return;
+        if (!confirm("Вы уверены, что хотите снять это оружие с регистрации?")) return;
         try {
             const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -521,13 +530,13 @@ export default function CitizenPage() {
             });
 
             if (res.ok) {
-                toast({ title: "Character updated", description: `${editForm.firstName} ${editForm.lastName}`, variant: "success" });
+                toast({ title: "Персонаж обновлен", description: `${editForm.firstName} ${editForm.lastName}`, variant: "success" });
                 setShowEditModal(false);
                 fetchCharacters();
             }
         } catch (err) {
             console.error("Failed to update character", err);
-            toast({ title: "Error", description: "Failed to update character", variant: "destructive" });
+            toast({ title: "Ошибка", description: "Не удалось обновить персонажа", variant: "destructive" });
         } finally {
             setIsSubmitting(false);
         }
@@ -535,7 +544,7 @@ export default function CitizenPage() {
 
     const handleDeleteCharacter = async () => {
         if (!selectedCharacter) return;
-        if (!confirm(`Are you sure you want to delete ${selectedCharacter.firstName} ${selectedCharacter.lastName}?`)) return;
+        if (!confirm(`Вы уверены, что хотите удалить ${selectedCharacter.firstName} ${selectedCharacter.lastName}?`)) return;
         
         setIsSubmitting(true);
         try {
@@ -552,13 +561,13 @@ export default function CitizenPage() {
             });
 
             if (res.ok) {
-                toast({ title: "Character deleted", description: `${selectedCharacter.firstName} ${selectedCharacter.lastName}`, variant: "success" });
+                toast({ title: "Персонаж удален", description: `${selectedCharacter.firstName} ${selectedCharacter.lastName}`, variant: "success" });
                 setShowViewModal(false);
                 fetchCharacters();
             }
         } catch (err) {
             console.error("Failed to delete character", err);
-            toast({ title: "Error", description: "Failed to delete character", variant: "destructive" });
+            toast({ title: "Ошибка", description: "Не удалось удалить персонажа", variant: "destructive" });
         } finally {
             setIsSubmitting(false);
         }
@@ -613,16 +622,16 @@ export default function CitizenPage() {
             });
 
             if (res.ok) {
-                toast({ title: "Department assigned", description: "Character assigned to department", variant: "success" });
+                toast({ title: "Департамент назначен", description: "Персонаж назначен в департамент", variant: "success" });
                 setShowDepartmentModal(false);
                 fetchCharacters();
             } else {
                 const data = await res.json();
-                toast({ title: "Error", description: data.error || "Failed to assign department", variant: "destructive" });
+                toast({ title: "Ошибка", description: data.error || "Не удалось назначить департамент", variant: "destructive" });
             }
         } catch (err) {
             console.error("Failed to assign department", err);
-            toast({ title: "Error", description: "Failed to assign department", variant: "destructive" });
+            toast({ title: "Ошибка", description: "Не удалось назначить департамент", variant: "destructive" });
         } finally {
             setIsSubmitting(false);
         }
@@ -642,75 +651,108 @@ export default function CitizenPage() {
                         <div className="w-20 h-20 rounded-full bg-zinc-800 flex items-center justify-center mb-4">
                             <User className="w-10 h-10 text-zinc-600" />
                         </div>
-                        <p className="text-lg font-medium text-zinc-300">No characters yet</p>
-                        <p className="text-sm mt-1 text-zinc-500">Create your first character to get started</p>
+                        <p className="text-lg font-medium text-zinc-300">Нет персонажей</p>
+                        <p className="text-sm mt-1 text-zinc-500">Создайте своего первого персонажа, чтобы начать</p>
                         <Button onClick={openCreateModal} className="mt-6 bg-blue-600 hover:bg-blue-500 px-6">
                             <Plus className="w-4 h-4 mr-2" />
-                            Create Character
+                            Создать персонажа
                         </Button>
                     </div>
                 ) : (
                     <>
                         <div className="flex justify-between items-center mb-6">
                             <div>
-                                <h2 className="text-2xl font-bold text-zinc-100">My Characters</h2>
-                                <p className="text-sm text-zinc-500 mt-1">{characters.length} character{characters.length !== 1 ? 's' : ''}</p>
+                                <h2 className="text-2xl font-bold text-zinc-100">Мои персонажи</h2>
+                                <p className="text-sm text-zinc-500 mt-1">{characters.length} персонаж{characters.length % 10 === 1 && characters.length % 100 !== 11 ? '' : (characters.length % 10 >= 2 && characters.length % 10 <= 4 && (characters.length % 100 < 10 || characters.length % 100 >= 20) ? 'а' : 'ей')}</p>
                             </div>
                             <div className="flex gap-3">
                                 <Button variant="outline" onClick={handleRefresh} className="bg-zinc-900/50 border-zinc-700 hover:bg-zinc-800">
                                     <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                                    Refresh
+                                    Обновить
                                 </Button>
                                 <Button onClick={() => setShowCallModal(true)} className="bg-red-600 hover:bg-red-500">
                                     <Phone className="w-4 h-4 mr-2" />
-                                    Call 911
+                                    Вызвать 911
                                 </Button>
                                 <Button onClick={openCreateModal} className="bg-blue-600 hover:bg-blue-500">
                                     <Plus className="w-4 h-4 mr-2" />
-                                    New Character
+                                    Новый персонаж
                                 </Button>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
                             {characters.map((char) => {
                                 const imgUrl = getImageUrl(char.photoUrl);
                                 const isAlive = char.isAlive !== false;
                                 const birthDate = char.birthDate ? new Date(char.birthDate) : null;
-                                const age = birthDate ? Math.floor((Date.now() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null;
-                                return (
-                                    <div 
-                                        key={char.id} 
-                                        className="relative bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden hover:border-zinc-700 transition-all cursor-pointer"
-                                        onClick={() => viewCharacter(char)}
-                                    >
-                                        {/* Status strip */}
-                                        <div className={`absolute left-0 top-0 bottom-0 w-1 ${isAlive ? 'bg-green-500' : 'bg-red-500'}`} />
-                                        
-                                        {/* Photo */}
-                                        <div className="aspect-[3/4] bg-zinc-800 overflow-hidden">
-                                            {imgUrl ? (
-                                                <img src={imgUrl} alt={`${char.firstName} ${char.lastName}`} className="w-full h-full object-cover" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center">
-                                                    <User className="w-8 h-8 text-zinc-600" />
-                                                </div>
-                                            )}
-                                            {!isAlive && <div className="absolute inset-0 bg-red-950/40" />}
-                                        </div>
-                                        
-                                        {/* Info */}
-                                        <div className="p-2 space-y-1">
-                                            <h3 className="font-semibold text-white text-sm truncate">{char.firstName} {char.lastName}</h3>
-                                            {birthDate && (
-                                                <p className="text-[10px] text-zinc-500">
-                                                    {birthDate.toLocaleDateString('ru-RU')} {age ? `(${age}y)` : ''}
-                                                </p>
-                                            )}
-                                            {char.job && <p className="text-[10px] text-zinc-400 truncate">{char.job.name}</p>}
-                                            {char.description && <p className="text-[9px] text-zinc-500 truncate">{char.description}</p>}
-                                        </div>
-                                    </div>
+                                 const age = birthDate ? Math.floor((Date.now() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null;
+                                 const isCop = char.departmentMembers?.some(m => 
+                                     m.isActive && ['police', 'sheriff', 'trooper'].includes(m.department?.type || '')
+                                 );
+                                 
+                                 return (
+                                     <div 
+                                         key={char.id} 
+                                         className="group relative bg-zinc-900/50 hover:bg-zinc-800/80 border border-zinc-800/50 hover:border-zinc-700/50 rounded-xl overflow-hidden transition-all duration-300 cursor-pointer h-[120px] flex items-center"
+                                         onClick={() => viewCharacter(char)}
+                                     >
+                                         {/* Status strip */}
+                                         <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isAlive ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.3)]'}`} />
+                                         
+                                         <div className="flex items-center w-full px-4 gap-4">
+                                             {/* Photo Square */}
+                                             <div className="w-24 h-24 shrink-0 bg-zinc-800/50 rounded-lg overflow-hidden border border-zinc-700/30 relative">
+                                                 {imgUrl ? (
+                                                     <img src={imgUrl} alt={`${char.firstName} ${char.lastName}`} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                                                 ) : (
+                                                     <div className="w-full h-full flex items-center justify-center">
+                                                         <User className="w-10 h-10 text-zinc-600" />
+                                                     </div>
+                                                 )}
+                                                 {!isAlive && <div className="absolute inset-0 bg-rose-950/20 backdrop-grayscale-[0.5]" />}
+                                             </div>
+                                             
+                                             {/* Info */}
+                                             <div className="flex-1 min-w-0 flex flex-col justify-center py-1">
+                                                 <div className="flex items-center gap-2 mb-0.5">
+                                                     <h3 className="font-bold text-zinc-100 text-base truncate leading-tight">
+                                                         {char.firstName} {char.lastName} 
+                                                         {char.nickname && <span className="text-zinc-500 font-medium ml-1.5 text-sm">({char.nickname})</span>}
+                                                     </h3>
+                                                     {isCop && (
+                                                         <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-[10px] px-1.5 py-0 h-5 whitespace-nowrap">
+                                                             <Shield className="w-3 h-3 mr-1" />
+                                                             Officer
+                                                         </Badge>
+                                                     )}
+                                                 </div>
+
+                                                 <div className="flex items-center gap-2 text-xs text-zinc-400 mb-1">
+                                                     {birthDate && (
+                                                         <span className="flex items-center gap-1.5">
+                                                             <span className="text-zinc-500 font-medium">{birthDate.toLocaleDateString('ru-RU')}</span>
+                                                             <span className="text-zinc-700 text-[10px]">|</span>
+                                                             <span className="font-medium text-zinc-300">{age} лет</span>
+                                                         </span>
+                                                     )}
+                                                 </div>
+
+                                                 {char.job && (
+                                                     <div className="text-[11px] font-semibold text-blue-400/80 uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                                                         <div className="w-1 h-1 rounded-full bg-blue-500/50" />
+                                                         {char.job.name}
+                                                     </div>
+                                                 )}
+                                                 
+                                                 {char.description && (
+                                                     <p className="text-[11px] text-zinc-500 line-clamp-2 italic leading-tight mt-0.5 max-w-[90%]">
+                                                         {char.description}
+                                                     </p>
+                                                 )}
+                                             </div>
+                                         </div>
+                                     </div>
                                 );
                             })}
                         </div>
@@ -821,6 +863,7 @@ export default function CitizenPage() {
                 charLicenses={charLicenses}
                 charVehicles={charVehicles}
                 charWeapons={charWeapons}
+                charFines={charFines}
                 toggleVehicleStatus={toggleVehicleStatus}
                 toggleWeaponStatus={toggleWeaponStatus}
                 deleteVehicle={deleteVehicle}
@@ -831,37 +874,82 @@ export default function CitizenPage() {
                 setShowLicenseModal={setShowLicenseModal}
                 setShowVehicleModal={setShowVehicleModal}
                 setShowWeaponModal={setShowWeaponModal}
+                onViewVehicle={(v) => {
+                    setSelectedVehicle(v);
+                    setShowViewVehicleModal(true);
+                }}
+            />
+
+            <ViewVehicleModal 
+                show={showViewVehicleModal}
+                onClose={() => setShowViewVehicleModal(false)}
+                vehicle={selectedVehicle}
+                getImageUrl={getImageUrl}
+                toggleVehicleStatus={toggleVehicleStatus}
+                deleteVehicle={deleteVehicle}
             />
         {showLicenseModal && selectedCharacter && (
             <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[60] p-4">
-                <Card className="bg-zinc-900 border-zinc-800 w-full max-w-sm shadow-2xl">
-                    <div className="p-4 border-b border-zinc-800 flex justify-between items-center">
-                        <h3 className="font-bold">Управление лицензиями</h3>
-                        <Button variant="ghost" size="sm" onClick={() => setShowLicenseModal(false)}><X /></Button>
+                <Card className="bg-zinc-950 border-zinc-800 w-full max-w-md shadow-2xl flex flex-col max-h-[85vh]">
+                    <div className="p-5 border-b border-zinc-900 flex justify-between items-center bg-zinc-900/20">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-blue-600/10 flex items-center justify-center">
+                                <BadgeCheck className="w-6 h-6 text-blue-500" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-white tracking-tight">License Management</h3>
+                                <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold">Apply for permits and licenses</p>
+                            </div>
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={() => setShowLicenseModal(false)} className="text-zinc-500 hover:text-white">
+                            <X className="w-5 h-5" />
+                        </Button>
                     </div>
-                    <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
+                    
+                    <div className="flex-1 overflow-y-auto p-5 space-y-4">
                         {availableLicenses.map(license => {
                             const hasLicense = charLicenses.some(cl => cl.licenseId === license.id);
                             return (
-                                <div key={license.id} className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-lg border border-zinc-700">
-                                    <div>
-                                        <p className="text-sm font-medium text-zinc-200">{license.name}</p>
-                                        <p className="text-[10px] text-zinc-500">{license.type}</p>
+                                <div key={license.id} className="p-4 bg-zinc-900/40 border border-zinc-800/50 rounded-2xl hover:border-zinc-700/50 transition-all group">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <p className="text-base font-bold text-zinc-100">{license.name}</p>
+                                                {hasLicense && (
+                                                    <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[9px] px-1.5 py-0 h-4">ACTIVE</Badge>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-zinc-500 leading-relaxed mb-3">{license.description}</p>
+                                            <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-wider">
+                                                <span className="text-zinc-400">Type: <span className="text-zinc-200">{license.type}</span></span>
+                                                <span className="text-zinc-400">Price: <span className="text-blue-400">${license.price}</span></span>
+                                            </div>
+                                        </div>
+                                        <Button 
+                                            size="sm" 
+                                            variant={hasLicense ? "destructive" : "default"}
+                                            className={hasLicense ? "bg-rose-600 hover:bg-rose-500 h-8 px-4" : "bg-blue-600 hover:bg-blue-500 h-8 px-4 shadow-lg shadow-blue-900/20"}
+                                            onClick={() => hasLicense ? handleLicenseRemove(license.id) : handleLicenseAdd(license.id)}
+                                        >
+                                            {hasLicense ? "Revoke" : "Apply"}
+                                        </Button>
                                     </div>
-                                    <Button 
-                                        size="sm" 
-                                        variant={hasLicense ? "destructive" : "default"}
-                                        className={hasLicense ? "h-8 px-3" : "h-8 px-3 bg-blue-600 hover:bg-blue-500"}
-                                        onClick={() => hasLicense ? handleLicenseRemove(license.id) : handleLicenseAdd(license.id)}
-                                    >
-                                        {hasLicense ? "Отозвать" : "Выдать"}
-                                    </Button>
                                 </div>
                             );
                         })}
                         {availableLicenses.length === 0 && (
-                            <p className="text-center text-zinc-500 py-4">Доступных лицензий не найдено</p>
+                            <div className="flex flex-col items-center justify-center py-12 text-zinc-600">
+                                <BadgeCheck className="w-12 h-12 mb-3 opacity-20" />
+                                <p className="text-sm italic">No licenses available at this time.</p>
+                            </div>
                         )}
+                    </div>
+                    
+                    <div className="p-5 border-t border-zinc-900 bg-zinc-900/20">
+                        <p className="text-[10px] text-zinc-600 uppercase font-bold text-center leading-relaxed">
+                            Note: All licenses are subject to verification by law enforcement. <br/>
+                            Illegal use of documents is a punishable offense.
+                        </p>
                     </div>
                 </Card>
             </div>

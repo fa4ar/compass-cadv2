@@ -31,10 +31,28 @@ const ROLE_PAGES: RolePage[] = [
     { key: 'ems', label: 'EMS / Fire', path: '/ems', icon: Heart, disabled: true },
 ];
 
+function HeaderSkeleton() {
+    return (
+        <div className="h-14 border-b border-zinc-800 bg-zinc-950 flex items-center px-4 shrink-0 shadow-xl sticky top-0 z-[100] w-full">
+            <div className="flex-1 flex items-center gap-2">
+                <div className="h-6 w-24 bg-zinc-800/50 animate-pulse rounded-full"></div>
+            </div>
+            
+            <div className="flex-none flex justify-center absolute left-1/2 -translate-x-1/2">
+                <div className="h-10 w-32 bg-zinc-800/50 animate-pulse rounded-2xl"></div>
+            </div>
+            
+            <div className="flex-1 flex items-center gap-3 justify-end">
+                <div className="h-8 w-8 bg-zinc-800/50 animate-pulse rounded-full"></div>
+            </div>
+        </div>
+    );
+}
+
 export default function Header() {
     const pathname = usePathname();
     const router = useRouter();
-    const { hasRole, isAuthenticated } = useAuth();
+    const { hasRole, isAuthenticated, isLoading } = useAuth();
     
     const isAdmin = useMemo(() => hasRole(['admin', 'Admin']), [hasRole]);
     
@@ -55,6 +73,7 @@ export default function Header() {
 
     const CurrentIcon = current?.icon || IdCard;
 
+    if (isLoading) return <HeaderSkeleton />;
     if (!isAuthenticated) return null;
 
     return (

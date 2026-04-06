@@ -2,13 +2,24 @@ import prisma from '../../lib/prisma';
 import { CallStatus } from '@prisma/client';
 
 export class Calls911Service {
-    static async createCall(data: { callerId?: number, callerName: string, location: string, description: string }) {
+    static async createCall(data: { 
+        callerId?: number, 
+        callerName: string, 
+        location: string, 
+        description: string,
+        userUsername?: string,
+        userDiscordId?: string,
+        userAvatarUrl?: string
+    }) {
         return prisma.call911.create({
             data: {
                 callerId: data.callerId,
                 callerName: data.callerName,
                 location: data.location,
                 description: data.description,
+                userUsername: data.userUsername,
+                userDiscordId: data.userDiscordId,
+                userAvatarUrl: data.userAvatarUrl,
                 status: 'pending'
             }
         });
@@ -18,7 +29,7 @@ export class Calls911Service {
         return prisma.call911.findMany({
             where: {
                 status: {
-                    in: ['pending', 'dispatched']
+                    in: ['pending', 'dispatched', 'enroute', 'on_scene']
                 }
             },
             include: {
@@ -26,10 +37,54 @@ export class Calls911Service {
                     orderBy: {
                         createdAt: 'asc'
                     }
+                },
+                units: {
+                    include: {
+                        character: {
+                            select: {
+                                id: true,
+                                firstName: true,
+                                lastName: true
+                            }
+                        },
+                        user: {
+                            select: {
+                                id: true,
+                                username: true,
+                                avatarUrl: true
+                            }
+                        }
+                    }
                 }
             },
             orderBy: {
                 createdAt: 'desc'
+            }
+        });
+    }
+
+    static async getClosedCalls() {
+        return prisma.call911.findMany({
+            where: {
+                status: 'closed'
+            },
+            include: {
+                notes: true,
+                caller: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                username: true,
+                                discordId: true,
+                                avatarUrl: true
+                            }
+                        }
+                    }
+                }
+            },
+            orderBy: {
+                updatedAt: 'desc'
             }
         });
     }
@@ -69,6 +124,77 @@ export class Calls911Service {
                 author,
                 text
             }
+        });
+    }
+
+    static async attachUnit(callId: number, userId: number) {
+        const call = await prisma.call911.findUnique({
+            where: { id: callId },
+            select: { mainUnitId: true }
+        });
+
+        const existingUnit = await prisma.unit.findUnique({
+            where: { userId }
+        });
+
+        if (!existingUnit) {
+            throw new Error('Unit not found');
+        }
+
+        const isMainUnitSet = call?.mainUnitId !== null && call?.mainUnitId !== undefined;
+
+        return prisma.$transaction([
+            prisma.unit.update({
+                where: { userId },
+                data: { callId }
+            }),
+            prisma.call911.update({
+                where: { id: callId },
+                data: {
+                    mainUnitId: isMainUnitSet ? undefined : userId,
+                    status: 'dispatched'
+                }
+            })
+        ]);
+    }
+
+    static async detachUnit(userId: number) {
+        const unit = await prisma.unit.findUnique({
+            where: { userId },
+            select: { callId: true }
+        });
+
+        if (!unit?.callId) {
+            return null;
+        }
+
+        const callId = unit.callId;
+
+        const remainingUnits = await prisma.unit.findMany({
+            where: {
+                callId,
+                userId: { not: userId }
+            }
+        });
+
+        const newMainUnitId = remainingUnits.length > 0 ? remainingUnits[0].userId : null;
+
+        return prisma.$transaction([
+            prisma.unit.update({
+                where: { userId },
+                data: { callId: null }
+            }),
+            prisma.call911.update({
+                where: { id: callId },
+                data: { mainUnitId: newMainUnitId }
+            })
+        ]);
+    }
+
+    static async setMainUnit(callId: number, userId: number) {
+        return prisma.call911.update({
+            where: { id: callId },
+            data: { mainUnitId: userId }
         });
     }
 }

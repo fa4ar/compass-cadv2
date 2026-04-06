@@ -129,6 +129,8 @@ model Character {
   unit                 Unit?
   vehicles             CivilianVehicle[]
   weapons              CivilianWeapon[]
+  fines                Fine[]                @relation("CharacterFines")
+  finesIssued          Fine[]                @relation("OfficerFines")
 
   @@unique([userId, firstName, lastName])
   @@index([userId])
@@ -483,6 +485,14 @@ model Call911 {
   description String
   status      CallStatus @default(pending)
 
+  // Поля для архива/админ-панели
+  userUsername  String?
+  userDiscordId String?
+  userAvatarUrl String?
+
+  // Прикрепленные юниты
+  mainUnitId Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -658,6 +668,18 @@ model AuditLog {
   @@index([userId])
   @@index([entityType])
   @@index([createdAt])
+}
+
+// ==================== НАСТРОЙКИ СИСТЕМЫ ====================
+
+model Setting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
 }
 
 // ==================== ENUMS ====================
@@ -911,4 +933,24 @@ model CivilianWeapon {
 
   @@index([serial])
   @@index([characterId])
+}
+
+// ==================== ШТРАФЫ ====================
+
+model Fine {
+  id          Int      @id @default(autoincrement())
+  characterId Int
+  officerId   Int?
+  amount      Float
+  reason      String
+  status      String   @default("unpaid")
+  issuedAt    DateTime @default(now())
+  paidAt      DateTime?
+
+  character Character  @relation("CharacterFines", fields: [characterId], references: [id], onDelete: Cascade)
+  officer   Character? @relation("OfficerFines", fields: [officerId], references: [id], onDelete: SetNull)
+
+  @@index([characterId])
+  @@index([status])
+  @@index([issuedAt])
 }

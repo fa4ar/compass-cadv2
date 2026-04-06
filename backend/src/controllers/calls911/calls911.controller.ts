@@ -7,13 +7,21 @@ export class Calls911Controller {
     create = async (req: AuthRequest, res: Response) => {
         try {
             const { callerName, location, description } = req.body;
-            const callerId = req.user?.userId;
+            const characterId = req.user?.userId; // This is the ID of the user's active character
+
+            // Fetch user info from req.user
+            const userUsername = req.user?.username;
+            const userDiscordId = req.user?.discordId;
+            const userAvatarUrl = req.user?.avatarUrl;
 
             const newCall = await Calls911Service.createCall({
-                callerId,
+                callerId: characterId,
                 callerName,
                 location,
-                description
+                description,
+                userUsername,
+                userDiscordId,
+                userAvatarUrl
             });
             
             // 🔥 Emit socket event
@@ -23,6 +31,16 @@ export class Calls911Controller {
         } catch (error: any) {
             console.error("Calls911Controller create error:", error);
             res.status(500).json({ error: error.message || "Failed to create 911 call" });
+        }
+    };
+
+    getClosed = async (req: AuthRequest, res: Response) => {
+        try {
+            const calls = await Calls911Service.getClosedCalls();
+            res.json(calls);
+        } catch (error: any) {
+            console.error("Calls911Controller getClosed error:", error);
+            res.status(500).json({ error: error.message || "Failed to fetch closed calls" });
         }
     };
 
@@ -92,6 +110,63 @@ export class Calls911Controller {
         } catch (error: any) {
             console.error("Calls911Controller delete error:", error);
             res.status(500).json({ error: error.message || "Failed to delete call" });
+        }
+    };
+
+    attachUnit = async (req: AuthRequest, res: Response) => {
+        try {
+            const { id } = req.params;
+            const userId = req.user?.userId;
+            
+            if (!userId) {
+                return res.status(401).json({ error: 'Unauthorized' });
+            }
+            
+            const result = await Calls911Service.attachUnit(Number(id), userId);
+            
+            io.emit('update_911_call', result[1]);
+            
+            res.json(result[1]);
+        } catch (error: any) {
+            console.error("Calls911Controller attachUnit error:", error);
+            res.status(500).json({ error: error.message || "Failed to attach unit" });
+        }
+    };
+
+    detachUnit = async (req: AuthRequest, res: Response) => {
+        try {
+            const userId = req.user?.userId;
+            
+            if (!userId) {
+                return res.status(401).json({ error: 'Unauthorized' });
+            }
+            
+            const result = await Calls911Service.detachUnit(userId);
+            
+            if (result) {
+                io.emit('update_911_call', result[1]);
+            }
+            
+            res.json(result ? result[1] : null);
+        } catch (error: any) {
+            console.error("Calls911Controller detachUnit error:", error);
+            res.status(500).json({ error: error.message || "Failed to detach unit" });
+        }
+    };
+
+    setMainUnit = async (req: AuthRequest, res: Response) => {
+        try {
+            const { id } = req.params;
+            const { userId } = req.body;
+            
+            const result = await Calls911Service.setMainUnit(Number(id), userId);
+            
+            io.emit('update_911_call', result);
+            
+            res.json(result);
+        } catch (error: any) {
+            console.error("Calls911Controller setMainUnit error:", error);
+            res.status(500).json({ error: error.message || "Failed to set main unit" });
         }
     };
 }

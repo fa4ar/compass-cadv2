@@ -80,6 +80,14 @@ export class CharactersService {
                         department: true,
                         rank: true
                     }
+                },
+                fines: {
+                    include: {
+                        officer: {
+                            select: { firstName: true, lastName: true }
+                        }
+                    },
+                    orderBy: { issuedAt: 'desc' }
                 }
             },
             orderBy: { createdAt: 'desc' },

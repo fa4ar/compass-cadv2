@@ -9,12 +9,68 @@ import ncicRoutes from "./ncic.routes";
 import civilianRoutes from "./civilian.routes";
 import fivemRoutes from "./fivem.routes";
 import dispatcherRoutes from "./dispatcher.routes";
+import finesRoutes from "./fines.routes";
+import settingsRoutes from "./settings.routes";
 
 import uploadRoutes from './upload.routes';
 
 const router = Router();
 
-// Подключаем маршруты
+const wrapWithBetaTest = (handler: Function) => {
+    return async (req: any, res: Response, next: Function) => {
+        try {
+            const SettingsService = require('../services/settings/settings.service').SettingsService;
+            const isBetaEnabled = await SettingsService.getBetaTestEnabled();
+            
+            if (!isBetaEnabled) {
+                return handler(req, res, next);
+            }
+
+            const betaRoleId = await SettingsService.getBetaTestRoleId();
+            if (!betaRoleId) {
+                return handler(req, res, next);
+            }
+
+            const userId = req.user?.userId;
+            if (!userId) {
+                return res.status(401).json({ error: 'Unauthorized' });
+            }
+
+            const prisma = require('../lib/prisma').default;
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { discordId: true }
+            });
+
+            if (!user?.discordId) {
+                return res.status(403).json({ error: 'Access denied. Beta test mode is enabled.' });
+            }
+
+            try {
+                const discordBotService = require('../services/discord-bot.service').discordBotService;
+                const guild = await discordBotService.client.guilds.fetch(process.env.DISCORD_GUILD_ID);
+                if (!guild) return handler(req, res, next);
+
+                const member = await guild.members.fetch(user.discordId);
+                if (!member) {
+                    return res.status(403).json({ error: 'Access denied. This section is in BETA TEST mode.' });
+                }
+
+                if (!member.roles.cache.has(betaRoleId)) {
+                    return res.status(403).json({ error: 'Access denied. This section is in BETA TEST mode and requires a special role.' });
+                }
+            } catch (e) {
+                console.error('Beta role check error:', e);
+            }
+
+            return handler(req, res, next);
+        } catch (error) {
+            console.error('Beta test middleware error:', error);
+            return handler(req, res, next);
+        }
+    };
+};
+
 router.use('/auth', authRoutes);
 router.use('/characters', charactersRoutes);
 router.use('/users', usersRoutes);
@@ -25,6 +81,8 @@ router.use('/ncic', ncicRoutes);
 router.use('/civilian', civilianRoutes);
 router.use('/fivem', fivemRoutes);
 router.use('/dispatcher', dispatcherRoutes);
+router.use('/fines', finesRoutes);
+router.use('/settings', settingsRoutes);
 router.use('/upload', uploadRoutes);
 
 // Корневой эндпоинт API

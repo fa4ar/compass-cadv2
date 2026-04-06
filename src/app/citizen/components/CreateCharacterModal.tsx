@@ -40,7 +40,7 @@ export const CreateCharacterModal: React.FC<CreateCharacterModalProps> = ({
     const step1Valid = formData.firstName && formData.lastName && formData.birthDate && formData.gender;
     const step2Valid = !!formData.photoUrl;
 
-    const stepLabels = ['Personal Info', 'Character Photo', 'Final Review'];
+    const stepLabels = ['Личная информация', 'Фото персонажа', 'Подтверждение'];
 
     const getFullImageUrl = (path: string) => {
         if (!path) return null;
@@ -56,7 +56,7 @@ export const CreateCharacterModal: React.FC<CreateCharacterModalProps> = ({
                 <div className="flex justify-between items-center p-6 border-b border-zinc-800 bg-zinc-900/50">
                     <div>
                         <h2 className="text-xl font-bold text-zinc-100 flex items-center gap-2">
-                             Create Citizen
+                             Создать гражданина
                         </h2>
                         <p className="text-[10px] text-zinc-500 mt-1 uppercase tracking-widest font-bold">{stepLabels[step - 1]}</p>
                     </div>
@@ -84,55 +84,55 @@ export const CreateCharacterModal: React.FC<CreateCharacterModalProps> = ({
                         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
                             <div className="grid grid-cols-3 gap-3">
                                 <div className="col-span-2">
-                                    <Label className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">First Name *</Label>
-                                    <Input name="firstName" value={formData.firstName} onChange={handleInputChange} placeholder="John" className="mt-1 bg-zinc-800/40 border-zinc-700/50 h-10" />
+                                    <Label className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Имя *</Label>
+                                    <Input name="firstName" value={formData.firstName} onChange={handleInputChange} placeholder="Иван" className="mt-1 bg-zinc-800/40 border-zinc-700/50 h-10" />
                                 </div>
                                 <div>
-                                    <Label className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">M.I.</Label>
-                                    <Input name="middleName" value={formData.middleName} onChange={handleInputChange} placeholder="A." className="mt-1 bg-zinc-800/40 border-zinc-700/50 h-10" />
+                                    <Label className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">M.I. (Второе имя)</Label>
+                                    <Input name="middleName" value={formData.middleName} onChange={handleInputChange} placeholder="А." className="mt-1 bg-zinc-800/40 border-zinc-700/50 h-10" />
                                 </div>
                             </div>
                             <div className="grid grid-cols-3 gap-3">
                                 <div className="col-span-2">
-                                    <Label className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Last Name *</Label>
-                                    <Input name="lastName" value={formData.lastName} onChange={handleInputChange} placeholder="Doe" className="mt-1 bg-zinc-800/40 border-zinc-700/50 h-10" />
+                                    <Label className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Фамилия *</Label>
+                                    <Input name="lastName" value={formData.lastName} onChange={handleInputChange} placeholder="Иванов" className="mt-1 bg-zinc-800/40 border-zinc-700/50 h-10" />
                                 </div>
                                 <div>
-                                    <Label className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Nickname</Label>
-                                    <Input name="nickname" value={formData.nickname} onChange={handleInputChange} placeholder="Johnny" className="mt-1 bg-zinc-800/40 border-zinc-700/50 h-10" />
+                                    <Label className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Позывной / Кличка</Label>
+                                    <Input name="nickname" value={formData.nickname} onChange={handleInputChange} placeholder="Седой" className="mt-1 bg-zinc-800/40 border-zinc-700/50 h-10" />
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <Label className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Birth Date *</Label>
-                                    <Input name="birthDate" type="date" value={formData.birthDate} onChange={handleInputChange} className="mt-1 bg-zinc-800/40 border-zinc-700 style-zinc-900 invert h-10" />
+                                    <Label className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Дата рождения *</Label>
+                                    <Input name="birthDate" type="date" value={formData.birthDate} onChange={handleInputChange} className="mt-1 bg-zinc-800/40 border-zinc-700 h-10 [color-scheme:dark]" />
                                 </div>
                                 <div>
-                                    <Label className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Gender *</Label>
+                                    <Label className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Пол *</Label>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <Button variant="outline" className="mt-1 w-full justify-between bg-zinc-800/40 border-zinc-700/50 h-10 hover:bg-zinc-800 hover:text-white">
                                                 <span className={formData.gender ? 'text-zinc-200' : 'text-zinc-500'}>
-                                                    {formData.gender ? (formData.gender.charAt(0).toUpperCase() + formData.gender.slice(1)) : 'Select...'}
+                                                    {formData.gender === 'male' ? 'Мужской' : formData.gender === 'female' ? 'Женский' : formData.gender === 'other' ? 'Другой' : 'Выберите...'}
                                                 </span>
                                                 <ChevronDown className="w-4 h-4 opacity-50" />
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent className="bg-zinc-900 border-zinc-800 min-w-[200px] shadow-xl">
-                                            <DropdownMenuItem onClick={() => setFormData((prev: any) => ({ ...prev, gender: 'male' }))} className="text-zinc-300 focus:bg-blue-600 focus:text-white p-2.5">Male</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => setFormData((prev: any) => ({ ...prev, gender: 'female' }))} className="text-zinc-300 focus:bg-blue-600 focus:text-white p-2.5">Female</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => setFormData((prev: any) => ({ ...prev, gender: 'other' }))} className="text-zinc-300 focus:bg-blue-600 focus:text-white p-2.5">Other</DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => setFormData((prev: any) => ({ ...prev, gender: 'male' }))} className="text-zinc-300 focus:bg-blue-600 focus:text-white p-2.5">Мужской</DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => setFormData((prev: any) => ({ ...prev, gender: 'female' }))} className="text-zinc-300 focus:bg-blue-600 focus:text-white p-2.5">Женский</DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => setFormData((prev: any) => ({ ...prev, gender: 'other' }))} className="text-zinc-300 focus:bg-blue-600 focus:text-white p-2.5">Другой</DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <Label className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Height (cm)</Label>
+                                    <Label className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Рост (см)</Label>
                                     <Input name="height" type="number" value={formData.height} onChange={handleInputChange} placeholder="180" className="mt-1 bg-zinc-800/40 border-zinc-700/50 h-10" />
                                 </div>
                                 <div>
-                                    <Label className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Weight (kg)</Label>
+                                    <Label className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Вес (кг)</Label>
                                     <Input name="weight" type="number" value={formData.weight} onChange={handleInputChange} placeholder="80" className="mt-1 bg-zinc-800/40 border-zinc-700/50 h-10" />
                                 </div>
                             </div>
@@ -147,15 +147,15 @@ export const CreateCharacterModal: React.FC<CreateCharacterModalProps> = ({
                                     <Camera className="w-4 h-4 text-blue-400" />
                                 </div>
                                 <div>
-                                    <p className="text-xs font-bold text-blue-400 uppercase tracking-tight">Identity Verification Required</p>
+                                    <p className="text-xs font-bold text-blue-400 uppercase tracking-tight">Требуется подтверждение личности</p>
                                     <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
-                                        Please upload a high-quality photograph of your character. This image will be used for your ID card and official police records.
+                                        Пожалуйста, загрузите качественную фотографию вашего персонажа. Это изображение будет использоваться для вашей ID-карты и официальных записей полиции.
                                     </p>
                                 </div>
                             </div>
 
                             <ImageUpload 
-                                label="Photo Identification"
+                                label="Фотография для документов"
                                 required={true}
                                 currentValue={formData.photoUrl}
                                 onUploadSuccess={(url) => setFormData((prev: any) => ({ ...prev, photoUrl: url }))}
@@ -180,31 +180,33 @@ export const CreateCharacterModal: React.FC<CreateCharacterModalProps> = ({
                                 )}
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-[10px] px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded-full font-bold uppercase tracking-wider border border-blue-500/20">Citizen Preview</span>
+                                        <span className="text-[10px] px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded-full font-bold uppercase tracking-wider border border-blue-500/20">Просмотр персонажа</span>
                                     </div>
                                     <p className="text-2xl font-bold text-zinc-100 leading-tight truncate">{formData.firstName} {formData.lastName}</p>
                                     {formData.nickname && <p className="text-blue-400 text-sm italic font-medium mt-0.5">"{formData.nickname}"</p>}
                                     <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3">
-                                        <span className="text-xs text-zinc-400 bg-zinc-800/80 px-2 py-0.5 rounded capitalize">{formData.gender || 'Unknown'}</span>
-                                        <span className="text-xs text-zinc-400 bg-zinc-800/80 px-2 py-0.5 rounded">{formData.birthDate || 'No DOB'}</span>
+                                        <span className="text-xs text-zinc-400 bg-zinc-800/80 px-2 py-0.5 rounded capitalize">
+                                            {formData.gender === 'male' ? 'Мужской' : formData.gender === 'female' ? 'Женский' : formData.gender === 'other' ? 'Другой' : 'Неизвестно'}
+                                        </span>
+                                        <span className="text-xs text-zinc-400 bg-zinc-800/80 px-2 py-0.5 rounded">{formData.birthDate || 'Нет даты'}</span>
                                     </div>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="bg-zinc-800/20 border border-zinc-800 rounded-xl p-3">
-                                    <p className="text-[9px] text-zinc-500 uppercase font-bold mb-1 tracking-wider">Height</p>
-                                    <p className="text-sm text-zinc-200">{formData.height ? `${formData.height} cm` : 'Not specified'}</p>
+                                    <p className="text-[9px] text-zinc-500 uppercase font-bold mb-1 tracking-wider">Рост</p>
+                                    <p className="text-sm text-zinc-200">{formData.height ? `${formData.height} см` : 'Не указан'}</p>
                                 </div>
                                 <div className="bg-zinc-800/20 border border-zinc-800 rounded-xl p-3">
-                                    <p className="text-[9px] text-zinc-500 uppercase font-bold mb-1 tracking-wider">Weight</p>
-                                    <p className="text-sm text-zinc-200">{formData.weight ? `${formData.weight} kg` : 'Not specified'}</p>
+                                    <p className="text-[9px] text-zinc-500 uppercase font-bold mb-1 tracking-wider">Вес</p>
+                                    <p className="text-sm text-zinc-200">{formData.weight ? `${formData.weight} кг` : 'Не указан'}</p>
                                 </div>
                             </div>
                             
                             {formData.description && (
                                 <div className="bg-zinc-800/20 border border-zinc-800 rounded-xl p-3">
-                                    <p className="text-[9px] text-zinc-500 uppercase font-bold mb-1 tracking-wider">Physical Description</p>
+                                    <p className="text-[9px] text-zinc-500 uppercase font-bold mb-1 tracking-wider">Физическое описание</p>
                                     <p className="text-xs text-zinc-300 leading-relaxed italic line-clamp-3">"{formData.description}"</p>
                                 </div>
                             )}
@@ -213,7 +215,7 @@ export const CreateCharacterModal: React.FC<CreateCharacterModalProps> = ({
                                 <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
                                     <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
                                 </div>
-                                <p className="text-xs text-zinc-400">Everything looks correct. You can now finalize your registration.</p>
+                                <p className="text-xs text-zinc-400">Все данные верны. Вы можете завершить регистрацию.</p>
                             </div>
                         </div>
                     )}
@@ -221,7 +223,7 @@ export const CreateCharacterModal: React.FC<CreateCharacterModalProps> = ({
                     {/* Navigation */}
                     <div className="flex justify-between pt-4 border-t border-zinc-800/80">
                         <Button variant="ghost" onClick={() => step > 1 ? setStep(step - 1) : onClose()} className="text-zinc-500 hover:text-white hover:bg-zinc-800 px-6">
-                            {step === 1 ? 'Cancel' : 'Back'}
+                            {step === 1 ? 'Отмена' : 'Назад'}
                         </Button>
                         {step < 3 ? (
                             <Button
@@ -229,12 +231,12 @@ export const CreateCharacterModal: React.FC<CreateCharacterModalProps> = ({
                                 disabled={step === 1 ? !step1Valid : step === 2 ? !step2Valid : false}
                                 className="bg-blue-600 hover:bg-blue-500 px-8 font-bold shadow-lg shadow-blue-600/20 disabled:opacity-50"
                             >
-                                Continue
+                                Продолжить
                             </Button>
                         ) : (
                             <Button onClick={handleCreateSubmit} disabled={isSubmitting} className="bg-emerald-600 hover:bg-emerald-500 px-8 font-bold shadow-lg shadow-emerald-600/20">
                                 {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
-                                Register Character
+                                Зарегистрировать персонажа
                             </Button>
                         )}
                     </div>

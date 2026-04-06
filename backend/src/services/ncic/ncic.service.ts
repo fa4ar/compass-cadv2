@@ -13,13 +13,19 @@ export class NCICService {
         // If plate is provided, find character by vehicle
         if (plate) {
             const vehicles = await (prisma as any).civilianVehicle.findMany({
-                where: { plate: { contains: plate, mode: 'insensitive' } },
+                where: { plate: { equals: plate, mode: 'insensitive' } },
                 include: {
                     character: {
                         include: {
                             vehicles: true,
                             weapons: true,
-                            licenses: { include: { license: true } }
+                            licenses: { include: { license: true } },
+                            fines: {
+                                include: {
+                                    officer: { select: { firstName: true, lastName: true } }
+                                },
+                                orderBy: { issuedAt: 'desc' }
+                            }
                         }
                     }
                 }
@@ -30,13 +36,19 @@ export class NCICService {
         // If weaponSerial is provided, find character by weapon
         if (weaponSerial) {
             const weapons = await (prisma as any).civilianWeapon.findMany({
-                where: { serial: { contains: weaponSerial, mode: 'insensitive' } },
+                where: { serial: { equals: weaponSerial, mode: 'insensitive' } },
                 include: {
                     character: {
                         include: {
                             vehicles: true,
                             weapons: true,
-                            licenses: { include: { license: true } }
+                            licenses: { include: { license: true } },
+                            fines: {
+                                include: {
+                                    officer: { select: { firstName: true, lastName: true } }
+                                },
+                                orderBy: { issuedAt: 'desc' }
+                            }
                         }
                     }
                 }
@@ -46,9 +58,9 @@ export class NCICService {
 
         // Generic character search (Name or SSN)
         const where: any = {};
-        if (firstName) where.firstName = { contains: firstName, mode: 'insensitive' };
-        if (lastName) where.lastName = { contains: lastName, mode: 'insensitive' };
-        if (ssn) where.ssn = { contains: ssn };
+        if (firstName) where.firstName = { equals: firstName, mode: 'insensitive' };
+        if (lastName) where.lastName = { equals: lastName, mode: 'insensitive' };
+        if (ssn) where.ssn = { equals: ssn };
 
         if (Object.keys(where).length === 0) return [];
 
@@ -59,6 +71,12 @@ export class NCICService {
                 weapons: true,
                 licenses: {
                     include: { license: true }
+                },
+                fines: {
+                    include: {
+                        officer: { select: { firstName: true, lastName: true } }
+                    },
+                    orderBy: { issuedAt: 'desc' }
                 }
             }
         });

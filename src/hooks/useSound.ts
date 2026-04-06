@@ -18,6 +18,7 @@ const SOUNDS: Record<SoundType, string> = {
     notification: '/sounds/notification.mp3',
     supervisor_request: '/sounds/supervisor.mp3',
     message_received: '/sounds/message.mp3',
+    message_sent: '/sounds/message_sent.mp3',
 };
 
 // Web Audio API для генерации простых звуков
