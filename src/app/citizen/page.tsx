@@ -672,74 +672,36 @@ export default function CitizenPage() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                             {characters.map((char) => {
                                 const imgUrl = getImageUrl(char.photoUrl);
-                                const statusStyle = getStatusColor(char.status, char.isAlive);
+                                const isAlive = char.isAlive !== false;
                                 return (
                                     <div 
                                         key={char.id} 
-                                        className="group bg-zinc-900/80 rounded-2xl border border-zinc-800/60 hover:border-zinc-700 transition-all duration-300 overflow-hidden hover:shadow-2xl hover:shadow-blue-900/10"
+                                        className="relative bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden hover:border-zinc-700 transition-all cursor-pointer"
+                                        onClick={() => viewCharacter(char)}
                                     >
-                                        <div className="relative h-48 overflow-hidden">
+                                        {/* Status strip */}
+                                        <div className={`absolute left-0 top-0 bottom-0 w-1 ${isAlive ? 'bg-green-500' : 'bg-red-500'}`} />
+                                        
+                                        {/* Photo */}
+                                        <div className="aspect-square bg-zinc-800 overflow-hidden">
                                             {imgUrl ? (
-                                                <img 
-                                                    src={imgUrl}
-                                                    alt={`${char.firstName} ${char.lastName}`}
-                                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                                />
+                                                <img src={imgUrl} alt={`${char.firstName} ${char.lastName}`} className="w-full h-full object-cover" />
                                             ) : (
-                                                <div className="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center">
-                                                    <div className="w-20 h-20 rounded-full bg-zinc-800/80 flex items-center justify-center">
-                                                        <User className="w-10 h-10 text-zinc-600" />
-                                                    </div>
+                                                <div className="w-full h-full flex items-center justify-center">
+                                                    <User className="w-12 h-12 text-zinc-600" />
                                                 </div>
                                             )}
-                                            <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/90 via-transparent to-transparent" />
-                                            <div className="absolute top-3 right-3">
-                                                <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}>
-                                                    {char.isAlive ? (char.status || 'Active') : 'Deceased'}
-                                                </span>
-                                            </div>
-                                            <div className="absolute bottom-3 left-3 right-3">
-                                                <h3 className="font-bold text-lg text-white truncate drop-shadow-lg">
-                                                    {char.firstName} {char.lastName}
-                                                </h3>
-                                                {char.nickname && (
-                                                    <p className="text-sm text-blue-300 font-medium truncate">"{char.nickname}"</p>
-                                                )}
-                                            </div>
-                                            {char.isAlive === false && (
-                                                <div className="absolute inset-0 bg-red-950/40 pointer-events-none" />
-                                            )}
+                                            {!isAlive && <div className="absolute inset-0 bg-red-950/40" />}
                                         </div>
                                         
-                                        <div className="p-4">
-                                            <div className="flex flex-wrap gap-2 mb-3">
-                                                {char.gender && (
-                                                    <span className="px-2 py-0.5 bg-zinc-800/60 rounded text-xs text-zinc-400">{char.gender}</span>
-                                                )}
-                                                {char.height && (
-                                                    <span className="px-2 py-0.5 bg-zinc-800/60 rounded text-xs text-zinc-400">{char.height}cm</span>
-                                                )}
-                                                {char.weight && (
-                                                    <span className="px-2 py-0.5 bg-zinc-800/60 rounded text-xs text-zinc-400">{char.weight}kg</span>
-                                                )}
-                                            </div>
-                                            
-                                            {char.description && (
-                                                <p className="text-xs text-zinc-500 line-clamp-2 mb-3">{char.description}</p>
-                                            )}
-                                            
-                                            <Button 
-                                                variant="outline" 
-                                                size="sm" 
-                                                onClick={() => viewCharacter(char)}
-                                                className="w-full bg-zinc-800/50 border-zinc-700 hover:bg-zinc-700"
-                                            >
-                                                <Eye className="w-4 h-4 mr-2" />
-                                                View Details
-                                            </Button>
+                                        {/* Info */}
+                                        <div className="p-3">
+                                            <h3 className="font-bold text-white truncate">{char.firstName} {char.lastName}</h3>
+                                            {char.job && <p className="text-xs text-zinc-500 truncate">{char.job.name}</p>}
+                                            {char.description && <p className="text-xs text-zinc-600 truncate mt-1">{char.description}</p>}
                                         </div>
                                     </div>
                                 );
@@ -847,10 +809,22 @@ export default function CitizenPage() {
                 character={selectedCharacter}
                 onClose={() => setShowViewModal(false)}
                 getImageUrl={getImageUrl}
+                getStatusColor={getStatusColor}
+                formatDate={formatDate}
+                charLicenses={charLicenses}
+                charVehicles={charVehicles}
+                charWeapons={charWeapons}
+                toggleVehicleStatus={toggleVehicleStatus}
+                toggleWeaponStatus={toggleWeaponStatus}
+                deleteVehicle={deleteVehicle}
+                deleteWeapon={deleteWeapon}
+                openEditModal={openEditModal}
+                openDepartmentModal={openDepartmentModal}
+                handleDeleteCharacter={handleDeleteCharacter}
+                setShowLicenseModal={setShowLicenseModal}
+                setShowVehicleModal={setShowVehicleModal}
+                setShowWeaponModal={setShowWeaponModal}
             />
-
-
-        {/* License Management Modal */}
         {showLicenseModal && selectedCharacter && (
             <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[60] p-4">
                 <Card className="bg-zinc-900 border-zinc-800 w-full max-w-sm shadow-2xl">
