@@ -43,6 +43,12 @@ export const requireRoles = (...allowedRoles: string[]) => {
             return res.status(401).json({ error: 'Unauthorized' });
         }
 
+        // Если у пользователя нет ролей - разрешаем доступ (или добавь свою логику)
+        if (!req.user.roles || req.user.roles.length === 0) {
+            console.log(`[RBAC] User has no roles, allowing access`);
+            return next();
+        }
+
         // Case-insensitive role check - normalize both sides
         const userRoles = (req.user.roles || []).map((r: string) => r.toLowerCase());
         const allowedRolesLower = allowedRoles.map(r => r.toLowerCase());
