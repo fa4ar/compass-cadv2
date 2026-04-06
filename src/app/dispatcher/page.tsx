@@ -194,10 +194,14 @@ function DispatcherPageContent() {
         }
     };
 
-    const handleUpdateUnitStatus = async (characterId: number, status: string) => {
+    const handleUpdateUnitStatus = async (characterId: number | undefined, userId: number | undefined, status: string) => {
         try {
             const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+            const body: any = { status };
+            if (characterId) body.characterId = characterId;
+            if (userId) body.userId = userId;
 
             const res = await fetch(`${apiUrl}/api/units/status`, {
                 method: 'PATCH',
@@ -205,12 +209,15 @@ function DispatcherPageContent() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ characterId, status })
+                body: JSON.stringify(body)
             });
 
             if (res.ok) {
                 toast({ title: 'Unit Status Updated', description: `Unit is now ${status}` });
                 fetchData();
+            } else {
+                const data = await res.json();
+                console.error('Update failed:', data);
             }
         } catch (err) {
             console.error('Failed to update unit status', err);
@@ -544,7 +551,7 @@ function DispatcherPageContent() {
                                                                     variant="ghost"
                                                                     title="Доступен"
                                                                     className="h-7 w-7 text-green-500 hover:bg-green-500/10"
-                                                                    onClick={(e) => { e.stopPropagation(); unit.characterId && handleUpdateUnitStatus(unit.characterId, 'Available'); }}
+                                                                    onClick={(e) => { e.stopPropagation(); handleUpdateUnitStatus(unit.characterId, unit.userId, 'Available'); }}
                                                                 >
                                                                     <CheckCircle className="w-3.5 h-3.5" />
                                                                 </Button>
@@ -553,7 +560,7 @@ function DispatcherPageContent() {
                                                                     variant="ghost"
                                                                     title="Занят"
                                                                     className="h-7 w-7 text-amber-500 hover:bg-amber-500/10"
-                                                                    onClick={(e) => { e.stopPropagation(); unit.characterId && handleUpdateUnitStatus(unit.characterId, 'Busy'); }}
+                                                                    onClick={(e) => { e.stopPropagation(); handleUpdateUnitStatus(unit.characterId, unit.userId, 'Busy'); }}
                                                                 >
                                                                     <Siren className="w-3.5 h-3.5" />
                                                                 </Button>
@@ -664,7 +671,7 @@ function DispatcherPageContent() {
                                                                 variant="outline"
                                                                 size="sm"
                                                                 className="justify-start h-8 text-xs bg-zinc-800/30 border-zinc-700"
-                                                                onClick={() => u.characterId && handleUpdateUnitStatus(u.characterId, 'Enroute')}
+                                                                onClick={() => handleUpdateUnitStatus(u.characterId, u.userId, 'Enroute')}
                                                             >
                                                                 <Navigation className="w-3 h-3 mr-2" />
                                                                 Назначить {u.unit}
@@ -693,10 +700,10 @@ function DispatcherPageContent() {
                                                 </div>
                                             </div>
                                             <div className="grid grid-cols-2 gap-1.5">
-                                                <Button size="sm" variant="outline" className="h-7 text-[10px] bg-green-900/20 border-green-700/50 text-green-400" onClick={() => selectedUnit.characterId && handleUpdateUnitStatus(selectedUnit.characterId, 'Available')}>10-8</Button>
-                                                <Button size="sm" variant="outline" className="h-7 text-[10px] bg-amber-900/20 border-amber-700/50 text-amber-400" onClick={() => selectedUnit.characterId && handleUpdateUnitStatus(selectedUnit.characterId, 'Busy')}>10-6</Button>
-                                                <Button size="sm" variant="outline" className="h-7 text-[10px] bg-blue-900/20 border-blue-700/50 text-blue-400" onClick={() => selectedUnit.characterId && handleUpdateUnitStatus(selectedUnit.characterId, 'Enroute')}>10-97</Button>
-                                                <Button size="sm" variant="outline" className="h-7 text-[10px] bg-red-900/20 border-red-700/50 text-red-400" onClick={() => selectedUnit.characterId && handleUpdateUnitStatus(selectedUnit.characterId, 'On Scene')}>10-23</Button>
+                                                <Button size="sm" variant="outline" className="h-7 text-[10px] bg-green-900/20 border-green-700/50 text-green-400" onClick={() => handleUpdateUnitStatus(selectedUnit.characterId, selectedUnit.userId, 'Available')}>10-8</Button>
+                                                <Button size="sm" variant="outline" className="h-7 text-[10px] bg-amber-900/20 border-amber-700/50 text-amber-400" onClick={() => handleUpdateUnitStatus(selectedUnit.characterId, selectedUnit.userId, 'Busy')}>10-6</Button>
+                                                <Button size="sm" variant="outline" className="h-7 text-[10px] bg-blue-900/20 border-blue-700/50 text-blue-400" onClick={() => handleUpdateUnitStatus(selectedUnit.characterId, selectedUnit.userId, 'Enroute')}>10-97</Button>
+                                                <Button size="sm" variant="outline" className="h-7 text-[10px] bg-red-900/20 border-red-700/50 text-red-400" onClick={() => handleUpdateUnitStatus(selectedUnit.characterId, selectedUnit.userId, 'On Scene')}>10-23</Button>
                                             </div>
                                             <Button 
                                                 size="sm" 

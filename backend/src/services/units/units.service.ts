@@ -100,6 +100,20 @@ export class UnitsService {
         });
     }
 
+    static async updateStatusById(whereClause: any, status: string) {
+        const unit = await (prisma as any).unit.findFirst({ where: whereClause });
+        if (!unit) {
+            throw new Error('Unit not found');
+        }
+        return await (prisma as any).unit.update({
+            where: { id: unit.id },
+            data: { 
+                status,
+                lastStatusAt: new Date()
+            }
+        });
+    }
+
     static async getCurrentUnit(userId: number) {
         const unit = await (prisma as any).unit.findUnique({
             where: { userId },

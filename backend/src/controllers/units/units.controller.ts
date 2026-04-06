@@ -44,8 +44,21 @@ export class UnitsController {
     static async updateStatus(req: Request, res: Response, next: NextFunction) {
         try {
             const userId = (req as any).user?.userId;
-            const { status } = req.body;
-            const unit = await UnitsService.updateStatus(Number(userId), status);
+            const { characterId, userId: targetUserId, status } = req.body;
+            
+            // Dispatcher can update by characterId or userId, self can only update self
+            const targetId = characterId || targetUserId;
+            
+            if (!targetId) {
+                return res.status(400).json({ error: 'characterId or userId is required' });
+            }
+
+            // Find unit by characterId or userId
+            const whereClause = characterId 
+                ? { characterId: Number(characterId) } 
+                : { userId: Number(targetUserId) };
+            
+            const unit = await UnitsService.updateStatusById(whereClause, status);
             res.json(unit);
         } catch (error) {
             next(error);

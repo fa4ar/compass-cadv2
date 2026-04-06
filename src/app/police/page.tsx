@@ -1,8 +1,21 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { Shield, Users, FileSearch, Laptop, Map, AlertTriangle, Search, Navigation, MapPinned, ArrowRightLeft, CheckCircle, BarChart3, MessageCircle, PlusSquare, Ambulance, Clock, Car, Footprints, Siren, X, User, LogOut, MapPin, Send, Loader2 } from 'lucide-react';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+
+const LiveMap = dynamic(() => import('@/components/Map/LiveMap'), { 
+    ssr: false,
+    loading: () => (
+        <div className="w-full h-full bg-zinc-950 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3">
+                <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                <span className="text-[10px] text-zinc-600 uppercase tracking-widest font-bold">Loading Map...</span>
+            </div>
+        </div>
+    )
+});
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,12 +63,15 @@ interface Unit {
 }
 
 const TOP_ACTIONS = [
-    { label: "Unit Status", icon: BarChart3 },  // Текущая ситуация, юниты и активные вызовы
-    { label: "NCIC", icon: FileSearch },       // Глубокий поиск граждан, авто и оружия
-    { label: "BOLO", icon: AlertTriangle },    // "Be On the Look Out" — список активных ориентировок
-    { label: "Reports", icon: PlusSquare },    // Быстрое создание тикетов, штрафов и протоколов
-    { label: "Warrants", icon: Shield },       // База активных судебных ордеров на арест
-    { label: "Map", icon: Map },
+    { label: "Unit Status", icon: BarChart3 },
+    { label: "NCIC", icon: FileSearch },
+    { label: "BOLO", icon: AlertTriangle },
+    { label: "Reports", icon: PlusSquare },
+    { label: "Warrants", icon: Shield },
+];
+
+const SUPERVISOR_ACTIONS = [
+    { label: "Map", icon: Map, requiredRole: "supervisor" },
 ];
 
 
@@ -517,6 +533,20 @@ function PolicePageContent() {
                                     </Button>
                                 );
                             })}
+                            {isSupervisor && SUPERVISOR_ACTIONS.map((action) => {
+                                const Icon = action.icon;
+                                return (
+                                    <Button
+                                        key={action.label}
+                                        size="sm"
+                                        onClick={() => handleTabChange(action.label)}
+                                        className={`${activeTab === action.label ? 'bg-blue-600 hover:bg-blue-500' : 'bg-zinc-800 hover:bg-zinc-700'}`}
+                                    >
+                                        <Icon className="w-4 h-4 mr-1.5" />
+                                        {action.label}
+                                    </Button>
+                                );
+                            })}
                             <Button variant="outline" size="sm" onClick={fetchData} className="bg-zinc-800/50 border-zinc-700 ml-auto">
                                 <Clock className="w-4 h-4 mr-1.5" />
                                 Refresh
@@ -886,10 +916,10 @@ function PolicePageContent() {
                                 </div>
                             )}
 
-                            {activeTab === "Map" && (
-                                <div className="flex-1 flex flex-col">
-                                    <div className="rounded-lg border border-zinc-700 p-4">
-                                        <span className="text-sm font-medium text-zinc-300">Map View</span>
+                            {activeTab === "Map" && isSupervisor && (
+                                <div className="flex-1 flex flex-col min-h-0">
+                                    <div className="flex-1 relative min-h-[500px] rounded-lg overflow-hidden border border-zinc-700">
+                                        <LiveMap />
                                     </div>
                                 </div>
                             )}
@@ -900,6 +930,16 @@ function PolicePageContent() {
                                         <Laptop className="w-12 h-12 text-zinc-800 mx-auto mb-4" />
                                         <h3 className="text-lg font-medium text-zinc-400">{activeTab} Module Offline</h3>
                                         <p className="text-xs text-zinc-600 mt-1">This tactical module is scheduled for future deployment.</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === "Map" && !isSupervisor && (
+                                <div className="flex-1 flex items-center justify-center border border-dashed border-zinc-800 rounded-xl bg-zinc-900/10">
+                                    <div className="text-center">
+                                        <Map className="w-12 h-12 text-zinc-800 mx-auto mb-4" />
+                                        <h3 className="text-lg font-medium text-zinc-400">Access Restricted</h3>
+                                        <p className="text-xs text-zinc-600 mt-1">Map view is available for supervisors only.</p>
                                     </div>
                                 </div>
                             )}
