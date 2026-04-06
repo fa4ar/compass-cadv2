@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { 
     IdCard, 
@@ -15,16 +15,12 @@ import {
     Activity,
     LogOut,
     Lock,
-    User
+    User,
+    User as UserIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
-import { Lock, LogOut, Loader2, IdCard, Shield, Radio, Compass, Heart, Settings, User as UserIcon } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
 
 const ROLE_PAGES = [
     { 
