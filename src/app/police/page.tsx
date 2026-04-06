@@ -1022,185 +1022,75 @@ function PolicePageContent() {
                 </Card>
             </div>
 
-            {/* Duty Selection Modal */}
+            {/* Duty Selection Modal - Simplified */}
             {showDutyModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-                    <Card className="w-full max-w-md bg-zinc-950 border-zinc-800 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)] border-t-2 border-t-blue-600 animate-in zoom-in-95 duration-200">
-                        <CardHeader className="pb-4">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+                    <Card className="w-full max-w-sm bg-zinc-950 border-zinc-800">
+                        <CardHeader className="pb-3">
                             <div className="flex items-center justify-between">
-                                <CardTitle className="text-xl font-black text-white flex items-center gap-3">
-                                    <div className="p-2 bg-blue-600/10 rounded-xl">
-                                        <Shield className="w-6 h-6 text-blue-500" />
-                                    </div>
-                                    Duty Registration
+                                <CardTitle className="text-lg font-bold text-white flex items-center gap-2">
+                                    <Shield className="w-5 h-5 text-blue-500" />
+                                    10-8 Duty
                                 </CardTitle>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => setShowDutyModal(false)}
-                                    className="text-zinc-500 hover:text-white rounded-full"
-                                >
-                                    <X className="w-5 h-5" />
+                                <Button variant="ghost" size="icon" onClick={() => setShowDutyModal(false)} className="text-zinc-500 hover:text-white">
+                                    <X className="w-4 h-4" />
                                 </Button>
                             </div>
-                            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-[0.2em] mt-2">Initialize Patrol Session</p>
                         </CardHeader>
-                        <CardContent className="p-6 pt-2 space-y-6">
-                            <div className="grid gap-5">
-                                {/* Row 1: Callsign & Subdivision */}
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] uppercase font-black text-zinc-500 tracking-wider">Callsign (Позывной)</Label>
-                                        <div className="relative">
-                                            <Input
-                                                placeholder="1A-12"
-                                                value={callSign}
-                                                onChange={(e) => setCallSign(e.target.value.toUpperCase())}
-                                                className="bg-zinc-900 border-zinc-800 text-white h-11 text-sm font-bold pl-10 focus:ring-blue-500/20"
-                                            />
-                                            <Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] uppercase font-black text-zinc-600 tracking-wider">Subdivision (Отдел)</Label>
-                                        <div className="relative">
-                                            <Input
-                                                placeholder="Traffic"
-                                                value={subdivision}
-                                                onChange={(e) => setSubdivision(e.target.value)}
-                                                className="bg-zinc-900 border-zinc-800 text-white h-11 text-sm font-bold pl-10"
-                                            />
-                                            <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
-                                        </div>
-                                    </div>
+                        <CardContent className="p-4 space-y-4">
+                            <div className="space-y-3">
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] uppercase text-zinc-500">Callsign</Label>
+                                    <Input placeholder="1A-12" value={callSign} onChange={(e) => setCallSign(e.target.value.toUpperCase())} className="bg-zinc-900 border-zinc-800" />
                                 </div>
-
-                                {/* Row 2: Vehicle & Plate */}
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] uppercase font-black text-zinc-600 tracking-wider">Vehicle (Машина)</Label>
-                                        <div className="relative">
-                                            <Input
-                                                placeholder="Explorer"
-                                                value={vehicleModel}
-                                                onChange={(e) => setVehicleModel(e.target.value)}
-                                                className="bg-zinc-900 border-zinc-800 text-white h-11 text-sm font-bold pl-10"
-                                            />
-                                            <Car className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] uppercase font-black text-zinc-600 tracking-wider">Plate (Гос. номер)</Label>
-                                        <div className="relative">
-                                            <Input
-                                                placeholder="89ABC123"
-                                                value={vehiclePlate}
-                                                onChange={(e) => setVehiclePlate(e.target.value.toUpperCase())}
-                                                className="bg-zinc-900 border-zinc-800 text-blue-400 h-11 text-sm font-mono font-black pl-10 tracking-widest"
-                                            />
-                                            <FileSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
-                                        </div>
-                                    </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] uppercase text-zinc-500">Subdivision</Label>
+                                    <Input placeholder="Traffic" value={subdivision} onChange={(e) => setSubdivision(e.target.value)} className="bg-zinc-900 border-zinc-800" />
                                 </div>
-
-                                {/* Character Selection */}
-                                <div className="space-y-3 pt-2">
-                                    <div className="h-px bg-zinc-900 w-full" />
-                                    <div className="flex items-center justify-between px-1">
-                                        <Label className="text-[10px] uppercase font-black text-zinc-600 tracking-wider">Officer Character (Optional)</Label>
-                                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-zinc-900/50 border border-zinc-800">
-                                            <div className="w-1 h-1 rounded-full bg-zinc-600" />
-                                            <span className="text-[8px] uppercase font-black text-zinc-500">Not mandatory</span>
-                                        </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase text-zinc-500">Vehicle</Label>
+                                        <Input placeholder="Explorer" value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)} className="bg-zinc-900 border-zinc-800" />
                                     </div>
-                                    
-                                    {characters.length === 0 ? (
-                                        <div className="p-4 rounded-xl bg-zinc-900/40 border border-dashed border-zinc-800 text-center">
-                                            <p className="text-xs text-zinc-600 italic">No duty characters found. Proceeding as a standalone system unit.</p>
-                                        </div>
-                                    ) : (
-                                        <div className="grid gap-2 max-h-56 overflow-y-auto pr-2 custom-scrollbar">
-                                            {/* Standalone System Unit Profile */}
-                                            <button
-                                                type="button"
-                                                onClick={() => setSelectedCharacter('')}
-                                                className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left group ${!selectedCharacter
-                                                    ? 'bg-zinc-100 border-zinc-200 text-black shadow-lg'
-                                                    : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:border-zinc-700 hover:bg-zinc-900/80'
-                                                    }`}
-                                            >
-                                                <div className={`p-2 rounded-lg transition-colors ${!selectedCharacter ? 'bg-zinc-950 text-white' : 'bg-zinc-800 text-zinc-600'}`}>
-                                                    <Laptop className="w-4 h-4" />
-                                                </div>
-                                                <div className="flex-1">
-                                                    <div className="font-bold text-sm">Standalone Unit</div>
-                                                    <div className="text-[10px] uppercase font-black tracking-tighter opacity-70">
-                                                        System Session • No Character Linked
-                                                    </div>
-                                                </div>
-                                                {!selectedCharacter && <CheckCircle className="w-4 h-4 text-emerald-500" />}
-                                            </button>
-
-                                            <div className="h-px bg-zinc-900/50 my-1" />
-
-                                            {characters.map((char) => {
-                                                const isActive = String(selectedCharacter) === String(char.id);
-                                                const policeMember = char.departmentMembers?.find(m => m.isActive && m.department?.type === 'police');
-                                                
-                                                const handleSelect = () => {
-                                                    if (isActive) {
-                                                        setSelectedCharacter('');
-                                                        return;
-                                                    }
-                                                    setSelectedCharacter(String(char.id));
-                                                    
-                                                    if (policeMember) {
-                                                        if (policeMember.callSign) setCallSign(policeMember.callSign);
-                                                        else if (policeMember.badgeNumber) setCallSign(policeMember.badgeNumber);
-                                                        if (policeMember.division) setSubdivision(policeMember.division);
-                                                    }
-                                                };
-
-                                                return (
-                                                    <button
-                                                        key={char.id}
-                                                        type="button"
-                                                        onClick={handleSelect}
-                                                        className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left group ${isActive
-                                                            ? 'bg-blue-600/10 border-blue-500/50 text-white shadow-[0_0_15px_rgba(59,130,246,0.1)]'
-                                                            : 'bg-zinc-900/50 border-zinc-900 text-zinc-500 hover:border-zinc-800 hover:bg-zinc-800/80 hover:text-zinc-400'
-                                                            }`}
-                                                    >
-                                                        <div className={`p-2 rounded-lg transition-colors ${isActive ? 'bg-blue-500 text-white shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'bg-zinc-800 text-zinc-600 group-hover:bg-zinc-700'}`}>
-                                                            <User className="w-4 h-4" />
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <div className="font-bold text-sm">{char.firstName} {char.lastName}</div>
-                                                            <div className="text-[10px] text-zinc-600 font-bold uppercase tracking-tight">
-                                                                {policeMember?.rank?.name || 'Officer'} • <span className="text-blue-500/70">{policeMember?.badgeNumber || '000'}</span>
-                                                                {policeMember?.division && <span className="text-zinc-700 ml-1.5">• {policeMember.division}</span>}
-                                                            </div>
-                                                        </div>
-                                                        {isActive && <CheckCircle className="w-4 h-4 text-blue-500" />}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] uppercase text-zinc-500">Plate</Label>
+                                        <Input placeholder="89ABC123" value={vehiclePlate} onChange={(e) => setVehiclePlate(e.target.value.toUpperCase())} className="bg-zinc-900 border-zinc-800 font-mono" />
+                                    </div>
                                 </div>
                             </div>
 
-                            <Button
-                                className="w-full bg-blue-600 hover:bg-blue-500 text-white h-12 font-black uppercase tracking-widest text-xs shadow-[0_10px_20px_-5px_rgba(59,130,246,0.3)] mt-4 disabled:opacity-50"
-                                onClick={handleDutyStart}
-                                disabled={isSubmitting || !callSign}
-                            >
-                                {isSubmitting ? (
-                                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                                ) : (
-                                    <CheckCircle className="w-4 h-4 mr-2" />
-                                )}
-                                Confirm 10-8 Status
+                            {characters.length > 0 && (
+                                <div className="space-y-2 pt-2">
+                                    <Label className="text-[10px] uppercase text-zinc-500">Select Character</Label>
+                                    <div className="flex gap-2 overflow-x-auto pb-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedCharacter('')}
+                                            className={`shrink-0 px-3 py-2 rounded-lg border text-xs ${!selectedCharacter ? 'bg-blue-600 border-blue-500 text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-500'}`}
+                                        >
+                                            None
+                                        </button>
+                                        {characters.map((char) => (
+                                            <button
+                                                key={char.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedCharacter(String(char.id));
+                                                    const policeMember = char.departmentMembers?.find(m => m.isActive && m.department?.type === 'police');
+                                                    if (policeMember?.callSign) setCallSign(policeMember.callSign);
+                                                    if (policeMember?.division) setSubdivision(policeMember.division);
+                                                }}
+                                                className={`shrink-0 px-3 py-2 rounded-lg border text-xs ${String(selectedCharacter) === String(char.id) ? 'bg-blue-600 border-blue-500 text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-500'}`}
+                                            >
+                                                {char.firstName} {char.lastName}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <Button className="w-full bg-blue-600" onClick={handleDutyStart} disabled={isSubmitting || !callSign}>
+                                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Start Duty'}
                             </Button>
                         </CardContent>
                     </Card>

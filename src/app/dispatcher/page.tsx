@@ -802,34 +802,25 @@ function DispatcherPageContent() {
                 </Card>
             </div>
 
-            {/* Duty Selection Modal */}
+            {/* Duty Selection Modal - Simplified */}
             {showDutyModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-                    <Card className="w-full max-w-sm bg-zinc-900/90 border-zinc-800 shadow-[0_0_50px_-12px_rgba(59,130,246,0.3)] border-t border-t-blue-500/50">
-                        <CardHeader className="text-center">
-                            <div className="mx-auto w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center mb-2">
-                                <Radio className="w-6 h-6 text-blue-500" />
-                            </div>
-                            <CardTitle className="text-xl font-bold text-white uppercase tracking-tight">Dispatcher Duty</CardTitle>
-                            <p className="text-xs text-zinc-500">Введите ваш позывной для начала работы</p>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
+                    <Card className="w-full max-w-xs bg-zinc-950 border-zinc-800">
+                        <CardHeader className="pb-3 text-center">
+                            <Radio className="w-6 h-6 text-blue-500 mx-auto mb-2" />
+                            <CardTitle className="text-lg font-bold text-white">Dispatcher</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                                <Label className="text-[10px] uppercase text-zinc-500 font-bold">Ваш позывной</Label>
-                                <Input 
-                                    className="bg-zinc-800 border-zinc-700 h-10 text-center text-lg font-mono tracking-widest text-white uppercase"
-                                    placeholder="DISP-1"
-                                    value={callSign}
-                                    onChange={(e) => setCallSign(e.target.value.toUpperCase())}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleDutyStart()}
-                                    autoFocus
-                                />
-                            </div>
-                            <Button 
-                                className="w-full bg-blue-600 hover:bg-blue-500 h-10 font-bold uppercase tracking-wider shadow-lg shadow-blue-500/20"
-                                onClick={handleDutyStart}
-                            >
-                                Встать на смену
+                        <CardContent className="space-y-3">
+                            <Input 
+                                placeholder="DISP-1"
+                                value={callSign}
+                                onChange={(e) => setCallSign(e.target.value.toUpperCase())}
+                                onKeyDown={(e) => e.key === 'Enter' && handleDutyStart()}
+                                className="bg-zinc-900 border-zinc-800 text-center"
+                                autoFocus
+                            />
+                            <Button className="w-full bg-blue-600" onClick={handleDutyStart}>
+                                Start Duty
                             </Button>
                         </CardContent>
                     </Card>
