@@ -8,7 +8,23 @@ export class UnitsService {
                 character: true,
                 departmentMember: true,
                 call: true,
-                pairedWith: { include: { character: true } }
+                user: {
+                    select: {
+                        username: true,
+                        avatarUrl: true
+                    }
+                },
+                pairedWith: { 
+                    include: { 
+                        character: true,
+                        user: {
+                            select: {
+                                username: true,
+                                avatarUrl: true
+                            }
+                        }
+                    } 
+                }
             }
         });
 
@@ -25,8 +41,10 @@ export class UnitsService {
             location: u.call?.location || "On Patrol",
             characterId: u.characterId,
             userId: u.userId,
+            user: u.user,
             partnerUserId: u.partnerUserId,
             partnerOfficer: u.pairedWith?.[0]?.character ? `${u.pairedWith[0].character.firstName} ${u.pairedWith[0].character.lastName}` : null,
+            partnerUser: u.pairedWith?.[0]?.user || null,
             isPaired: !!u.partnerUserId
         }));
     }

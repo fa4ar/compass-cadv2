@@ -22,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/context/AuthContext';
 import { socket } from '@/lib/socket';
 import { useSound } from '@/hooks/useSound';
@@ -61,9 +62,18 @@ interface Unit {
     nature: string;
     location: string;
     partnerUserId?: number;
+    partnerOfficer?: string;
+    partnerUser?: {
+        username: string;
+        avatarUrl: string;
+    };
     callId?: number;
     characterId?: number;
     userId?: number;
+    user?: {
+        username: string;
+        avatarUrl: string;
+    };
 }
 
 const TOP_ACTIONS = [
@@ -115,6 +125,8 @@ function PolicePageContent() {
     const canManageUnits = isSupervisor || false;
     const isInPair = currentUnit?.partnerUserId || false;
 
+    const groupedUnits = React.useMemo(() => groupUnits(units), [units]);
+
     // Sounds
     const { playSound } = useSound();
 
@@ -160,9 +172,7 @@ function PolicePageContent() {
 
         socket.on('update_911_call', (updatedCall: any) => {
             setCalls(prev => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
-            if (selectedCallForNotes?.id === updatedCall.id) {
-                setSelectedCallForNotes(updatedCall);
-            }
+            setSelectedCallForNotes((prev: any) => (prev?.id === updatedCall.id ? updatedCall : prev));
         });
 
         socket.on('new_911_note', ({ callId, note }: { callId: number, note: any }) => {
@@ -172,17 +182,17 @@ function PolicePageContent() {
                 }
                 return c;
             }));
-            if (selectedCallForNotes?.id === callId) {
-                setSelectedCallForNotes((prev: any) => ({
-                    ...prev,
-                    notes: [...(prev.notes || []), note]
-                }));
-            }
+            setSelectedCallForNotes((prev: any) => {
+                if (prev?.id === callId) {
+                    return { ...prev, notes: [...(prev.notes || []), note] };
+                }
+                return prev;
+            });
         });
 
         socket.on('delete_911_call', ({ id }: { id: number }) => {
             setCalls(prev => prev.filter(c => c.id !== id));
-            if (selectedCallForNotes?.id === id) setSelectedCallForNotes(null);
+            setSelectedCallForNotes((prev: any) => (prev?.id === id ? null : prev));
         });
 
         socket.on('dispatcher_message', (data: { message: string; from: string }) => {
@@ -202,10 +212,12 @@ function PolicePageContent() {
 
         socket.on('unit_status_changed', (data: { userId: number; status: string; unitCallSign: string }) => {
             setUnits(prev => prev.map(u => u.userId === data.userId ? { ...u, status: data.status } : u));
-            // Also update currentUnit if it's the same user
-            if (currentUnit?.userId === data.userId) {
-                setCurrentUnit(prev => prev ? { ...prev, status: data.status } : null);
-            }
+            setCurrentUnit(prev => {
+                if (prev?.userId === data.userId) {
+                    return { ...prev, status: data.status };
+                }
+                return prev;
+            });
         });
 
         socket.on('unit_pair_update', () => {
@@ -248,7 +260,7 @@ function PolicePageContent() {
             socket.off('pair_disbanded');
             socket.disconnect();
         };
-    }, [selectedCallForNotes?.id]);
+    }, []);
 
     const handleTabChange = (tab: string) => {
         setActiveTab(tab);
@@ -266,6 +278,28 @@ function PolicePageContent() {
         if (url.startsWith('http')) return url;
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
         return `${apiUrl}${url}`;
+    };
+
+    const groupUnits = (unitList: any[]) => {
+        const result: any[] = [];
+        const processed = new Set<number>();
+
+        unitList.forEach(u => {
+            if (u.userId && processed.has(u.userId)) return;
+
+            if (u.partnerUserId || (u.pairedWith && u.pairedWith.length > 0)) {
+                const partnerId = u.partnerUserId || u.pairedWith?.[0]?.userId;
+                if (partnerId) {
+                    const partner = unitList.find(p => p.userId === partnerId);
+                    if (partner && partner.userId) {
+                        processed.add(partner.userId);
+                    }
+                }
+            }
+            result.push(u);
+            if (u.userId) processed.add(u.userId);
+        });
+        return result;
     };
 
     const checkActiveUnit = async () => {
@@ -440,6 +474,7 @@ function PolicePageContent() {
 
             // Update local state immediately for instant feedback
             setCurrentUnit(prev => prev ? { ...prev, status } : null);
+            setUnits(prev => prev.map(u => u.userId === (selectedCharacter ? parseInt(selectedCharacter) : currentUnit?.userId) ? { ...u, status } : u));
             
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
             console.log('[handleUpdateStatus] Sending request with characterId:', selectedCharacter, 'status:', status);
@@ -851,9 +886,9 @@ function PolicePageContent() {
                                                             </tr>
                                                         </thead>
                                                         <tbody>
-                                                            {units.map((row: any) => (
+                                                            {groupedUnits.map((row: any) => (
                                                                 <tr 
-                                                                    key={row.unit} 
+                                                                    key={row.userId} 
                                                                     className={`${row.status === "Dispatched" ? "bg-blue-950/20" : ""} ${canManageUnits ? "cursor-pointer hover:bg-zinc-800/50" : ""}`}
                                                                     onClick={() => canManageUnits && setSelectedUnit(row)}
                                                                 >
@@ -861,18 +896,54 @@ function PolicePageContent() {
                                                                         <div className="flex items-center gap-2">
                                                                             <span>{row.unit}</span>
                                                                             {row.partnerUserId && (
-                                                                                <div 
-                                                                                    className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-500/20 rounded text-[10px] text-blue-400 cursor-help group relative"
-                                                                                    title={row.partnerOfficer ? `Партнер: ${row.partnerOfficer}` : 'В паре'}
-                                                                                >
-                                                                                    <User className="w-3 h-3" />
-                                                                                    +2
-                                                                                    {row.partnerOfficer && (
-                                                                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-zinc-800 text-[10px] text-white rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                                                                                            {row.partnerOfficer}
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
+                                                                                <TooltipProvider>
+                                                                                    <Tooltip>
+                                                                                        <TooltipTrigger asChild>
+                                                                                            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-500/20 rounded text-[10px] text-blue-400 cursor-help transition-colors hover:bg-blue-500/30">
+                                                                                                <User className="w-3 h-3" />
+                                                                                                +2
+                                                                                            </div>
+                                                                                        </TooltipTrigger>
+                                                                                        <TooltipContent className="bg-zinc-900 border-zinc-700 p-3 shadow-2xl">
+                                                                                            <div className="space-y-2">
+                                                                                                <div className="flex items-center gap-2 pb-1 border-b border-zinc-800">
+                                                                                                    <Users className="w-3.5 h-3.5 text-blue-400" />
+                                                                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Состав экипажа</span>
+                                                                                                </div>
+                                                                                                <div className="flex items-center gap-3">
+                                                                                                    <div className="relative">
+                                                                                                        <div className="w-8 h-8 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700">
+                                                                                                            {row.user?.avatarUrl ? (
+                                                                                                                <img src={getImageUrl(row.user.avatarUrl)!} alt={row.user.username} className="w-full h-full object-cover" />
+                                                                                                            ) : (
+                                                                                                                <div className="w-full h-full flex items-center justify-center text-zinc-600"><User className="w-4 h-4" /></div>
+                                                                                                            )}
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                    <div className="flex flex-col">
+                                                                                                        <span className="text-xs font-bold text-white">{row.officer}</span>
+                                                                                                        <span className="text-[10px] text-zinc-500">@{row.user?.username || 'user'}</span>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                                <div className="flex items-center gap-3">
+                                                                                                    <div className="relative">
+                                                                                                        <div className="w-8 h-8 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700">
+                                                                                                            {row.partnerUser?.avatarUrl ? (
+                                                                                                                <img src={getImageUrl(row.partnerUser.avatarUrl)!} alt={row.partnerUser.username} className="w-full h-full object-cover" />
+                                                                                                            ) : (
+                                                                                                                <div className="w-full h-full flex items-center justify-center text-zinc-600"><User className="w-4 h-4" /></div>
+                                                                                                            )}
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                    <div className="flex flex-col">
+                                                                                                        <span className="text-xs font-bold text-white">{row.partnerOfficer}</span>
+                                                                                                        <span className="text-[10px] text-zinc-500">@{row.partnerUser?.username || 'user'}</span>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </TooltipContent>
+                                                                                    </Tooltip>
+                                                                                </TooltipProvider>
                                                                             )}
                                                                         </div>
                                                                     </td>
@@ -884,6 +955,7 @@ function PolicePageContent() {
                                                                             {row.status === "Available" ? "10-8" : row.status === "Enroute" ? "10-97" : row.status === "Busy" ? "10-6" : row.status === "On Scene" ? "10-23" : row.status}
                                                                         </div>
                                                                     </td>
+                                                                    <td className="px-3 py-2 text-zinc-300">{row.time}</td>
                                                                     <td className="px-3 py-2 text-zinc-300">{row.nature}</td>
                                                                     <td className="px-3 py-2 text-zinc-300">{row.location}</td>
                                                                 </tr>
@@ -1473,40 +1545,61 @@ function PolicePageContent() {
                                 <div className="bg-zinc-800/40 p-3 rounded-lg border border-zinc-800">
                                     <p className="text-zinc-500 text-[10px] uppercase mb-2">Прикрепленные юниты</p>
                                     <div className="space-y-2">
-                                        {selectedCallForNotes.units.map((unit: any) => (
-                                            <div 
-                                                key={unit.userId} 
-                                                className={`flex items-center justify-between p-2 rounded border ${
-                                                    selectedCallForNotes.mainUnitId === unit.userId 
-                                                        ? 'bg-red-900/30 border-red-700' 
-                                                        : 'bg-zinc-800/50 border-zinc-700'
-                                                }`}
-                                            >
-                                                <div className="flex items-center gap-2">
-                                                    {unit.user?.avatarUrl && (
-                                                        <img src={unit.user.avatarUrl} alt="" className="w-6 h-6 rounded-full" />
-                                                    )}
-                                                    <div>
-                                                        <p className="text-zinc-200 text-xs font-medium">
-                                                            {unit.callSign || unit.character?.firstName + ' ' + unit.character?.lastName || unit.user?.username}
-                                                        </p>
-                                                        {selectedCallForNotes.mainUnitId === unit.userId && (
-                                                            <span className="text-[10px] text-red-400 font-bold">ГЛАВНЫЙ</span>
-                                                        )}
+                                        {groupUnits(selectedCallForNotes.units).map((unit: any) => {
+                                            const isPaired = unit.partnerUserId || (unit.pairedWith && unit.pairedWith.length > 0);
+                                            const partner = isPaired ? (unit.pairedWith?.[0] || selectedCallForNotes.units.find((p: any) => p.userId === (unit.partnerUserId || unit.pairedWith?.[0]?.userId))) : null;
+
+                                            return (
+                                                <div 
+                                                    key={unit.userId} 
+                                                    className={`flex items-center justify-between p-2 rounded border ${
+                                                        selectedCallForNotes.mainUnitId === unit.userId 
+                                                            ? 'bg-red-900/30 border-red-700' 
+                                                            : 'bg-zinc-800/50 border-zinc-700'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="flex -space-x-2">
+                                                            <div className="w-6 h-6 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700">
+                                                                {unit.user?.avatarUrl ? (
+                                                                    <img src={getImageUrl(unit.user.avatarUrl)!} alt="" className="w-full h-full object-cover" />
+                                                                ) : (
+                                                                    <div className="w-full h-full flex items-center justify-center text-zinc-600"><User className="w-3 h-3" /></div>
+                                                                )}
+                                                            </div>
+                                                            {partner && (
+                                                                <div className="w-6 h-6 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700 ring-2 ring-zinc-900">
+                                                                    {partner.user?.avatarUrl ? (
+                                                                        <img src={getImageUrl(partner.user.avatarUrl)!} alt="" className="w-full h-full object-cover" />
+                                                                    ) : (
+                                                                        <div className="w-full h-full flex items-center justify-center text-zinc-600"><User className="w-3 h-3" /></div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-zinc-200 text-[11px] font-medium leading-tight">
+                                                                {unit.callSign || unit.character?.firstName + ' ' + unit.character?.lastName || unit.user?.username}
+                                                                {partner && ` & ${partner.callSign || partner.character?.firstName + ' ' + partner.character?.lastName || partner.user?.username}`}
+                                                            </p>
+                                                            {selectedCallForNotes.mainUnitId === unit.userId && (
+                                                                <span className="text-[9px] text-red-400 font-bold uppercase tracking-tighter">ГЛАВНЫЙ</span>
+                                                            )}
+                                                        </div>
                                                     </div>
+                                                    {canManageUnits && selectedCallForNotes.mainUnitId !== unit.userId && (
+                                                        <Button 
+                                                            size="sm" 
+                                                            variant="ghost"
+                                                            className="h-6 px-2 text-[10px] text-red-400 hover:bg-red-900/20"
+                                                            onClick={() => handleSetMainUnit(selectedCallForNotes.id, unit.userId)}
+                                                        >
+                                                            Назначить
+                                                        </Button>
+                                                    )}
                                                 </div>
-                                                {canManageUnits && selectedCallForNotes.mainUnitId !== unit.userId && (
-                                                    <Button 
-                                                        size="sm" 
-                                                        variant="ghost"
-                                                        className="h-6 px-2 text-[10px] text-red-400 hover:bg-red-900/20"
-                                                        onClick={() => handleSetMainUnit(selectedCallForNotes.id, unit.userId)}
-                                                    >
-                                                        Назначить главным
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                     {currentUnit?.callId !== selectedCallForNotes.id && onDuty && (
                                         <Button 

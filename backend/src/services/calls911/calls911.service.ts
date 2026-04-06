@@ -56,6 +56,24 @@ export class Calls911Service {
                                 username: true,
                                 avatarUrl: true
                             }
+                        },
+                        pairedWith: {
+                            include: {
+                                character: {
+                                    select: {
+                                        id: true,
+                                        firstName: true,
+                                        lastName: true
+                                    }
+                                },
+                                user: {
+                                    select: {
+                                        id: true,
+                                        username: true,
+                                        avatarUrl: true
+                                    }
+                                }
+                            }
                         }
                     }
                 }
