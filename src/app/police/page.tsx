@@ -131,6 +131,8 @@ function PolicePageContent() {
 
     // Fines State
     const [showFineModal, setShowFineModal] = useState(false);
+    const [showPairInviteModal, setShowPairInviteModal] = useState(false);
+    const [pairInviteData, setPairInviteData] = useState<{ fromUserId: number; fromCallSign: string } | null>(null);
     const [fineForm, setFineForm] = useState({
         characterId: null,
         amount: "",
@@ -212,9 +214,11 @@ function PolicePageContent() {
 
         socket.on('pair_invite', (data: { fromUserId: number; fromCallSign: string }) => {
             playSound('notification');
+            setPairInviteData(data);
+            setShowPairInviteModal(true);
             toast({ 
                 title: 'Приглашение в пару', 
-                description: `${data.fromCallSign} пригласил вас в патрульную пару. Используйте кнопку в карточке юнита для принятия.`,
+                description: `${data.fromCallSign} пригласил вас в патрульную пару.`,
                 duration: 10000 
             });
         });
@@ -749,6 +753,8 @@ function PolicePageContent() {
             if (res.ok) {
                 playSound('notification');
                 toast({ title: 'Принято', description: 'Вы присоединились к патрульной паре' });
+                setShowPairInviteModal(false);
+                setPairInviteData(null);
                 fetchData();
             }
         } catch (err) {
@@ -1620,10 +1626,6 @@ function PolicePageContent() {
                                         <UserPlus className="w-4 h-4 mr-2" />
                                         Пригласить в пару
                                     </Button>
-                                    <Button variant="outline" className="w-full border-green-800 text-green-400 hover:bg-green-900/20" onClick={handleAcceptPairInvite}>
-                                        <UserPlus className="w-4 h-4 mr-2" />
-                                        Принять приглашение
-                                    </Button>
                                 </>
                             )}
 
@@ -1701,6 +1703,31 @@ function PolicePageContent() {
                             </div>
                         </CardContent>
                     </Card>
+                </div>
+            )}
+
+            {/* Pair Invite Modal */}
+            {showPairInviteModal && pairInviteData && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setShowPairInviteModal(false); setPairInviteData(null); }}>
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+                        <div className="text-center space-y-4">
+                            <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto">
+                                <UserPlus className="w-8 h-8 text-blue-500" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-white">Приглашение в пару</h2>
+                                <p className="text-zinc-400 mt-2">{pairInviteData.fromCallSign} приглашает вас в патрульную пару</p>
+                            </div>
+                            <div className="flex gap-3 pt-2">
+                                <Button variant="outline" className="flex-1" onClick={() => { setShowPairInviteModal(false); setPairInviteData(null); }}>
+                                    Отмена
+                                </Button>
+                                <Button className="flex-1 bg-green-600 hover:bg-green-500" onClick={handleAcceptPairInvite}>
+                                    Принять
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
