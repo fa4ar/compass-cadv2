@@ -426,16 +426,24 @@ function PolicePageContent() {
     };
 
     const handleUpdateStatus = async (status: string) => {
-        if (!onDuty || !selectedCharacter) return;
+        if (!onDuty || !selectedCharacter) {
+            console.log('[handleUpdateStatus] Skipped - onDuty:', onDuty, 'selectedCharacter:', selectedCharacter);
+            return;
+        }
 
         try {
             const token = localStorage.getItem('accessToken');
-            if (!token) return;
+            if (!token) {
+                console.log('[handleUpdateStatus] No token');
+                return;
+            }
 
             // Update local state immediately for instant feedback
             setCurrentUnit(prev => prev ? { ...prev, status } : null);
             
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            console.log('[handleUpdateStatus] Sending request with characterId:', selectedCharacter, 'status:', status);
+            
             const res = await fetch(`${apiUrl}/api/units/status`, {
                 method: 'PATCH',
                 headers: {
@@ -448,15 +456,21 @@ function PolicePageContent() {
                 })
             });
 
+            console.log('[handleUpdateStatus] Response:', res.status, res.ok);
+            
             if (res.ok) {
+                const data = await res.json();
+                console.log('[handleUpdateStatus] Updated unit:', data);
                 toast({ title: 'Статус обновлен', description: `Новый статус: ${status}` });
             } else {
+                const errData = await res.json();
+                console.log('[handleUpdateStatus] Error:', errData);
                 // Revert on error
                 fetchData();
-                toast({ title: 'Ошибка', description: 'Не удалось обновить статус', variant: 'destructive' });
+                toast({ title: 'Ошибка', description: errData.error || 'Не удалось обновить статус', variant: 'destructive' });
             }
         } catch (err) {
-            console.error('Failed to update status', err);
+            console.error('[handleUpdateStatus] Failed:', err);
         }
     };
 

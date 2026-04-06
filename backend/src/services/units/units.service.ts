@@ -1,5 +1,5 @@
 import prisma from '../../lib/prisma';
-import { io } from '../../server';
+import { io, activeUserSessions } from '../../server';
 
 export class UnitsService {
     static async getAllUnits() {
@@ -117,6 +117,8 @@ export class UnitsService {
             }
         });
         
+        console.log(`[updateStatusById] Emitting for userId: ${unit.userId}, status: ${status}`);
+        
         if (io) {
             io.emit('unit_status_changed', {
                 userId: unit.userId,
@@ -125,7 +127,7 @@ export class UnitsService {
             });
         }
         
-        return updatedUnit;
+        return { ...updatedUnit, characterId: unit.characterId, userId: unit.userId };
     }
 
     static async getCurrentUnit(userId: number) {
@@ -274,7 +276,6 @@ export class UnitsService {
 
         // Emit socket event to target user only
         if (io) {
-            const { activeUserSessions } = await import('../../server');
             const targetSocketIds = activeUserSessions.get(targetUserId);
             if (targetSocketIds && targetSocketIds.size > 0) {
                 for (const socketId of targetSocketIds) {
@@ -283,12 +284,10 @@ export class UnitsService {
                         fromCallSign: senderUnit?.callSign || 'Unknown'
                     });
                 }
+                console.log(`[PairInvite] Sent to target user ${targetUserId} sockets:`, Array.from(targetSocketIds));
             } else {
-                // User not online, emit to all as fallback
-                io.emit('pair_invite', {
-                    fromUserId: senderUserId,
-                    fromCallSign: senderUnit?.callSign || 'Unknown'
-                });
+                // User not online - don't emit to everyone, just log
+                console.log(`[PairInvite] Target user ${targetUserId} not online, invite stored but no socket notification`);
             }
         }
 
