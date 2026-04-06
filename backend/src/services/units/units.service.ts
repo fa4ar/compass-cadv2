@@ -7,7 +7,8 @@ export class UnitsService {
             include: {
                 character: true,
                 departmentMember: true,
-                call: true
+                call: true,
+                pairedWith: { include: { character: true } }
             }
         });
 
@@ -23,7 +24,10 @@ export class UnitsService {
             nature: u.call?.description || "None",
             location: u.call?.location || "On Patrol",
             characterId: u.characterId,
-            userId: u.userId
+            userId: u.userId,
+            partnerUserId: u.partnerUserId,
+            partnerOfficer: u.pairedWith?.[0]?.character ? `${u.pairedWith[0].character.firstName} ${u.pairedWith[0].character.lastName}` : null,
+            isPaired: !!u.partnerUserId
         }));
     }
 
@@ -233,5 +237,114 @@ export class UnitsService {
         }
 
         return { success: true, message: 'Unit unassigned from call', callId };
+    }
+
+    static async inviteToPair(senderUserId: number, targetUserId: number) {
+        const targetUnit = await (prisma as any).unit.findUnique({
+            where: { userId: targetUserId }
+        });
+
+        if (!targetUnit) {
+            throw new Error('Target unit not found');
+        }
+
+        if (targetUnit.partnerUserId) {
+            throw new Error('Target unit already has a partner');
+        }
+
+        // Store pending invite
+        if (!(global as any).pendingPairInvites) {
+            (global as any).pendingPairInvites = {};
+        }
+        (global as any).pendingPairInvites[targetUserId] = { fromUserId: senderUserId, timestamp: Date.now() };
+
+        const senderUnit = await (prisma as any).unit.findUnique({
+            where: { userId: senderUserId }
+        });
+
+        // Emit socket event to target user
+        if (io) {
+            io.emit('pair_invite', {
+                fromUserId: senderUserId,
+                fromCallSign: senderUnit?.callSign || 'Unknown'
+            });
+        }
+
+        return { success: true, message: 'Invite sent' };
+    }
+
+    static async acceptPairInvite(userId: number) {
+        const pendingInvite = (global as any).pendingPairInvites?.[userId];
+        
+        if (!pendingInvite) {
+            throw new Error('No pending invite found');
+        }
+
+        // Clean up old invites (older than 5 minutes)
+        if (Date.now() - pendingInvite.timestamp > 5 * 60 * 1000) {
+            delete (global as any).pendingPairInvites?.[userId];
+            throw new Error('Invite expired');
+        }
+
+        const senderUnit = await (prisma as any).unit.findUnique({
+            where: { userId: pendingInvite.fromUserId }
+        });
+
+        if (!senderUnit) {
+            throw new Error('Sender unit not found');
+        }
+
+        // Link both units
+        await (prisma as any).unit.update({
+            where: { userId: pendingInvite.fromUserId },
+            data: { partnerUserId: userId }
+        });
+
+        await (prisma as any).unit.update({
+            where: { userId },
+            data: { partnerUserId: pendingInvite.fromUserId }
+        });
+
+        // Clear pending invite
+        delete (global as any).pendingPairInvites?.[userId];
+
+        // Emit events
+        if (io) {
+            io.emit('pair_formed', {
+                userId1: pendingInvite.fromUserId,
+                userId2: userId
+            });
+        }
+
+        return { success: true, message: 'Pair formed' };
+    }
+
+    static async leavePair(userId: number) {
+        const unit = await (prisma as any).unit.findUnique({
+            where: { userId }
+        });
+
+        if (!unit?.partnerUserId) {
+            throw new Error('Not in a pair');
+        }
+
+        const partnerUserId = unit.partnerUserId;
+
+        // Remove partner from both
+        await (prisma as any).unit.update({
+            where: { userId },
+            data: { partnerUserId: null }
+        });
+
+        await (prisma as any).unit.update({
+            where: { userId: partnerUserId },
+            data: { partnerUserId: null }
+        });
+
+        if (io) {
+            io.emit('pair_disbanded', { userId1: userId, userId2: partnerUserId });
+        }
+
+        return { success: true };
     }
 }

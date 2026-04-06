@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { Shield, Users, FileSearch, Laptop, Map, AlertTriangle, Search, Navigation, MapPinned, ArrowRightLeft, CheckCircle, BarChart3, MessageCircle, PlusSquare, Ambulance, Clock, Car, Footprints, Siren, X, User, LogOut, MapPin, Send, Loader2 } from 'lucide-react';
+import { Shield, Users, FileSearch, Laptop, Map, AlertTriangle, Search, Navigation, MapPinned, ArrowRightLeft, CheckCircle, BarChart3, MessageCircle, PlusSquare, Ambulance, Clock, Car, Footprints, Siren, X, User, LogOut, MapPin, Send, Loader2, UserPlus, UserMinus } from 'lucide-react';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 const LiveMap = dynamic(() => import('@/components/Map/LiveMap'), { 
@@ -109,6 +109,7 @@ function PolicePageContent() {
 
     const isSupervisor = currentMember?.rank?.isSupervisor || user?.roles?.some(r => r.toLowerCase() === 'admin' || r.toLowerCase() === 'supervisor') || false;
     const canManageUnits = isSupervisor || user?.roles?.some(r => r.toLowerCase() === 'dispatcher') || false;
+    const isInPair = currentUnit?.partnerUserId || false;
 
     // Sounds
     const { playSound } = useSound();
@@ -179,6 +180,21 @@ function PolicePageContent() {
             fetchData();
         });
 
+        socket.on('pair_invite', (data: { fromUserId: number; fromCallSign: string }) => {
+            playSound('notification');
+            toast({ title: 'Pair Invite', description: `${data.fromCallSign} invited you to pair patrol` });
+        });
+
+        socket.on('pair_formed', () => {
+            fetchData();
+            toast({ title: 'Pair Created', description: 'You are now in a patrol pair' });
+        });
+
+        socket.on('pair_disbanded', () => {
+            fetchData();
+            toast({ title: 'Pair Disbanded', description: 'Patrol pair has been separated' });
+        });
+
         return () => {
             socket.off('new_911_call');
             socket.off('update_911_call');
@@ -186,6 +202,9 @@ function PolicePageContent() {
             socket.off('delete_911_call');
             socket.off('dispatcher_message');
             socket.off('unit_unassigned');
+            socket.off('pair_invite');
+            socket.off('pair_formed');
+            socket.off('pair_disbanded');
             socket.disconnect();
         };
     }, [selectedCallForNotes?.id]);
@@ -506,6 +525,39 @@ function PolicePageContent() {
         }
     };
 
+    const handleInviteToPair = async () => {
+        if (!selectedUnit) return;
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const res = await fetch(`${apiUrl}/api/units/invite`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ targetUserId: selectedUnit.userId })
+            });
+            if (res.ok) {
+                toast({ title: 'Invite Sent', description: `Invite sent to ${selectedUnit.unit}` });
+                setSelectedUnit(null);
+            }
+        } catch (err) {
+            console.error('Failed to invite to pair', err);
+        }
+    };
+
+    const handleLeavePair = async () => {
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const res = await fetch(`${apiUrl}/api/units/leave`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+            if (res.ok) {
+                toast({ title: 'Left Pair', description: 'You have left the patrol pair' });
+                fetchData();
+            }
+        } catch (err) {
+            console.error('Failed to leave pair', err);
+        }
+    };
+
     return (
         <div className="fixed top-14 inset-x-0 bottom-0 bg-background flex flex-col overflow-hidden">
             <div className="flex-1 overflow-hidden flex flex-col p-3">
@@ -585,11 +637,19 @@ function PolicePageContent() {
                                                             {units.map((row: any) => (
                                                                 <tr 
                                                                     key={row.unit} 
-                                                                className={`${row.status === "Dispatched" ? "bg-blue-950/20" : ""} ${canManageUnits ? "cursor-pointer hover:bg-zinc-800/50" : ""}`}
+                                                                    className={`${row.status === "Dispatched" ? "bg-blue-950/20" : ""} ${canManageUnits ? "cursor-pointer hover:bg-zinc-800/50" : ""}`}
                                                                     onClick={() => canManageUnits && setSelectedUnit(row)}
                                                                 >
                                                                     <td className={`px-3 py-2 font-semibold ${row.status === "Available" ? "text-green-400" : "text-blue-400"}`}>
-                                                                        {row.unit}
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span>{row.unit}</span>
+                                                                            {row.isPaired && (
+                                                                                <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-500/20 rounded text-[10px] text-blue-400">
+                                                                                    <User className="w-3 h-3" />
+                                                                                    +2
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
                                                                     </td>
                                                                     <td className="px-3 py-2 text-zinc-300">{row.beat}</td>
                                                                     <td className="px-3 py-2 text-zinc-300">{row.call}</td>
@@ -1210,6 +1270,20 @@ function PolicePageContent() {
                                 >
                                     <X className="w-4 h-4 mr-2" />
                                     Unassign from Call
+                                </Button>
+                            )}
+
+                            {!selectedUnit.partnerUserId && !isInPair && (
+                                <Button variant="outline" className="w-full border-blue-800 text-blue-400 hover:bg-blue-900/20" onClick={handleInviteToPair}>
+                                    <UserPlus className="w-4 h-4 mr-2" />
+                                    Invite to Pair
+                                </Button>
+                            )}
+
+                            {isInPair && (
+                                <Button variant="outline" className="w-full border-orange-800 text-orange-400 hover:bg-orange-900/20" onClick={handleLeavePair}>
+                                    <UserMinus className="w-4 h-4 mr-2" />
+                                    Leave Pair
                                 </Button>
                             )}
                         </div>

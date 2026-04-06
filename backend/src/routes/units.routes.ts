@@ -25,4 +25,9 @@ router.post('/message', authMiddleware as RequestHandler, requireRoles('supervis
 // Supervisor: unassign unit from call
 router.delete('/:userId/call', authMiddleware as RequestHandler, requireRoles('supervisor', 'admin', 'dispatcher') as RequestHandler, UnitsController.unassignFromCall);
 
+// Pair patrol
+router.post('/invite', authMiddleware as RequestHandler, UnitsController.inviteToPair);
+router.post('/accept', authMiddleware as RequestHandler, UnitsController.acceptPairInvite);
+router.delete('/leave', authMiddleware as RequestHandler, UnitsController.leavePair);
+
 export default router;

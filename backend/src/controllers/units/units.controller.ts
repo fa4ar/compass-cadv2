@@ -108,4 +108,40 @@ export class UnitsController {
             next(error);
         }
     }
+
+    static async inviteToPair(req: Request, res: Response, next: NextFunction) {
+        try {
+            const senderUserId = (req as any).user?.userId;
+            const { targetUserId } = req.body;
+
+            if (!targetUserId) {
+                return res.status(400).json({ error: 'Missing targetUserId' });
+            }
+
+            const result = await UnitsService.inviteToPair(Number(senderUserId), Number(targetUserId));
+            res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    static async acceptPairInvite(req: Request, res: Response, next: NextFunction) {
+        try {
+            const userId = (req as any).user?.userId;
+            const result = await UnitsService.acceptPairInvite(Number(userId));
+            res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    static async leavePair(req: Request, res: Response, next: NextFunction) {
+        try {
+            const userId = (req as any).user?.userId;
+            await UnitsService.leavePair(Number(userId));
+            res.status(204).send();
+        } catch (error) {
+            next(error);
+        }
+    }
 }
