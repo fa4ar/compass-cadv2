@@ -35,6 +35,48 @@ router.get('/', authMiddleware as RequestHandler, requireRoles('admin') as Reque
     }
 });
 
+router.patch('/:id/ban', authMiddleware as RequestHandler, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { ban, isBanned, reason } = req.body;
+        
+        // Handle both 'ban' (from admin panel) and 'isBanned' (from self-unban)
+        const newBanStatus = isBanned !== undefined ? isBanned : ban;
+
+        // Check if user is unbanning themselves
+        const requesterId = (req as any).user?.userId;
+        const targetId = parseInt(id);
+        const userRoles = ((req as any).user?.roles || []).map((r: string) => r.toLowerCase());
+        const isAdmin = userRoles.includes('admin') || userRoles.includes('supervisor');
+
+        if (requesterId !== targetId && !isAdmin) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+
+        const user = await (prisma as any).user.update({
+            where: { id: targetId },
+            data: {
+                isBanned: newBanStatus,
+                banReason: newBanStatus ? reason : null
+            }
+        });
+
+        // Emit socket event for real-time ban
+        if (io) {
+            io.emit('user_banned', {
+                userId: targetId,
+                isBanned: newBanStatus,
+                reason: newBanStatus ? reason : null
+            });
+        }
+
+        res.json(user);
+    } catch (error) {
+        console.error('Ban user error:', error);
+        res.status(500).json({ error: 'Failed to update user' });
+    }
+});
+
 router.post('/:id/ban', authMiddleware as RequestHandler, requireRoles('admin') as RequestHandler, async (req, res) => {
     try {
         const { id } = req.params;

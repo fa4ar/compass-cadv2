@@ -87,9 +87,12 @@ export default function SelectorPage() {
 function SelectorPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const isBanned = searchParams.get('banned') === 'true';
-    const banReason = searchParams.get('reason');
     const { user, hasRole, isAuthenticated, isLoading, logout } = useAuth();
+    
+    // Check both URL param and user object status
+    const isBanned = searchParams.get('banned') === 'true' || user?.isBanned === true;
+    const banReason = searchParams.get('reason') || user?.banReason;
+    
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {

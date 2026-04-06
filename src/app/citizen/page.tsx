@@ -111,7 +111,8 @@ export default function CitizenPage() {
         if (!authLoading && !isAuthenticated) {
             router.push('/auth/login');
         } else if (isAuthenticated && user?.isBanned) {
-            router.push(`/?banned=true&reason=${encodeURIComponent(user.banReason || '')}`);
+            // Use window.location for a hard redirect to ensure the ban screen is shown
+            window.location.href = `/?banned=true&reason=${encodeURIComponent(user.banReason || '')}`;
         }
     }, [authLoading, isAuthenticated, user, router]);
 

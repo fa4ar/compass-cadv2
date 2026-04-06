@@ -74,7 +74,23 @@ export default function Header() {
     const CurrentIcon = current?.icon || IdCard;
 
     if (isLoading) return <HeaderSkeleton />;
-    if (!isAuthenticated || user?.isBanned) return null;
+    if (!isAuthenticated) return null;
+
+    // Если забанен - показываем только лого и меню пользователя (чтобы можно было выйти)
+    if (user?.isBanned) {
+        return (
+            <div className="h-14 border-b border-zinc-800 bg-zinc-950 flex items-center px-4 shrink-0 shadow-xl sticky top-0 z-[100] w-full">
+                <div className="flex-1 flex items-center gap-2">
+                    <span className="text-[10px] font-black text-red-500 uppercase tracking-[0.3em] bg-red-950/20 border border-red-900/30 px-3 py-1 rounded-full">
+                        ACCOUNT SUSPENDED
+                    </span>
+                </div>
+                <div className="flex-1 flex items-center gap-3 justify-end">
+                    <UserMenu />
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="h-14 border-b border-zinc-800 bg-zinc-950 flex items-center px-4 shrink-0 shadow-xl sticky top-0 z-[100] w-full">
