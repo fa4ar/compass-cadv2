@@ -62,6 +62,8 @@ interface Unit {
     location: string;
     partnerUserId?: number;
     callId?: number;
+    characterId?: number;
+    userId?: number;
 }
 
 const TOP_ACTIONS = [
