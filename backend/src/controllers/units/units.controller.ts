@@ -46,6 +46,11 @@ export class UnitsController {
             const userId = (req as any).user?.userId;
             const { characterId, userId: targetUserId, status } = req.body;
             
+            console.log(`[updateStatus] userId from token: ${userId}`);
+            console.log(`[updateStatus] characterId from body: ${characterId}`);
+            console.log(`[updateStatus] targetUserId from body: ${targetUserId}`);
+            console.log(`[updateStatus] status: ${status}`);
+            
             // Dispatcher can update by characterId or userId, self can only update self
             const targetId = characterId || targetUserId;
             
@@ -58,9 +63,13 @@ export class UnitsController {
                 ? { characterId: Number(characterId) } 
                 : { userId: Number(targetUserId) };
             
+            console.log(`[updateStatus] whereClause:`, whereClause);
+            
             const unit = await UnitsService.updateStatusById(whereClause, status);
+            console.log(`[updateStatus] Success, updated:`, unit);
             res.json(unit);
-        } catch (error) {
+        } catch (error: any) {
+            console.error('[updateStatus] Error:', error.message);
             next(error);
         }
     }

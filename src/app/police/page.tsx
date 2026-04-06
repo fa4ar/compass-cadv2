@@ -827,13 +827,12 @@ function PolicePageContent() {
                         <div className="flex-1 flex gap-3 min-h-0">
                             {activeTab === "Статус юнитов" && (
                                 <div className="flex-1 space-y-3 min-h-0 flex flex-col">
-                                    {isSupervisor && (
-                                        <div className="rounded-lg border border-zinc-700 flex-1 overflow-hidden flex flex-col min-h-0">
-                                            <div className="bg-zinc-800/50 px-3 py-2 border-b border-zinc-700 flex items-center gap-2 shrink-0">
-                                                <Users className="w-4 h-4 text-zinc-400" />
-                                                <span className="text-sm font-medium text-zinc-300">Юниты</span>
-                                            </div>
-                                            <div className="overflow-auto flex-1">
+                                    <div className="rounded-lg border border-zinc-700 flex-1 overflow-hidden flex flex-col min-h-0">
+                                        <div className="bg-zinc-800/50 px-3 py-2 border-b border-zinc-700 flex items-center gap-2 shrink-0">
+                                            <Users className="w-4 h-4 text-zinc-400" />
+                                            <span className="text-sm font-medium text-zinc-300">Юниты</span>
+                                        </div>
+                                        <div className="overflow-auto flex-1">
                                                 {isLoading ? (
                                                     <div className="flex items-center justify-center h-32 text-zinc-500">Загрузка...</div>
                                                 ) : units.length === 0 ? (
@@ -877,7 +876,6 @@ function PolicePageContent() {
                                                                             {row.status === "Available" ? "10-8" : row.status === "Enroute" ? "10-97" : row.status === "Busy" ? "10-6" : row.status === "On Scene" ? "10-23" : row.status}
                                                                         </div>
                                                                     </td>
-                                                                    <td className="px-3 py-2 text-zinc-400">{row.time}</td>
                                                                     <td className="px-3 py-2 text-zinc-300">{row.nature}</td>
                                                                     <td className="px-3 py-2 text-zinc-300">{row.location}</td>
                                                                 </tr>
@@ -887,7 +885,6 @@ function PolicePageContent() {
                                                 )}
                                             </div>
                                         </div>
-                                    )}
 
                                     <div className="rounded-lg border border-zinc-700 overflow-hidden flex-1 flex flex-col min-h-0">
                                         <div className="bg-zinc-800/50 px-3 py-2 border-b border-zinc-700 flex items-center gap-2 shrink-0">
