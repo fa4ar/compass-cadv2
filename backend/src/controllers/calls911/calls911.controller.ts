@@ -6,10 +6,14 @@ import { io } from '../../server';
 export class Calls911Controller {
     create = async (req: AuthRequest, res: Response) => {
         try {
-            const { callerName, location, description } = req.body;
-            const characterId = req.user?.userId; // This is the ID of the user's active character
+            const { callerName, location, description, phoneNumber } = req.body;
+            
+            if (!callerName || !location || !description) {
+                return res.status(400).json({ error: 'Missing required fields: callerName, location, description' });
+            }
+            
+            const characterId = req.user?.userId;
 
-            // Fetch user info from req.user
             const userUsername = req.user?.username;
             const userDiscordId = req.user?.discordId;
             const userAvatarUrl = req.user?.avatarUrl;
@@ -19,13 +23,15 @@ export class Calls911Controller {
                 callerName,
                 location,
                 description,
+                phoneNumber,
                 userUsername,
                 userDiscordId,
                 userAvatarUrl
             });
             
-            // 🔥 Emit socket event
-            io.emit('new_911_call', newCall);
+            if (io) {
+                io.emit('new_911_call', newCall);
+            }
             
             res.status(201).json(newCall);
         } catch (error: any) {

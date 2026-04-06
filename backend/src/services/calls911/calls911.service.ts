@@ -8,6 +8,7 @@ export class Calls911Service {
         callerName: string, 
         location: string, 
         description: string,
+        phoneNumber?: string,
         userUsername?: string,
         userDiscordId?: string,
         userAvatarUrl?: string
@@ -18,6 +19,7 @@ export class Calls911Service {
                 callerName: data.callerName,
                 location: data.location,
                 description: data.description,
+                phoneNumber: data.phoneNumber,
                 userUsername: data.userUsername,
                 userDiscordId: data.userDiscordId,
                 userAvatarUrl: data.userAvatarUrl,

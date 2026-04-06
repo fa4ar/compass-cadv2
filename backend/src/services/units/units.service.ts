@@ -272,12 +272,24 @@ export class UnitsService {
             where: { userId: senderUserId }
         });
 
-        // Emit socket event to target user
+        // Emit socket event to target user only
         if (io) {
-            io.emit('pair_invite', {
-                fromUserId: senderUserId,
-                fromCallSign: senderUnit?.callSign || 'Unknown'
-            });
+            const { activeUserSessions } = await import('../../server');
+            const targetSocketIds = activeUserSessions.get(targetUserId);
+            if (targetSocketIds && targetSocketIds.size > 0) {
+                for (const socketId of targetSocketIds) {
+                    io.to(socketId).emit('pair_invite', {
+                        fromUserId: senderUserId,
+                        fromCallSign: senderUnit?.callSign || 'Unknown'
+                    });
+                }
+            } else {
+                // User not online, emit to all as fallback
+                io.emit('pair_invite', {
+                    fromUserId: senderUserId,
+                    fromCallSign: senderUnit?.callSign || 'Unknown'
+                });
+            }
         }
 
         return { success: true, message: 'Invite sent' };
