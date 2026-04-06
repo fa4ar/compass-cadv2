@@ -200,6 +200,10 @@ function PolicePageContent() {
 
         socket.on('unit_status_changed', (data: { userId: number; status: string; unitCallSign: string }) => {
             setUnits(prev => prev.map(u => u.userId === data.userId ? { ...u, status: data.status } : u));
+            // Also update currentUnit if it's the same user
+            if (currentUnit?.userId === data.userId) {
+                setCurrentUnit(prev => prev ? { ...prev, status: data.status } : null);
+            }
         });
 
         socket.on('unit_pair_update', () => {
@@ -424,6 +428,9 @@ function PolicePageContent() {
             const token = localStorage.getItem('accessToken');
             if (!token) return;
 
+            // Update local state immediately for instant feedback
+            setCurrentUnit(prev => prev ? { ...prev, status } : null);
+            
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
             const res = await fetch(`${apiUrl}/api/units/status`, {
                 method: 'PATCH',
@@ -439,8 +446,9 @@ function PolicePageContent() {
 
             if (res.ok) {
                 toast({ title: 'Статус обновлен', description: `Новый статус: ${status}` });
-                fetchData();
             } else {
+                // Revert on error
+                fetchData();
                 toast({ title: 'Ошибка', description: 'Не удалось обновить статус', variant: 'destructive' });
             }
         } catch (err) {
@@ -1278,7 +1286,7 @@ function PolicePageContent() {
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() => handleUpdateStatus("Available")}
-                                                    className="w-full bg-green-900/30 border-green-700/50 text-green-400 hover:bg-green-900/50"
+                                                    className={`w-full bg-green-900/30 border-green-700/50 hover:bg-green-900/50 ${currentUnit?.status === 'Available' ? 'ring-2 ring-green-500 text-green-300' : 'text-green-400'}`}
                                                 >
                                                     <Car className="w-4 h-4 mr-2" />
                                                     10-8 (Доступен)
@@ -1287,7 +1295,7 @@ function PolicePageContent() {
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() => handleUpdateStatus("Busy")}
-                                                    className="w-full bg-yellow-900/30 border-yellow-700/50 text-yellow-400 hover:bg-yellow-900/50"
+                                                    className={`w-full bg-yellow-900/30 border-yellow-700/50 hover:bg-yellow-900/50 ${currentUnit?.status === 'Busy' ? 'ring-2 ring-yellow-500 text-yellow-300' : 'text-yellow-400'}`}
                                                 >
                                                     <Siren className="w-4 h-4 mr-2" />
                                                     10-6 (Занят)
@@ -1296,7 +1304,7 @@ function PolicePageContent() {
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() => handleUpdateStatus("Enroute")}
-                                                    className="w-full bg-blue-900/30 border-blue-700/50 text-blue-400 hover:bg-blue-900/50"
+                                                    className={`w-full bg-blue-900/30 border-blue-700/50 hover:bg-blue-900/50 ${currentUnit?.status === 'Enroute' ? 'ring-2 ring-blue-500 text-blue-300' : 'text-blue-400'}`}
                                                 >
                                                     <Footprints className="w-4 h-4 mr-2" />
                                                     10-97 (В пути)
