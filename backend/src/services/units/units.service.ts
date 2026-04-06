@@ -14,8 +14,8 @@ export class UnitsService {
 
         // Map to frontend format
         return units.map((u: any) => ({
-            unit: u.callSign || u.departmentMember?.callSign || u.departmentMember?.badgeNumber || 'Unit',
-            officer: u.character ? `${u.character.firstName} ${u.character.lastName}` : 'System Unit',
+            unit: u.callSign || u.departmentMember?.callSign || u.departmentMember?.badgeNumber || u.id.toString(),
+            officer: u.character ? `${u.character.firstName} ${u.character.lastName}` : u.callSign || 'No Character',
             status: u.status,
             beat: u.beat || "N/A",
             call: u.call ? `#${u.call.id}` : "Available",
@@ -75,8 +75,8 @@ export class UnitsService {
             console.log(`[UnitsService] Unit upserted successfully: ${unit.id}`);
 
             return {
-                unit: unit.callSign || unit.departmentMember?.callSign || unit.departmentMember?.badgeNumber || 'Unit',
-                officer: unit.character ? `${unit.character.firstName} ${unit.character.lastName}` : 'System Unit',
+                unit: unit.callSign || unit.departmentMember?.callSign || unit.departmentMember?.badgeNumber || unit.id.toString(),
+                officer: unit.character ? `${unit.character.firstName} ${unit.character.lastName}` : unit.callSign || 'No Character',
                 status: unit.status,
                 beat: unit.beat || "N/A",
                 call: "Available",
@@ -156,8 +156,8 @@ export class UnitsService {
 
         return {
             ...unit,
-            unit: unit.callSign || unit.departmentMember?.callSign || unit.departmentMember?.badgeNumber || 'Unit',
-            officer: unit.character ? `${unit.character.firstName} ${unit.character.lastName}` : 'System Unit',
+            unit: unit.callSign || unit.departmentMember?.callSign || unit.departmentMember?.badgeNumber || unit.userId.toString(),
+            officer: unit.character ? `${unit.character.firstName} ${unit.character.lastName}` : unit.callSign || 'No Character',
             time: unit.lastStatusAt.toLocaleTimeString(),
             // Additional info for frontend state
             departmentMember: unit.departmentMember,
