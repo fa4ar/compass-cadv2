@@ -2,7 +2,7 @@ import prisma from '../../lib/prisma';
 
 export class UsersService {
     async getUserProfile(userId: number) {
-        return prisma.user.findUnique({
+        return (prisma as any).user.findUnique({
             where: { id: userId },
             select: {
                 id: true,
@@ -17,7 +17,7 @@ export class UsersService {
     }
 
     async updateProfile(userId: number, data: { username?: string; avatarUrl?: string; theme?: string }) {
-        return prisma.user.update({
+        return (prisma as any).user.update({
             where: { id: userId },
             data: {
                 username: data.username,
