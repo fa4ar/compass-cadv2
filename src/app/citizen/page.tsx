@@ -847,21 +847,6 @@ export default function CitizenPage() {
                 character={selectedCharacter}
                 onClose={() => setShowViewModal(false)}
                 getImageUrl={getImageUrl}
-                getStatusColor={getStatusColor}
-                formatDate={formatDate}
-                charLicenses={charLicenses}
-                charVehicles={charVehicles}
-                charWeapons={charWeapons}
-                toggleVehicleStatus={toggleVehicleStatus}
-                toggleWeaponStatus={toggleWeaponStatus}
-                deleteVehicle={deleteVehicle}
-                deleteWeapon={deleteWeapon}
-                openEditModal={openEditModal}
-                openDepartmentModal={openDepartmentModal}
-                handleDeleteCharacter={handleDeleteCharacter}
-                setShowLicenseModal={setShowLicenseModal}
-                setShowVehicleModal={setShowVehicleModal}
-                setShowWeaponModal={setShowWeaponModal}
             />
 
 
