@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { ChevronDown, IdCard, Shield, Radio, Heart, Settings, Compass } from 'lucide-react';
 
@@ -33,6 +33,7 @@ const ROLE_PAGES: RolePage[] = [
 
 export default function Header() {
     const pathname = usePathname();
+    const router = useRouter();
     const { hasRole, isAuthenticated } = useAuth();
     
     const isAdmin = useMemo(() => hasRole(['admin', 'Admin']), [hasRole]);
