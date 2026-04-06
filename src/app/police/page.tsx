@@ -125,6 +125,35 @@ function PolicePageContent() {
     const canManageUnits = isSupervisor || false;
     const isInPair = currentUnit?.partnerUserId || false;
 
+    const getImageUrl = (url?: string) => {
+        if (!url) return null;
+        if (url.startsWith('http')) return url;
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+        return `${apiUrl}${url}`;
+    };
+
+    const groupUnits = (unitList: any[]) => {
+        const result: any[] = [];
+        const processed = new Set<number>();
+
+        unitList.forEach(u => {
+            if (u.userId && processed.has(u.userId)) return;
+
+            if (u.partnerUserId || (u.pairedWith && u.pairedWith.length > 0)) {
+                const partnerId = u.partnerUserId || u.pairedWith?.[0]?.userId;
+                if (partnerId) {
+                    const partner = unitList.find(p => p.userId === partnerId);
+                    if (partner && partner.userId) {
+                        processed.add(partner.userId);
+                    }
+                }
+            }
+            result.push(u);
+            if (u.userId) processed.add(u.userId);
+        });
+        return result;
+    };
+
     const groupedUnits = React.useMemo(() => groupUnits(units), [units]);
 
     // Sounds
@@ -271,35 +300,6 @@ function PolicePageContent() {
         const val = e.target.value;
         setNotes(val);
         localStorage.setItem('policeNotes', val);
-    };
-
-    const getImageUrl = (url?: string) => {
-        if (!url) return null;
-        if (url.startsWith('http')) return url;
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-        return `${apiUrl}${url}`;
-    };
-
-    const groupUnits = (unitList: any[]) => {
-        const result: any[] = [];
-        const processed = new Set<number>();
-
-        unitList.forEach(u => {
-            if (u.userId && processed.has(u.userId)) return;
-
-            if (u.partnerUserId || (u.pairedWith && u.pairedWith.length > 0)) {
-                const partnerId = u.partnerUserId || u.pairedWith?.[0]?.userId;
-                if (partnerId) {
-                    const partner = unitList.find(p => p.userId === partnerId);
-                    if (partner && partner.userId) {
-                        processed.add(partner.userId);
-                    }
-                }
-            }
-            result.push(u);
-            if (u.userId) processed.add(u.userId);
-        });
-        return result;
     };
 
     const checkActiveUnit = async () => {
