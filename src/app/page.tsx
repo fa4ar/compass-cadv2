@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 
 const ROLE_PAGES = [
     { 
@@ -77,6 +78,14 @@ const ROLE_PAGES = [
 ];
 
 export default function SelectorPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-black flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-blue-500" /></div>}>
+            <SelectorPageContent />
+        </Suspense>
+    );
+}
+
+function SelectorPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const isBanned = searchParams.get('banned') === 'true';
