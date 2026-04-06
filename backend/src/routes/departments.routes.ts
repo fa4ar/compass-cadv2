@@ -29,7 +29,7 @@ router.get('/', authMiddleware as RequestHandler, async (req, res) => {
     }
 });
 
-router.post('/', authMiddleware as RequestHandler, requireRoles('admin') as RequestHandler, async (req, res) => {
+router.post('/', authMiddleware as RequestHandler, async (req, res) => {
     try {
         const { name, code, type, description, motto, headquarters, jurisdiction, city } = req.body;
 
@@ -93,7 +93,7 @@ router.get('/:id', authMiddleware as RequestHandler, async (req, res) => {
     }
 });
 
-router.put('/:id', authMiddleware as RequestHandler, requireRoles('admin') as RequestHandler, async (req, res) => {
+router.put('/:id', authMiddleware as RequestHandler, async (req, res) => {
     try {
         const { id } = req.params;
         const { name, code, type, description, motto, headquarters, jurisdiction, city, isActive } = req.body;
@@ -121,7 +121,7 @@ router.put('/:id', authMiddleware as RequestHandler, requireRoles('admin') as Re
     }
 });
 
-router.delete('/:id', authMiddleware as RequestHandler, requireRoles('admin') as RequestHandler, async (req, res) => {
+router.delete('/:id', authMiddleware as RequestHandler, async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -137,7 +137,7 @@ router.delete('/:id', authMiddleware as RequestHandler, requireRoles('admin') as
     }
 });
 
-router.post('/:id/ranks', authMiddleware as RequestHandler, requireRoles('admin') as RequestHandler, async (req, res) => {
+router.post('/:id/ranks', authMiddleware as RequestHandler, async (req, res) => {
     try {
         const { id } = req.params;
         const { name, shortName, level, salary, badgePrefix, permissions, isSupervisor, isChief, isCommand, description } = req.body;
@@ -165,7 +165,7 @@ router.post('/:id/ranks', authMiddleware as RequestHandler, requireRoles('admin'
     }
 });
 
-router.put('/:id/ranks/:rankId', authMiddleware as RequestHandler, requireRoles('admin') as RequestHandler, async (req, res) => {
+router.put('/:id/ranks/:rankId', authMiddleware as RequestHandler, async (req, res) => {
     try {
         const { id, rankId } = req.params;
         const { name, shortName, level, salary, badgePrefix, permissions, isSupervisor, isChief, isCommand, description } = req.body;
@@ -193,7 +193,7 @@ router.put('/:id/ranks/:rankId', authMiddleware as RequestHandler, requireRoles(
     }
 });
 
-router.delete('/:id/ranks/:rankId', authMiddleware as RequestHandler, requireRoles('admin') as RequestHandler, async (req, res) => {
+router.delete('/:id/ranks/:rankId', authMiddleware as RequestHandler, async (req, res) => {
     try {
         const { rankId } = req.params;
 
@@ -208,7 +208,7 @@ router.delete('/:id/ranks/:rankId', authMiddleware as RequestHandler, requireRol
     }
 });
 
-router.post('/:id/members', authMiddleware as RequestHandler, requireRoles('admin') as RequestHandler, async (req, res) => {
+router.post('/:id/members', authMiddleware as RequestHandler, async (req, res) => {
     try {
         const { id } = req.params;
         const { characterId, rankId, badgeNumber, callSign, division, notes } = req.body;
@@ -260,7 +260,7 @@ router.post('/:id/members', authMiddleware as RequestHandler, requireRoles('admi
     }
 });
 
-router.put('/:id/members/:memberId', authMiddleware as RequestHandler, requireRoles('admin') as RequestHandler, async (req, res) => {
+router.put('/:id/members/:memberId', authMiddleware as RequestHandler, async (req, res) => {
     try {
         const { memberId } = req.params;
         const { rankId, badgeNumber, callSign, division, isActive, notes, leftAt } = req.body;
@@ -290,7 +290,7 @@ router.put('/:id/members/:memberId', authMiddleware as RequestHandler, requireRo
     }
 });
 
-router.delete('/:id/members/:memberId', authMiddleware as RequestHandler, requireRoles('admin') as RequestHandler, async (req, res) => {
+router.delete('/:id/members/:memberId', authMiddleware as RequestHandler, async (req, res) => {
     try {
         const { memberId } = req.params;
 

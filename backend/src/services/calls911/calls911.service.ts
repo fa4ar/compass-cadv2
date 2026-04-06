@@ -1,5 +1,6 @@
 import prisma from '../../lib/prisma';
 import { CallStatus } from '@prisma/client';
+import { io } from '../../server';
 
 export class Calls911Service {
     static async createCall(data: { 
