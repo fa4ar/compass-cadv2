@@ -483,6 +483,7 @@ model Call911 {
   callerName  String
   location    String
   description String
+  phoneNumber String?
   status      CallStatus @default(pending)
 
   // Поля для архива/админ-панели
