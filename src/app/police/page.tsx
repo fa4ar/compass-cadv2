@@ -847,7 +847,7 @@ function PolicePageContent() {
                                                                     <td className={`px-3 py-2 font-semibold ${row.status === "Available" ? "text-green-400" : "text-blue-400"}`}>
                                                                         <div className="flex items-center gap-2">
                                                                             <span>{row.unit}</span>
-                                                                            {row.isPaired && (
+                                                                            {row.partnerUserId && (
                                                                                 <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-500/20 rounded text-[10px] text-blue-400">
                                                                                     <User className="w-3 h-3" />
                                                                                     +2
@@ -857,10 +857,10 @@ function PolicePageContent() {
                                                                     </td>
                                                                     <td className="px-3 py-2 text-zinc-300">{row.beat}</td>
                                                                     <td className="px-3 py-2 text-zinc-300">{row.call}</td>
-                                                                    <td className={`px-3 py-2 font-medium ${row.status === "Available" ? "text-green-400" : "text-blue-400"}`}>
+                                                                    <td className={`px-3 py-2 font-medium ${row.status === "Available" ? "text-green-400" : row.status === "Busy" ? "text-yellow-400" : row.status === "Enroute" ? "text-blue-400" : "text-red-400"}`}>
                                                                         <div className="flex items-center gap-2">
-                                                                            <div className={`w-2 h-2 rounded-full ${row.status === "Available" ? "bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.8)]" : row.status === "Enroute" ? "bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.8)]" : "bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.8)]"}`} />
-                                                                            {row.status === "Available" ? "Доступен" : row.status === "Enroute" ? "В пути" : row.status === "Busy" ? "Занят" : row.status}
+                                                                            <div className={`w-2 h-2 rounded-full ${row.status === "Available" ? "bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.8)]" : row.status === "Enroute" ? "bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.8)]" : row.status === "Busy" ? "bg-yellow-500 shadow-[0_0_6px_rgba(245,158,11,0.8)]" : "bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]"}`} />
+                                                                            {row.status === "Available" ? "10-8" : row.status === "Enroute" ? "10-97" : row.status === "Busy" ? "10-6" : row.status === "On Scene" ? "10-23" : row.status}
                                                                         </div>
                                                                     </td>
                                                                     <td className="px-3 py-2 text-zinc-400">{row.time}</td>
@@ -1579,8 +1579,8 @@ function PolicePageContent() {
                                 </div>
                                 <div className="bg-zinc-800/50 p-2 rounded">
                                     <p className="text-[10px] text-zinc-500 uppercase">Статус</p>
-                                    <p className={`font-medium ${selectedUnit.status === "Available" ? "text-green-400" : "text-blue-400"}`}>
-                                        {selectedUnit.status === "Available" ? "Доступен" : selectedUnit.status === "Busy" ? "Занят" : selectedUnit.status}
+                                    <p className={`font-medium ${selectedUnit.status === "Available" ? "text-green-400" : selectedUnit.status === "Busy" ? "text-yellow-400" : selectedUnit.status === "Enroute" ? "text-blue-400" : "text-zinc-400"}`}>
+                                        {selectedUnit.status === "Available" ? "10-8 Доступен" : selectedUnit.status === "Busy" ? "10-6 Занят" : selectedUnit.status === "Enroute" ? "10-97 В пути" : selectedUnit.status === "On Scene" ? "10-23 На вызове" : selectedUnit.status}
                                     </p>
                                 </div>
                                 <div className="bg-zinc-800/50 p-2 rounded">
@@ -1593,23 +1593,27 @@ function PolicePageContent() {
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label className="text-xs text-zinc-400">Отправить сообщение</Label>
-                                <div className="flex gap-2">
-                                    <Input
-                                        placeholder="Введите сообщение..."
-                                        value={unitMessage}
-                                        onChange={(e) => setUnitMessage(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleSendUnitMessage()}
-                                        className="bg-zinc-800/50 border-zinc-700"
-                                    />
-                                    <Button size="sm" onClick={handleSendUnitMessage} disabled={!unitMessage.trim()}>
-                                        <Send className="w-4 h-4" />
-                                    </Button>
+                            {/* Only supervisors/dispatchers can send messages */}
+                            {canManageUnits && (
+                                <div className="space-y-2">
+                                    <Label className="text-xs text-zinc-400">Отправить сообщение</Label>
+                                    <div className="flex gap-2">
+                                        <Input
+                                            placeholder="Введите сообщение..."
+                                            value={unitMessage}
+                                            onChange={(e) => setUnitMessage(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleSendUnitMessage()}
+                                            className="bg-zinc-800/50 border-zinc-700"
+                                        />
+                                        <Button size="sm" onClick={handleSendUnitMessage} disabled={!unitMessage.trim()}>
+                                            <Send className="w-4 h-4" />
+                                        </Button>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
-                            {selectedUnit.callId && (
+                            {/* Only supervisors/dispatchers can unassign from call */}
+                            {canManageUnits && selectedUnit.callId && (
                                 <Button
                                     variant="outline"
                                     className="w-full border-red-800 text-red-400 hover:bg-red-900/20"
