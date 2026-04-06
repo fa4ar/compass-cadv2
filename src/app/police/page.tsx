@@ -108,6 +108,7 @@ function PolicePageContent() {
     const [unitMessage, setUnitMessage] = useState("");
 
     const isSupervisor = currentMember?.rank?.isSupervisor || user?.roles?.some(r => r.toLowerCase() === 'admin' || r.toLowerCase() === 'supervisor') || false;
+    const canManageUnits = isSupervisor || user?.roles?.some(r => r.toLowerCase() === 'dispatcher') || false;
 
     // Sounds
     const { playSound } = useSound();
@@ -584,8 +585,8 @@ function PolicePageContent() {
                                                             {units.map((row: any) => (
                                                                 <tr 
                                                                     key={row.unit} 
-                                                                    className={`${row.status === "Dispatched" ? "bg-blue-950/20" : ""} ${isSupervisor ? "cursor-pointer hover:bg-zinc-800/50" : ""}`}
-                                                                    onClick={() => isSupervisor && setSelectedUnit(row)}
+                                                                className={`${row.status === "Dispatched" ? "bg-blue-950/20" : ""} ${canManageUnits ? "cursor-pointer hover:bg-zinc-800/50" : ""}`}
+                                                                    onClick={() => canManageUnits && setSelectedUnit(row)}
                                                                 >
                                                                     <td className={`px-3 py-2 font-semibold ${row.status === "Available" ? "text-green-400" : "text-blue-400"}`}>
                                                                         {row.unit}
