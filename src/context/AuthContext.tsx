@@ -119,10 +119,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     } else {
                         // Для админов просто обновляем состояние, чтобы они могли разбаниться сами
                         setUser(prev => prev ? { ...prev, isBanned: true, banReason: data.user.banReason || undefined } : null);
-                        // Редирект на главную для показа экрана бана
-                        if (window.location.pathname !== '/') {
-                            window.location.href = `/?banned=true&reason=${encodeURIComponent(data.user.banReason || '')}`;
-                        }
                     }
                 }
             } else {
@@ -198,7 +194,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                             // Для админов просто обновляем состояние
                             setUser(prev => prev ? { ...prev, isBanned: true, banReason: data.reason || undefined } : null);
                         }
-                        window.location.href = `/?banned=true&reason=${encodeURIComponent(data.reason || '')}`;
                     } else {
                         console.log('✅ [AUTH] You have been unbanned.');
                         if (isAdmin) {
