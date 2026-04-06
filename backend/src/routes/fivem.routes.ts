@@ -61,7 +61,9 @@ router.post('/update-map', async (req, res) => {
             if (!blip.discordId) continue;
             
             const unit = await prisma.unit.findFirst({
-                where: { character: { user: { discordId: blip.discordId } } },
+                where: { 
+                    user: { discordId: blip.discordId } 
+                },
                 include: {
                     character: true,
                     departmentMember: { include: { department: true } }

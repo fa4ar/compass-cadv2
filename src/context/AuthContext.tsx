@@ -85,6 +85,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 }
             }
 
+            if (response.status === 403) {
+                const data = await response.json();
+                if (data.banned) {
+                    localStorage.removeItem('accessToken');
+                    localStorage.removeItem('refreshToken');
+                    setUser(null);
+                    window.location.href = `/?banned=true&reason=${encodeURIComponent(data.reason || '')}`;
+                    return;
+                }
+            }
+
             if (response.ok) {
                 const data = await response.json();
                 setUser(data.user);
@@ -150,7 +161,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     localStorage.removeItem('accessToken');
                     localStorage.removeItem('refreshToken');
                     setUser(null);
-                    window.location.href = '/?banned=true';
+                    window.location.href = `/?banned=true&reason=${encodeURIComponent(data.reason || '')}`;
+                } else if (user?.id === data.userId && !data.isBanned) {
+                    console.log('✅ [AUTH] You have been unbanned. Refreshing...');
+                    window.location.reload();
                 }
             };
 

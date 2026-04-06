@@ -29,6 +29,21 @@ export const authMiddleware = async (
             return res.status(401).json({ error: 'Invalid or expired token' });
         }
 
+        // Проверка на бан
+        const prisma = (await import('../lib/prisma')).default;
+        const user = await (prisma as any).user.findUnique({
+            where: { id: payload.userId },
+            select: { isBanned: true, banReason: true }
+        });
+
+        if (user?.isBanned) {
+            return res.status(403).json({ 
+                error: 'Account is banned', 
+                reason: user.banReason,
+                banned: true 
+            });
+        }
+
         req.user = payload;
         next();
     } catch (error) {

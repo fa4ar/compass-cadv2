@@ -249,6 +249,18 @@ function PolicePageContent() {
             });
         });
 
+        socket.on('unit_on_duty', () => {
+            fetchData();
+        });
+
+        socket.on('unit_off_duty', (data: { userId: number }) => {
+            fetchData();
+            if (user?.id === data.userId) {
+                setOnDuty(false);
+                setCurrentUnit(null);
+            }
+        });
+
         socket.on('unit_pair_update', () => {
             fetchData();
         });
@@ -496,6 +508,7 @@ function PolicePageContent() {
             if (res.ok) {
                 const data = await res.json();
                 console.log('[handleUpdateStatus] Updated unit:', data);
+                setCurrentUnit(data);
                 toast({ title: 'Статус обновлен', description: `Новый статус: ${status}` });
             } else {
                 const errData = await res.json();

@@ -19,7 +19,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useSearchParams } from 'next/navigation';
 
 const ROLE_PAGES = [
     { 
@@ -77,6 +78,9 @@ const ROLE_PAGES = [
 
 export default function SelectorPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const isBanned = searchParams.get('banned') === 'true';
+    const banReason = searchParams.get('reason');
     const { user, hasRole, isAuthenticated, isLoading, logout } = useAuth();
     const [mounted, setMounted] = useState(false);
 
@@ -85,15 +89,60 @@ export default function SelectorPage() {
     }, []);
 
     useEffect(() => {
-        if (!isLoading && !isAuthenticated && mounted) {
+        if (!isLoading && !isAuthenticated && mounted && !isBanned) {
             router.push('/auth/login');
         }
-    }, [isLoading, isAuthenticated, mounted, router]);
+    }, [isLoading, isAuthenticated, mounted, router, isBanned]);
 
     if (isLoading || !mounted) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+            </div>
+        );
+    }
+
+    if (isBanned) {
+        return (
+            <div className="min-h-screen bg-black text-zinc-100 flex flex-col font-sans selection:bg-red-500/30 items-center justify-center p-6">
+                <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="max-w-md w-full"
+                >
+                    <Card className="bg-zinc-900/50 border-red-500/20 backdrop-blur-xl p-8 text-center space-y-6">
+                        <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto border border-red-500/20">
+                            <Lock className="w-10 h-10 text-red-500" />
+                        </div>
+                        
+                        <div className="space-y-2">
+                            <h1 className="text-3xl font-black tracking-tight text-white uppercase">Access Revoked</h1>
+                            <p className="text-zinc-500 text-sm font-medium">
+                                Your account has been permanently suspended from the Compass CAD network.
+                            </p>
+                        </div>
+
+                        <div className="bg-black/40 rounded-xl p-4 border border-zinc-800/50 text-left space-y-1">
+                            <span className="text-[10px] font-black uppercase text-red-500 tracking-widest">Reason for Ban</span>
+                            <p className="text-zinc-300 text-sm font-medium italic">
+                                "{banReason || 'No specific reason provided by administration.'}"
+                            </p>
+                        </div>
+
+                        <div className="pt-4 space-y-3">
+                            <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-wider">
+                                If you believe this is an error, contact support.
+                            </p>
+                            <Button 
+                                variant="outline" 
+                                onClick={() => router.push('/auth/login')}
+                                className="w-full border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                            >
+                                <LogOut className="w-4 h-4 mr-2" /> Return to Login
+                            </Button>
+                        </div>
+                    </Card>
+                </motion.div>
             </div>
         );
     }

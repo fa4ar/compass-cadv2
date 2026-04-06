@@ -92,6 +92,13 @@ export class UnitsService {
 
             console.log(`[UnitsService] Unit upserted successfully: ${unit.id}`);
 
+            if (io) {
+                io.emit('unit_on_duty', {
+                    userId,
+                    unitCallSign: unit.callSign
+                });
+            }
+
             return {
                 unit: unit.callSign || unit.departmentMember?.callSign || unit.departmentMember?.badgeNumber || unit.id.toString(),
                 officer: unit.character ? `${unit.character.firstName} ${unit.character.lastName}` : unit.callSign || 'No Character',
@@ -186,6 +193,17 @@ export class UnitsService {
     }
 
     static async goOffDuty(userId: number) {
+        const unit = await (prisma as any).unit.findUnique({
+            where: { userId }
+        });
+
+        if (unit && io) {
+            io.emit('unit_off_duty', {
+                userId,
+                unitCallSign: unit.callSign
+            });
+        }
+
         return await (prisma as any).unit.delete({
             where: { userId }
         });
