@@ -109,13 +109,23 @@ export class UnitsService {
         if (!unit) {
             throw new Error('Unit not found');
         }
-        return await (prisma as any).unit.update({
+        const updatedUnit = await (prisma as any).unit.update({
             where: { id: unit.id },
             data: { 
                 status,
                 lastStatusAt: new Date()
             }
         });
+        
+        if (io) {
+            io.emit('unit_status_changed', {
+                userId: unit.userId,
+                status,
+                unitCallSign: unit.callSign
+            });
+        }
+        
+        return updatedUnit;
     }
 
     static async getCurrentUnit(userId: number) {
@@ -314,6 +324,7 @@ export class UnitsService {
                 userId1: pendingInvite.fromUserId,
                 userId2: userId
             });
+            io.emit('unit_pair_update', { userId });
         }
 
         return { success: true, message: 'Pair formed' };

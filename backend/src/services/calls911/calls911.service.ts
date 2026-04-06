@@ -143,7 +143,7 @@ export class Calls911Service {
 
         const isMainUnitSet = call?.mainUnitId !== null && call?.mainUnitId !== undefined;
 
-        return prisma.$transaction([
+        const result = await prisma.$transaction([
             prisma.unit.update({
                 where: { userId },
                 data: { callId }
@@ -156,6 +156,16 @@ export class Calls911Service {
                 }
             })
         ]);
+
+        if (io) {
+            io.emit('unit_assigned', {
+                userId,
+                callId,
+                unitCallSign: existingUnit.callSign
+            });
+        }
+
+        return result;
     }
 
     static async detachUnit(userId: number) {

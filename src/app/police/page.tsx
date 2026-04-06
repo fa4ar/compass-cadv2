@@ -192,9 +192,27 @@ function PolicePageContent() {
             fetchData();
         });
 
+        socket.on('unit_assigned', (data: { userId: number; callId: number; unitCallSign: string }) => {
+            playSound('notification');
+            toast({ title: 'Прикреплен к вызову', description: `Юнит ${data.unitCallSign} прикреплен к вызову #${data.callId}` });
+            fetchData();
+        });
+
+        socket.on('unit_status_changed', (data: { userId: number; status: string; unitCallSign: string }) => {
+            setUnits(prev => prev.map(u => u.userId === data.userId ? { ...u, status: data.status } : u));
+        });
+
+        socket.on('unit_pair_update', () => {
+            fetchData();
+        });
+
         socket.on('pair_invite', (data: { fromUserId: number; fromCallSign: string }) => {
             playSound('notification');
-            toast({ title: 'Приглашение в пару', description: `${data.fromCallSign} пригласил вас в патрульную пару` });
+            toast({ 
+                title: 'Приглашение в пару', 
+                description: `${data.fromCallSign} пригласил вас в патрульную пару. Используйте кнопку в карточке юнита для принятия.`,
+                duration: 10000 
+            });
         });
 
         socket.on('pair_formed', () => {
@@ -214,6 +232,9 @@ function PolicePageContent() {
             socket.off('delete_911_call');
             socket.off('dispatcher_message');
             socket.off('unit_unassigned');
+            socket.off('unit_assigned');
+            socket.off('unit_status_changed');
+            socket.off('unit_pair_update');
             socket.off('pair_invite');
             socket.off('pair_formed');
             socket.off('pair_disbanded');
@@ -712,6 +733,21 @@ function PolicePageContent() {
         }
     };
 
+    const handleAcceptPairInvite = async () => {
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const res = await fetch(`${apiUrl}/api/units/accept`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+            if (res.ok) {
+                playSound('notification');
+                toast({ title: 'Принято', description: 'Вы присоединились к патрульной паре' });
+                fetchData();
+            }
+        } catch (err) {
+            console.error('Failed to accept pair invite', err);
+        }
+    };
+
     return (
         <div className="fixed top-14 inset-x-0 bottom-0 bg-background flex flex-col overflow-hidden">
             <div className="flex-1 overflow-hidden flex flex-col p-3">
@@ -808,7 +844,10 @@ function PolicePageContent() {
                                                                     <td className="px-3 py-2 text-zinc-300">{row.beat}</td>
                                                                     <td className="px-3 py-2 text-zinc-300">{row.call}</td>
                                                                     <td className={`px-3 py-2 font-medium ${row.status === "Available" ? "text-green-400" : "text-blue-400"}`}>
-                                                                        {row.status === "Available" ? "Доступен" : row.status === "Enroute" ? "В пути" : row.status === "Busy" ? "Занят" : row.status}
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className={`w-2 h-2 rounded-full ${row.status === "Available" ? "bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.8)]" : row.status === "Enroute" ? "bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.8)]" : "bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.8)]"}`} />
+                                                                            {row.status === "Available" ? "Доступен" : row.status === "Enroute" ? "В пути" : row.status === "Busy" ? "Занят" : row.status}
+                                                                        </div>
                                                                     </td>
                                                                     <td className="px-3 py-2 text-zinc-400">{row.time}</td>
                                                                     <td className="px-3 py-2 text-zinc-300">{row.nature}</td>
@@ -1545,10 +1584,16 @@ function PolicePageContent() {
                             )}
 
                             {!selectedUnit.partnerUserId && !isInPair && (
-                                <Button variant="outline" className="w-full border-blue-800 text-blue-400 hover:bg-blue-900/20" onClick={handleInviteToPair}>
-                                    <UserPlus className="w-4 h-4 mr-2" />
-                                    Пригласить в пару
-                                </Button>
+                                <>
+                                    <Button variant="outline" className="w-full border-blue-800 text-blue-400 hover:bg-blue-900/20" onClick={handleInviteToPair}>
+                                        <UserPlus className="w-4 h-4 mr-2" />
+                                        Пригласить в пару
+                                    </Button>
+                                    <Button variant="outline" className="w-full border-green-800 text-green-400 hover:bg-green-900/20" onClick={handleAcceptPairInvite}>
+                                        <UserPlus className="w-4 h-4 mr-2" />
+                                        Принять приглашение
+                                    </Button>
+                                </>
                             )}
 
                             {isInPair && (
