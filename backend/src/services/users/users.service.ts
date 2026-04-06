@@ -9,24 +9,27 @@ export class UsersService {
                 username: true,
                 email: true,
                 avatarUrl: true,
+                theme: true,
                 isActive: true,
                 createdAt: true,
             }
         });
     }
 
-    async updateProfile(userId: number, data: { username?: string; avatarUrl?: string }) {
+    async updateProfile(userId: number, data: { username?: string; avatarUrl?: string; theme?: string }) {
         return prisma.user.update({
             where: { id: userId },
             data: {
                 username: data.username,
                 avatarUrl: data.avatarUrl,
+                theme: data.theme,
             },
             select: {
                 id: true,
                 username: true,
                 email: true,
                 avatarUrl: true,
+                theme: true,
                 isActive: true,
                 createdAt: true,
             }

@@ -8,6 +8,9 @@ interface User {
     username: string;
     email?: string;
     avatarUrl?: string;
+    theme?: string;
+    isBanned?: boolean;
+    banReason?: string;
     roles: string[];
 }
 
@@ -99,6 +102,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (response.ok) {
                 const data = await response.json();
                 setUser(data.user);
+                
+                // Проверка на бан после загрузки
+                if (data.user?.isBanned) {
+                    localStorage.removeItem('accessToken');
+                    localStorage.removeItem('refreshToken');
+                    document.cookie = 'accessToken=; path=/; max-age=0';
+                    document.cookie = 'refreshToken=; path=/; max-age=0';
+                    setUser(null);
+                    window.location.href = `/?banned=true&reason=${encodeURIComponent(data.user.banReason || '')}`;
+                }
             } else {
                 localStorage.removeItem('accessToken');
                 localStorage.removeItem('refreshToken');
@@ -163,8 +176,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     setUser(null);
                     window.location.href = `/?banned=true&reason=${encodeURIComponent(data.reason || '')}`;
                 } else if (user?.id === data.userId && !data.isBanned) {
-                    console.log('✅ [AUTH] You have been unbanned. Redirecting to login...');
-                    window.location.href = '/auth/login';
+                    console.log('✅ [AUTH] You have been unbanned. Logging out for clean state...');
+                    localStorage.removeItem('accessToken');
+                    localStorage.removeItem('refreshToken');
+                    document.cookie = 'accessToken=; path=/; max-age=0';
+                    document.cookie = 'refreshToken=; path=/; max-age=0';
+                    setUser(null);
+                    window.location.href = '/auth/login?unbanned=true';
                 }
             };
 

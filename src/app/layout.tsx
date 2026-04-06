@@ -4,6 +4,7 @@ import { DM_Sans } from "next/font/google";
 import "./globals.css";
 import { SocketProvider } from "../context/SocketContext";
 import { AuthProvider } from "../context/AuthContext";
+import { ThemeProvider } from "../context/ThemeContext";
 import Header from "@/components/Header";
 import FooterBar from "@/components/Footer";
 import { Toaster } from "@/components/ui/toaster";
@@ -29,20 +30,22 @@ export default function RootLayout({
     return (
         <html
             lang="ru"
-            className={`${dmSans.variable} h-full antialiased dark`}
+            className={`${dmSans.variable} h-full antialiased`}
             suppressHydrationWarning
         >
             <body className="min-h-full flex flex-col bg-background text-foreground">
                 <SocketProvider>
                     <AuthProvider>
-                        <TooltipProvider>
-                            <Header />
-                            <main className="flex-1 pb-10">
-                                {children}
-                            </main>
-                            <Toaster />
-                            <FooterBar />
-                        </TooltipProvider>
+                        <ThemeProvider>
+                            <TooltipProvider>
+                                <Header />
+                                <main className="flex-1 pb-10">
+                                    {children}
+                                </main>
+                                <Toaster />
+                                <FooterBar />
+                            </TooltipProvider>
+                        </ThemeProvider>
                     </AuthProvider>
                 </SocketProvider>
             </body>

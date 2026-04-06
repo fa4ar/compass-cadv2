@@ -52,7 +52,7 @@ function HeaderSkeleton() {
 export default function Header() {
     const pathname = usePathname();
     const router = useRouter();
-    const { hasRole, isAuthenticated, isLoading } = useAuth();
+    const { user, hasRole, isAuthenticated, isLoading } = useAuth();
     
     const isAdmin = useMemo(() => hasRole(['admin', 'Admin']), [hasRole]);
     
@@ -74,7 +74,7 @@ export default function Header() {
     const CurrentIcon = current?.icon || IdCard;
 
     if (isLoading) return <HeaderSkeleton />;
-    if (!isAuthenticated) return null;
+    if (!isAuthenticated || user?.isBanned) return null;
 
     return (
         <div className="h-14 border-b border-zinc-800 bg-zinc-950 flex items-center px-4 shrink-0 shadow-xl sticky top-0 z-[100] w-full">

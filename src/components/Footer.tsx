@@ -4,17 +4,21 @@
 import { useState, useEffect } from 'react';
 import { Clock, Calendar, Compass, Wifi } from 'lucide-react';
 import { useSocket } from '@/context/SocketContext';
+import { useAuth } from '@/context/AuthContext';
 
 export default function FooterBar() {
     const [currentTime, setCurrentTime] = useState(() => new Date());
     const [mounted, setMounted] = useState(false);
     const { isConnected } = useSocket();
+    const { user } = useAuth();
 
     useEffect(() => {
         setMounted(true);
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
+
+    if (user?.isBanned) return null;
 
     const time = mounted
         ? currentTime.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })

@@ -48,6 +48,58 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+.light {
+    --background: #ffffff;
+    --foreground: #09090b;
+    --card: #f9fafb;
+    --card-foreground: #09090b;
+    --popover: #ffffff;
+    --popover-foreground: #09090b;
+    --primary: #18181b;
+    --primary-foreground: #fafafa;
+    --secondary: #f4f4f5;
+    --secondary-foreground: #18181b;
+    --muted: #f4f4f5;
+    --muted-foreground: #71717a;
+    --accent: #f4f4f5;
+    --accent-foreground: #18181b;
+    --destructive: #ef4444;
+    --border: #e4e4e7;
+    --input: #e4e4e7;
+    --ring: #18181b;
+    --sidebar: #f9fafb;
+    --sidebar-foreground: #18181b;
+    --sidebar-primary: #18181b;
+    --sidebar-primary-foreground: #fafafa;
+    --sidebar-accent: #f4f4f5;
+    --sidebar-accent-foreground: #18181b;
+    --sidebar-border: #e4e4e7;
+}
+
+.custom-slate {
+    --background: #0f172a;
+    --foreground: #f8fafc;
+    --card: #1e293b;
+    --primary: #38bdf8;
+    --border: rgba(148, 163, 184, 0.1);
+}
+
+.custom-zinc {
+    --background: #18181b;
+    --foreground: #fafafa;
+    --card: #27272a;
+    --primary: #a1a1aa;
+    --border: rgba(161, 161, 170, 0.1);
+}
+
+.custom-rose {
+    --background: #4c0519;
+    --foreground: #fff1f2;
+    --card: #881337;
+    --primary: #fb7185;
+    --border: rgba(251, 113, 133, 0.1);
+}
+
 :root {
     --background: #09090b;
     --foreground: #fafafa;

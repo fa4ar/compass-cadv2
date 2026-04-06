@@ -21,7 +21,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { Lock, LogOut, Loader2, IdCard, Shield, Radio, Compass, Heart, Settings, User as UserIcon } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 
 const ROLE_PAGES = [
     { 
@@ -144,10 +147,10 @@ function SelectorPageContent() {
                             </p>
                             <Button 
                                 variant="outline" 
-                                onClick={() => router.push('/auth/login')}
+                                onClick={logout}
                                 className="w-full border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800/50"
                             >
-                                <LogOut className="w-4 h-4 mr-2" /> Return to Login
+                                <LogOut className="w-4 h-4 mr-2" /> Sign Out from Account
                             </Button>
                         </div>
                     </Card>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut, User, Settings, ChevronDown, Loader2, LogIn, Shield } from 'lucide-react';
+import { LogOut, User, Settings, ChevronDown, Loader2, LogIn, Shield, Sun, Moon, Palette } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -11,12 +11,20 @@ import {
     DropdownMenuItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
+    DropdownMenuSub,
+    DropdownMenuSubTrigger,
+    DropdownMenuPortal,
+    DropdownMenuSubContent,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 
 export default function UserMenu() {
     const router = useRouter();
     const { user, isLoading: authLoading, logout, isAuthenticated, hasRole } = useAuth();
+    const { theme, setTheme } = useTheme();
     const [localLoading, setLocalLoading] = useState(true);
 
     useEffect(() => {
@@ -98,6 +106,36 @@ export default function UserMenu() {
                     <Settings className="w-4 h-4 mr-2" />
                     Settings
                 </DropdownMenuItem>
+
+                <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="cursor-pointer">
+                        <Palette className="w-4 h-4 mr-2" />
+                        Theme
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                        <DropdownMenuSubContent className="bg-zinc-900 border-zinc-800">
+                            <DropdownMenuRadioGroup value={theme} onValueChange={(v) => setTheme(v as any)}>
+                                <DropdownMenuRadioItem value="light" className="flex items-center gap-2 cursor-pointer">
+                                    <Sun className="w-3 h-3" /> Light
+                                </DropdownMenuRadioItem>
+                                <DropdownMenuRadioItem value="dark" className="flex items-center gap-2 cursor-pointer">
+                                    <Moon className="w-3 h-3" /> Dark
+                                </DropdownMenuRadioItem>
+                                <DropdownMenuSeparator className="bg-zinc-800" />
+                                <DropdownMenuRadioItem value="custom-slate" className="flex items-center gap-2 cursor-pointer">
+                                    <div className="w-3 h-3 rounded-full bg-slate-500" /> Slate
+                                </DropdownMenuRadioItem>
+                                <DropdownMenuRadioItem value="custom-zinc" className="flex items-center gap-2 cursor-pointer">
+                                    <div className="w-3 h-3 rounded-full bg-zinc-500" /> Zinc
+                                </DropdownMenuRadioItem>
+                                <DropdownMenuRadioItem value="custom-rose" className="flex items-center gap-2 cursor-pointer">
+                                    <div className="w-3 h-3 rounded-full bg-rose-500" /> Rose
+                                </DropdownMenuRadioItem>
+                            </DropdownMenuRadioGroup>
+                        </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                </DropdownMenuSub>
+
                 <DropdownMenuSeparator className="bg-zinc-800" />
                 <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-400 focus:text-red-400">
                     <LogOut className="w-4 h-4 mr-2" />
