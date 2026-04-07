@@ -142,14 +142,18 @@ export class UnitsService {
             }
         });
         
-        console.log(`[updateStatusById] Emitting for userId: ${unit.userId}, status: ${status}`);
+        console.log(`[updateStatusById] Emitting for userId: ${unit.userId}, status: ${status}, io exists: ${!!io}`);
         
         if (io) {
+            console.log(`[updateStatusById] Emitting unit_status_changed event`);
             io.emit('unit_status_changed', {
                 userId: unit.userId,
                 status,
                 unitCallSign: unit.callSign
             });
+            console.log(`[updateStatusById] Event emitted`);
+        } else {
+            console.log(`[updateStatusById] IO IS NULL!`);
         }
         
         return { ...updatedUnit, characterId: unit.characterId, userId: unit.userId };
