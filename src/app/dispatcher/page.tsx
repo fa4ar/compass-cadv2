@@ -789,7 +789,7 @@ function DispatcherPageContent() {
                                 <Phone className="w-4 h-4 mr-1.5" />
                                 Ответить 911
                             </Button>
-                            <Button size="sm" className="bg-blue-600 hover:bg-blue-500">
+                            <Button size="sm" className="bg-blue-600 hover:bg-blue-500" onClick={() => setShowCreateCallModal(true)}>
                                 <PlusSquare className="w-4 h-4 mr-1.5" />
                                 Новый Вызов
                             </Button>
@@ -806,9 +806,6 @@ function DispatcherPageContent() {
                                         <AlertTriangle className="w-4 h-4 text-amber-500" />
                                         <span className="text-sm font-medium text-zinc-300">Активные вызовы 911</span>
                                         <span className="ml-auto text-xs text-zinc-500">{calls.length} вызовов</span>
-                                        <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => setShowCreateCallModal(true)}>
-                                            + Создать
-                                        </Button>
                                     </div>
                                     <div className="overflow-auto flex-1">
                                         {calls.length === 0 ? (

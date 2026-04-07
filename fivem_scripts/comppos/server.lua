@@ -1,10 +1,17 @@
 CompPos = CompPos or {}
 
-local GetPlayerEndpoint = GetPlayerEndpoint
-local GetPlayers = GetPlayers
-local SaveResourceFile = SaveResourceFile
-local LoadResourceFile = LoadResourceFile
-local json = json
+local function tableCount(t)
+    local count = 0
+    for _ in pairs(t) do count = count + 1 end
+    return count
+end
+
+CompPos.Config = CompPos.Config or {
+    componentNames = {
+        [0] = "Лицо", [1] = "Маска", [2] = "Волосы", [7] = "Аксессуар",
+        [8] = "Майка", [9] = "Бронежилет", [10] = "Бейдж", [11] = "Верх 2"
+    }
+}
 
 CompPos.Server = {
     players = {},
@@ -19,7 +26,7 @@ function CompPos.Server.loadData()
         local success, decoded = pcall(json.decode, data)
         if success then
             CompPos.Server.players = decoded
-            print("[CompPos] Loaded data for " .. table.size(CompPos.Server.players) .. " players")
+            print("[CompPos] Loaded data for " .. tableCount(CompPos.Server.players) .. " players")
             return true
         end
     end

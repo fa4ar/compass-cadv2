@@ -1,5 +1,28 @@
 CompPos = CompPos or {}
 
+print("[CompPos] Client script loading...")
+
+CompPos.Config = {
+    moveSpeed = 0.005,
+    rotateSpeed = 1.0,
+    scaleSpeed = 0.01,
+    controlKeys = {
+        moveForward = 32,
+        moveBackward = 33,
+        moveLeft = 34,
+        moveRight = 35,
+        rotateLeft = 36,
+        rotateRight = 37,
+        scaleUp = 38,
+        scaleDown = 39,
+        save = 44,
+        reset = 45,
+        exit = 47,
+        moveUp = 74,
+        moveDown = 75,
+    }
+}
+
 local CACHE_PED_COMPONENT = CACHE_PED_COMPONENT
 local GET_PED_BONE_COORDS = GET_PED_BONE_COORDS
 local SET_PED_COMPONENT_VARIATION = SET_PED_COMPONENT_VARIATION
@@ -45,20 +68,42 @@ CompPos.DefaultOffsets = {
 }
 
 function CompPos.Client.isComponentBlocked(componentId)
+    if not CompPos.Config then
+        CompPos.Config = {
+            blockedComponents = {
+                [3] = true, [4] = true, [5] = true, [6] = true
+            }
+        }
+    end
     return CompPos.Config.blockedComponents[componentId] ~= nil
 end
 
 function CompPos.Client.getComponentName(componentId)
+    if not CompPos.Config then
+        print("[CompPos] ERROR: CompPos.Config is nil!")
+        CompPos.Config = {
+            componentNames = {
+                [0] = "Лицо", [1] = "Маска", [2] = "Волосы", [7] = "Аксессуар",
+                [8] = "Майка", [9] = "Бронежилет", [10] = "Бейдж", [11] = "Верх 2"
+            },
+            blockedComponents = {
+                [3] = true, [4] = true, [5] = true, [6] = true
+            }
+        }
+    end
     return CompPos.Config.componentNames[componentId] or "Компонент " .. componentId
 end
 
 function CompPos.Client.startEditing(componentId)
+    print("[CompPos] Starting edit for component: " .. tostring(componentId))
+    
     if CompPos.Client.isComponentBlocked(componentId) then
         CompPos.Client.showNotification("~r~Этот компонент недоступен для редактирования", "error")
         return
     end
 
     local ped = PlayerPedId()
+    print("[CompPos] Ped: " .. tostring(ped))
     
     local currentPos = CompPos.Client.playerComponents[tostring(componentId)]
     if not currentPos then
@@ -68,6 +113,8 @@ function CompPos.Client.startEditing(componentId)
             scale = {x = 1.0, y = 1.0, z = 1.0}
         }
     end
+    
+    print("[CompPos] Current pos: " .. json.encode(currentPos))
 
     CompPos.Client.currentComponent = componentId
     CompPos.Client.componentData = {
@@ -209,7 +256,7 @@ function CompPos.Client.toggleEditMode()
 end
 
 function CompPos.Client.showUI()
-    local uiReady = GetResourceState("comppos") ~= "missing"
+    print("[CompPos] showUI called")
     
     SendNUIMessage({
         type = "comppos:showUI",
@@ -318,15 +365,24 @@ AddEventHandler("comppos:receivePlayerComponents", function(targetSource, compon
 end)
 
 RegisterCommand("comppos", function(source, args, raw)
+    print("[CompPos] Command called, source: " .. tostring(source) .. ", args: " .. json.encode(args))
+    
     if source == 0 then
         print("[CompPos] This command cannot be used from console")
         return
     end
     
     if #args < 1 then
+        local componentNames = {
+            [0] = "Лицо", [1] = "Маска", [2] = "Волосы", [7] = "Аксессуар",
+            [8] = "Майка", [9] = "Бронежилет", [10] = "Бейдж", [11] = "Верх 2"
+        }
+        local blockedComponents = {
+            [3] = true, [4] = true, [5] = true, [6] = true
+        }
         local msg = "~g~Доступные компоненты для редактирования:\n\n"
-        for id, name in pairs(CompPos.Config.componentNames) do
-            if not CompPos.Config.blockedComponents[id] then
+        for id, name in pairs(componentNames) do
+            if not blockedComponents[id] then
                 msg = msg .. "~y~" .. id .. "~w~ - " .. name .. "\n"
             end
         end
@@ -347,10 +403,12 @@ RegisterCommand("comppos", function(source, args, raw)
         return
     end
     
+    print("[CompPos] Starting editing for component: " .. tostring(componentId))
+    
     if CompPos.Client.isEditing then
         CompPos.Client.stopEditing(false)
     end
-    
+
     CompPos.Client.startEditing(componentId)
 end)
 
