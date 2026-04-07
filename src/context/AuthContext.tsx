@@ -116,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const apiUrl = getApiUrl();
             console.log('📡 [AUTH] Fetching user from:', `${apiUrl}/api/auth/me`);
             
-            let response = await fetch(`${apiUrl}/api/auth/me`, {
+            const response = await fetch(`${apiUrl}/api/auth/me`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
@@ -142,16 +142,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         document.cookie = `accessToken=${tokens.accessToken}${cookieOptions}`;
                         document.cookie = `refreshToken=${tokens.refreshToken}${cookieOptions}`;
                         
-                        token = tokens.accessToken;
-                        response = await fetch(`${apiUrl}/api/auth/me`, {
-                            headers: { 'Authorization': `Bearer ${token}` }
-                        });
+                        // Рекурсивный вызов с skipRefresh=true чтобы не зациклиться
+                        await fetchUser(true);
+                        return;
                     } else {
                         console.error('❌ [AUTH] Token refresh failed');
                         clearAuthState();
                         setIsLoading(false);
                         return;
                     }
+                } else {
+                    console.log('ℹ️ [AUTH] No refresh token, logging out');
+                    clearAuthState();
+                    setIsLoading(false);
+                    return;
                 }
             }
 
@@ -173,10 +177,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     redirectBannedUser(data.user.banReason || '', false);
                 }
             } else {
-                clearAuthState();
+                // ВАЖНО: Не вызываем clearAuthState() при ошибках сервера (5xx), 
+                // только при явном 401 или если токена нет вообще.
+                // Это предотвратит циклы редиректов при временных проблемах сети.
+                console.warn('⚠️ [AUTH] Request failed but NOT clearing state to prevent loop. Status:', response.status);
+                if (response.status === 401) clearAuthState();
             }
         } catch (err) {
-            console.error('Failed to fetch user:', err);
+            console.error('❌ [AUTH] Network error or CORS issue fetching user:', err);
+            // ПРИ ОШИБКЕ СЕТИ (CORS, DNS) НЕ ОЧИЩАЕМ СОСТОЯНИЕ! 
+            // Если мы очистим токены из-за ошибки сети, мы попадем в бесконечный цикл редиректов.
         } finally {
             setIsLoading(false);
         }
