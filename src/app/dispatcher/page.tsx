@@ -347,7 +347,7 @@ function DispatcherPageContent() {
                 fetchData();
                 const updatedCallRes = await fetch(`${apiUrl}/api/calls911/active`, { 
                     headers: { 
-                        'Authorization': `Bearer ${token}',
+                        'Authorization': `Bearer ${token}`,
                         'Cache-Control': 'no-store, no-cache, must-revalidate',
                         'Pragma': 'no-cache'
                     } 
@@ -369,26 +369,28 @@ function DispatcherPageContent() {
         setIsSearching(true);
         setSearchError(null);
         
-        var searchId = 'search_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        const searchId = 'search_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         console.log('[DISPATCHER SEARCH] ' + searchId + ' Starting search');
         
         try {
-            var token = localStorage.getItem('accessToken');
-            var apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
             
-            var endpoint = '';
-            var body: any = {};
+            let endpoint = '';
+            const body: any = {};
             
             if (searchType === 'person') {
-                var parts = searchQuery.split(' ');
-                endpoint = apiUrl + '/api/dispatcher/search/person';
-                body = { firstName: parts[0] || '', lastName: parts[1] || '', ssn: parts[2] || '' };
+                const parts = searchQuery.split(' ');
+                endpoint = `${apiUrl}/api/dispatcher/search/person`;
+                body.firstName = parts[0] || '';
+                body.lastName = parts[1] || '';
+                body.ssn = parts[2] || '';
             } else if (searchType === 'vehicle') {
-                endpoint = apiUrl + '/api/dispatcher/search/vehicle';
-                body = { plate: searchQuery };
+                endpoint = `${apiUrl}/api/dispatcher/search/vehicle`;
+                body.plate = searchQuery;
             } else if (searchType === 'weapon') {
-                endpoint = apiUrl + '/api/dispatcher/search/weapon';
-                body = { serialNumber: searchQuery };
+                endpoint = `${apiUrl}/api/dispatcher/search/weapon`;
+                body.serialNumber = searchQuery;
             }
             
             console.log('[DISPATCHER SEARCH] endpoint:', endpoint);
@@ -398,7 +400,7 @@ function DispatcherPageContent() {
             urlWithCacheBuster.searchParams.append('_t', Date.now().toString());
             urlWithCacheBuster.searchParams.append('requestId', searchId);
             
-            var res = await fetch(urlWithCacheBuster.toString(), {
+            const res = await fetch(urlWithCacheBuster.toString(), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -417,7 +419,7 @@ function DispatcherPageContent() {
                 Object.fromEntries([...res.headers.entries()]));
             
             if (res.ok) {
-                var data = await res.json();
+                const data = await res.json();
                 console.log('[DISPATCHER SEARCH] ' + searchId + ' Data received:', data);
                 setSearchResults(Array.isArray(data) ? data : [data]);
                 if (data && data.length > 0) {
@@ -428,7 +430,7 @@ function DispatcherPageContent() {
                     setSearchError('Ничего не найдено');
                 }
             } else {
-                var errorText = await res.text();
+                const errorText = await res.text();
                 console.error('[DISPATCHER SEARCH] error:', errorText);
                 setSearchResults([]);
                 setSearchError('Ошибка поиска: ' + res.status);
@@ -448,10 +450,10 @@ function DispatcherPageContent() {
         if (!messageText.trim() || !messageUnit) return;
         
         try {
-            var token = localStorage.getItem('accessToken');
-            var apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
             
-            var res = await fetch(apiUrl + '/api/dispatcher/message-unit', {
+            const res = await fetch(`${apiUrl}/api/dispatcher/message-unit`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -474,13 +476,44 @@ function DispatcherPageContent() {
                 setShowMessageModal(false);
                 setMessageUnit(null);
             } else {
-                var data = await res.json();
+                const data = await res.json();
                 toast({ title: 'Error', description: data.error || 'Failed to send message', variant: 'destructive' });
             }
         } catch (err) {
             console.error('Failed to send message', err);
             toast({ title: 'Error', description: 'Failed to send message', variant: 'destructive' });
         }
+    };
+
+    // Helper function to render status badge
+    const renderStatusBadge = (status: string) => {
+        if (status === 'pending') {
+            return <span className="px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-amber-500/20 text-amber-500">ОЖИДАЕТ</span>;
+        } else if (status === 'dispatched') {
+            return <span className="px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-blue-500/20 text-blue-500">ОТПРАВЛЕН</span>;
+        } else {
+            return <span className="px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-zinc-500/20 text-zinc-500">{status}</span>;
+        }
+    };
+
+    // Helper function to render unit status badge
+    const renderUnitStatusBadge = (status: string) => {
+        const statusClasses = {
+            'Available': 'bg-green-500/20 text-green-400',
+            'Busy': 'bg-amber-500/20 text-amber-400',
+            'Enroute': 'bg-blue-500/20 text-blue-400'
+        };
+        const statusText = {
+            'Available': 'ДОСТУПЕН',
+            'Busy': 'ЗАНЯТ',
+            'Enroute': 'В ПУТИ'
+        };
+        const className = statusClasses[status as keyof typeof statusClasses] || 'bg-red-500/20 text-red-400';
+        const text = statusText[status as keyof typeof statusText] || status;
+        
+        return <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${className}`}>
+            {text}
+        </span>;
     };
 
     return (
@@ -491,11 +524,11 @@ function DispatcherPageContent() {
                         <CardTitle className="text-lg font-bold text-zinc-100 flex items-center justify-between">
                             <span className="flex items-center gap-2">
                                 <Radio className="w-5 h-5 text-blue-500" />
-                                Консоль Диспетчера {callSign ? '[' + callSign + ']' : ''} - {units.filter(function(u) { return u.status === 'Available'; }).length} Активных Юнитов / {calls.length} Вызовов
+                                Консоль Диспетчера {callSign ? `[${callSign}]` : ''} - {units.filter(u => u.status === 'Available').length} Активных Юнитов / {calls.length} Вызовов
                             </span>
                             <div className="flex gap-2">
                                 <Button variant="outline" size="sm" onClick={fetchData} className="h-8 bg-zinc-800/50 border-zinc-700">
-                                    <RefreshCw className={'w-4 h-4 ' + (isLoading ? 'animate-spin' : '')} />
+                                    <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
                                 </Button>
                                 <Button variant="outline" size="sm" onClick={handleGoOffDuty} className="h-8 bg-zinc-800/50 border-red-900/50 text-red-400 hover:bg-red-950/30">
                                     <LogOut className="w-4 h-4 mr-2" />
@@ -547,7 +580,7 @@ function DispatcherPageContent() {
                                                     {calls.map((call) => (
                                                         <tr
                                                             key={call.id}
-                                                            className={'border-b border-zinc-800/50 hover:bg-zinc-800/30 cursor-pointer ' + (selectedCall && selectedCall.id === call.id ? 'bg-blue-900/10' : '')}
+                                                            className={`border-b border-zinc-800/50 hover:bg-zinc-800/30 cursor-pointer ${selectedCall && selectedCall.id === call.id ? 'bg-blue-900/10' : ''}`}
                                                             onClick={() => setSelectedCall(call)}
                                                         >
                                                             <td className="px-3 py-2 text-zinc-400 font-mono text-xs">{new Date(call.createdAt).toLocaleTimeString()}</td>
@@ -555,9 +588,7 @@ function DispatcherPageContent() {
                                                             <td className="px-3 py-2 text-zinc-300">{call.location}</td>
                                                             <td className="px-3 py-2 text-zinc-100">{call.description.substring(0, 30)}...</td>
                                                             <td className="px-3 py-2">
-                                                                <span className={call.status === 'pending' ? 'px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-amber-500/20 text-amber-500' : call.status === 'dispatched' ? 'px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-blue-500/20 text-blue-500' : 'px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-zinc-500/20 text-zinc-500'}>
-                                                                    {call.status === 'pending' ? 'ОЖИДАЕТ' : call.status === 'dispatched' ? 'ОТПРАВЛЕН' : call.status}
-                                                                </span>
+                                                                {renderStatusBadge(call.status)}
                                                             </td>
                                                             <td className="px-3 py-2 text-right">
                                                                 <Button
@@ -598,19 +629,13 @@ function DispatcherPageContent() {
                                                 {units.map((u) => (
                                                     <tr
                                                         key={u.unit}
-                                                        className={'border-b border-zinc-800/50 hover:bg-zinc-800/30 ' + (selectedUnit?.unit === u.unit ? 'bg-blue-900/10' : '')}
+                                                        className={`border-b border-zinc-800/50 hover:bg-zinc-800/30 ${selectedUnit?.unit === u.unit ? 'bg-blue-900/10' : ''}`}
                                                         onClick={() => setSelectedUnit(u)}
                                                     >
                                                         <td className="px-3 py-2 text-blue-400 font-bold">{u.unit}</td>
                                                         <td className="px-3 py-2 text-zinc-300">{u.officer}</td>
                                                         <td className="px-3 py-2">
-                                                            <span className={'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ' + 
-                                                                (u.status === 'Available' ? 'bg-green-500/20 text-green-400' :
-                                                                 u.status === 'Busy' ? 'bg-amber-500/20 text-amber-400' :
-                                                                 u.status === 'Enroute' ? 'bg-blue-500/20 text-blue-400' :
-                                                                 'bg-red-500/20 text-red-400')}>
-                                                                {u.status === 'Available' ? 'ДОСТУПЕН' : u.status === 'Busy' ? 'ЗАНЯТ' : u.status === 'Enroute' ? 'В ПУТИ' : u.status}
-                                                            </span>
+                                                            {renderUnitStatusBadge(u.status)}
                                                         </td>
                                                         <td className="px-3 py-2 text-zinc-500 text-xs font-mono">{u.time}</td>
                                                         <td className="px-3 py-2 text-right">
@@ -973,7 +998,7 @@ function DispatcherPageContent() {
                             )}
                             <div className="absolute top-2 right-2">
                                 <span className={`text-xs font-bold px-2 py-1 rounded-full ${selectedCharacter.isAlive ? 'bg-green-500/80 text-white' : 'bg-red-500/80 text-white'}`}>
-                                    {selectedCharacter.isAlive ? 'ЖИВ' : 'МЕРТВ' }
+                                    {selectedCharacter.isAlive ? 'ЖИВ' : 'МЕРТВ'}
                                 </span>
                             </div>
                         </div>
@@ -985,7 +1010,7 @@ function DispatcherPageContent() {
                                     {selectedCharacter.middleName && <p className="text-xs text-zinc-500">Отчество: {selectedCharacter.middleName}</p>}
                                 </div>
                                 <span className={`text-xs font-bold px-2 py-1 rounded-full border ${selectedCharacter.status === 'Good' ? 'bg-emerald-900/30 border-emerald-700/40 text-emerald-400' : 'bg-red-900/30 border-red-700/40 text-red-400'}`}>
-                                    {selectedCharacter.status === 'Good' ? 'НЕТ ПРОБЛЕМ' : selectedCharacter.status }
+                                    {selectedCharacter.status === 'Good' ? 'НЕТ ПРОБЛЕМ' : selectedCharacter.status}
                                 </span>
                             </div>
 
