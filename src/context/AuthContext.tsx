@@ -40,20 +40,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (typeof window !== 'undefined') {
             const hostname = window.location.hostname;
             const isIP = hostname.match(/^\d+\.\d+\.\d+\.\d+$/);
+            console.log('🍪 [AUTH] hostname:', hostname, 'isIP:', !!isIP);
             // Не устанавливаем domain для localhost или IP
             if (!isIP && hostname !== 'localhost') {
                 const parts = hostname.split('.');
                 if (parts.length >= 2) {
-                    // Пробуем установить на основной домен
-                    domain = `; domain=.${parts.slice(-2).join('.')}`;
-                    console.log('🍪 [AUTH] Setting cookie domain:', parts.slice(-2).join('.'));
+                    const baseDomain = parts.slice(-2).join('.');
+                    domain = `; domain=${baseDomain}`;
+                    console.log('🍪 [AUTH] Setting cookie domain to:', baseDomain);
                 }
             } else {
                 console.log('🍪 [AUTH] Skipping domain for IP/localhost');
             }
         }
         
-        return `; path=/; expires=${expires.toUTCString()}${domain}${isSecure ? '; Secure; SameSite=Lax' : ''}`;
+        const options = `; path=/; expires=${expires.toUTCString()}${domain}${isSecure ? '; Secure; SameSite=None' : ''}`;
+        console.log('🍪 [AUTH] Cookie options:', options);
+        return options;
     };
 
     const clearAuthState = () => {
