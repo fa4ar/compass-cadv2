@@ -595,24 +595,24 @@ function DispatcherPageContent() {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {units.map((unit) => (
+                                                {units.map((u) => (
                                                     <tr
-                                                        key={unit.unit}
-                                                        className={`border-b border-zinc-800/50 hover:bg-zinc-800/30 ${selectedUnit?.unit === unit.unit ? 'bg-blue-900/10' : ''}`}
-                                                        onClick={() => setSelectedUnit(unit)}
+                                                        key={u.unit}
+                                                        className={'border-b border-zinc-800/50 hover:bg-zinc-800/30 ' + (selectedUnit?.unit === u.unit ? 'bg-blue-900/10' : '')}
+                                                        onClick={() => setSelectedUnit(u)}
                                                     >
-                                                        <td className="px-3 py-2 text-blue-400 font-bold">{unit.unit}</td>
-                                                        <td className="px-3 py-2 text-zinc-300">{unit.officer}</td>
+                                                        <td className="px-3 py-2 text-blue-400 font-bold">{u.unit}</td>
+                                                        <td className="px-3 py-2 text-zinc-300">{u.officer}</td>
                                                         <td className="px-3 py-2">
-                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${unit.status === 'Available' ? 'bg-green-500/20 text-green-400' :
-                                                                    unit.status === 'Busy' ? 'bg-amber-500/20 text-amber-400' :
-                                                                        unit.status === 'Enroute' ? 'bg-blue-500/20 text-blue-400' :
-                                                                            'bg-red-500/20 text-red-400'
-                                                                }`}>
-                                                                {unit.status === 'Available' ? 'ДОСТУПЕН' : unit.status === 'Busy' ? 'ЗАНЯТ' : unit.status === 'Enroute' ? 'В ПУТИ' : unit.status}
+                                                            <span className={'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ' + 
+                                                                (u.status === 'Available' ? 'bg-green-500/20 text-green-400' :
+                                                                 u.status === 'Busy' ? 'bg-amber-500/20 text-amber-400' :
+                                                                 u.status === 'Enroute' ? 'bg-blue-500/20 text-blue-400' :
+                                                                 'bg-red-500/20 text-red-400')}>
+                                                                {u.status === 'Available' ? 'ДОСТУПЕН' : u.status === 'Busy' ? 'ЗАНЯТ' : u.status === 'Enroute' ? 'В ПУТИ' : u.status}
                                                             </span>
                                                         </td>
-                                                        <td className="px-3 py-2 text-zinc-500 text-xs font-mono">{unit.time}</td>
+                                                        <td className="px-3 py-2 text-zinc-500 text-xs font-mono">{u.time}</td>
                                                         <td className="px-3 py-2 text-right">
                                                             <div className="flex justify-end gap-1">
                                                                 <Button
@@ -620,7 +620,7 @@ function DispatcherPageContent() {
                                                                     variant="ghost"
                                                                     title="Доступен"
                                                                     className="h-7 w-7 text-green-500 hover:bg-green-500/10"
-                                                                    onClick={(e) => { e.stopPropagation(); handleUpdateUnitStatus(unit.characterId, unit.userId, 'Available'); }}
+                                                                    onClick={(e) => { e.stopPropagation(); handleUpdateUnitStatus(u.characterId, u.userId, 'Available'); }}
                                                                 >
                                                                     <CheckCircle className="w-3.5 h-3.5" />
                                                                 </Button>
@@ -629,7 +629,7 @@ function DispatcherPageContent() {
                                                                     variant="ghost"
                                                                     title="Занят"
                                                                     className="h-7 w-7 text-amber-500 hover:bg-amber-500/10"
-                                                                    onClick={(e) => { e.stopPropagation(); handleUpdateUnitStatus(unit.characterId, unit.userId, 'Busy'); }}
+                                                                    onClick={(e) => { e.stopPropagation(); handleUpdateUnitStatus(u.characterId, u.userId, 'Busy'); }}
                                                                 >
                                                                     <Siren className="w-3.5 h-3.5" />
                                                                 </Button>
