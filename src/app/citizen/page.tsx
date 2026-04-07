@@ -277,7 +277,13 @@ export default function CitizenPage() {
     useEffect(() => {
         console.log('📊 [CITIZEN] Auth state:', { authLoading, isAuthenticated, hasUser: !!user });
         console.log('📦 [CITIZEN] localStorage token:', !!localStorage.getItem('accessToken'));
-        console.log('🍪 [CITIZEN] document.cookie:', document.cookie);
+        
+        // Если есть токен в localStorage, но auth не загружен - подождем
+        const token = localStorage.getItem('accessToken');
+        if (token && authLoading) {
+            console.log('⏳ [CITIZEN] Token exists but auth still loading, waiting...');
+            return;
+        }
         
         if (!authLoading && !isAuthenticated) {
             console.log('⚠️ [CITIZEN] Not authenticated, redirecting to login');
