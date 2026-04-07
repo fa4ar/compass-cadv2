@@ -122,6 +122,29 @@ function DispatcherPageContent() {
         return `${apiUrl}${url}`;
     };
 
+    // Group units to show only one row per pair
+    const groupUnits = (unitList: Unit[]) => {
+        const result: Unit[] = [];
+        const processed = new Set<number>();
+
+        unitList.forEach(u => {
+            if (u.userId && processed.has(u.userId)) return;
+
+            if (u.partnerUserId || (u as any).pairedWith?.length > 0) {
+                const partnerId = u.partnerUserId || (u as any).pairedWith?.[0]?.userId;
+                if (partnerId) {
+                    processed.add(partnerId);
+                }
+            }
+            if (u.userId) processed.add(u.userId);
+            result.push(u);
+        });
+
+        return result;
+    };
+
+    const displayUnits = React.useMemo(() => groupUnits(units), [units]);
+
     // PERSISTENCE: Load from localStorage on mount
     useEffect(() => {
         const savedCallSign = localStorage.getItem('dispatcherCallSign');
@@ -384,8 +407,9 @@ function DispatcherPageContent() {
         toast({ title: 'Dispatcher Status', description: 'You are now off duty.' });
     };
 
-    // Drag and drop handlers for pair creation
+    // Drag and drop handlers for pair creation - use original units array
     const handleDragStart = (unit: Unit) => {
+        if (!unit.userId || unit.partnerUserId) return; // Can't drag paired units
         setDraggedUnit(unit);
     };
 
@@ -761,7 +785,7 @@ function DispatcherPageContent() {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {units.map((u) => (
+                                                {displayUnits.map((u) => (
                                                     <tr
                                                         key={u.unit}
                                                         draggable={!u.partnerUserId && !!u.userId}
