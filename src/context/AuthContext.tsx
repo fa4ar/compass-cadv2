@@ -264,12 +264,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 }
             };
 
+            const handleUserUpdated = (data: any) => {
+                console.log('[AUTH] User profile updated:', data);
+                setUser(prev => prev ? { ...prev, ...data } : null);
+            };
+            
             socket.on('roles_updated', handleRolesUpdated);
             socket.on('user_banned', handleUserBanned);
+            socket.on('user_updated', handleUserUpdated);
 
             return () => {
                 socket.off('roles_updated', handleRolesUpdated);
                 socket.off('user_banned', handleUserBanned);
+                socket.off('user_updated', handleUserUpdated);
             };
         }
     }, [user?.id, socket]);

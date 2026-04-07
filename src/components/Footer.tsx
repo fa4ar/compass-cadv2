@@ -1,7 +1,7 @@
 // src/components/Footer.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Clock, Calendar, Compass, Wifi } from 'lucide-react';
 import { useSocket } from '@/context/SocketContext';
 import { useAuth } from '@/context/AuthContext';
@@ -9,14 +9,40 @@ import { useAuth } from '@/context/AuthContext';
 export default function FooterBar() {
     const [currentTime, setCurrentTime] = useState(() => new Date());
     const [mounted, setMounted] = useState(false);
-    const { isConnected } = useSocket();
+    const { socket, isConnected } = useSocket();
     const { user } = useAuth();
+    const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'online' | 'offline'>('connecting');
 
     useEffect(() => {
         setMounted(true);
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
+
+    useEffect(() => {
+        if (!socket) {
+            setConnectionStatus('offline');
+            return;
+        }
+
+        const handleConnect = () => setConnectionStatus('online');
+        const handleDisconnect = () => setConnectionStatus('offline');
+        const handleConnectError = () => setConnectionStatus('offline');
+
+        socket.on('connect', handleConnect);
+        socket.on('disconnect', handleDisconnect);
+        socket.on('connect_error', handleConnectError);
+
+        if (socket.connected) {
+            setConnectionStatus('online');
+        }
+
+        return () => {
+            socket.off('connect', handleConnect);
+            socket.off('disconnect', handleDisconnect);
+            socket.off('connect_error', handleConnectError);
+        };
+    }, [socket]);
 
     if (user?.isBanned) return null;
 
@@ -27,6 +53,9 @@ export default function FooterBar() {
         ? currentTime.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
         : '--- --- ----';
 
+    const isOnline = connectionStatus === 'online';
+    const isConnecting = connectionStatus === 'connecting';
+
     return (
         <div className="fixed bottom-0 left-0 right-0 h-9 bg-zinc-950/80 backdrop-blur-md border-t border-zinc-800/50 z-[100] select-none">
             <div className="flex items-center justify-between h-full px-4 text-[11px] font-medium tracking-tight">
@@ -34,9 +63,17 @@ export default function FooterBar() {
                 {/* Левая часть: Системная информация */}
                 <div className="flex items-center gap-6">
                     <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full transition-all duration-300 ${isConnected ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'}`} />
-                        <span className={`transition-colors ${isConnected ? 'text-emerald-500' : 'text-red-500'}`}>
-                            {isConnected ? 'ONLINE' : 'OFFLINE'}
+                        <div className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                            isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 
+                            isConnecting ? 'bg-yellow-500 animate-pulse' : 
+                            'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'
+                        }`} />
+                        <span className={`transition-colors ${
+                            isOnline ? 'text-emerald-500' : 
+                            isConnecting ? 'text-yellow-500' : 
+                            'text-red-500'
+                        }`}>
+                            {isOnline ? 'ONLINE' : isConnecting ? 'CONNECTING' : 'OFFLINE'}
                         </span>
                     </div>
 
