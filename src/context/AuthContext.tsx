@@ -103,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const fetchUser = async (skipRefresh = false) => {
         let token = localStorage.getItem('accessToken');
-        const refreshToken = localStorage.getItem('refreshToken');
+        let refreshToken = localStorage.getItem('refreshToken');
         
         console.log('🔄 [AUTH] fetchUser called, token in localStorage:', !!token);
         
@@ -111,24 +111,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const cookieString = document.cookie;
         console.log('🔄 [AUTH] Full cookie string:', cookieString);
         console.log('🔄 [AUTH] Cookie has accessToken:', cookieString.includes('accessToken'));
-        console.log('🔄 [AUTH] Cookie has refreshToken:', cookieString.includes('refreshToken'));
         
-        // СИНХРОНИЗАЦИЯ: Если есть в localStorage, но нет в Cookies (Middleware нужен Cookie)
-        if (token && !cookieString.includes('accessToken')) {
-            console.log('🔄 [AUTH] Syncing token to cookie...');
-            const cookieOptions = getCookieOptions(7);
-            document.cookie = `accessToken=${token}${cookieOptions}`;
-            if (refreshToken) {
-                document.cookie = `refreshToken=${refreshToken}${cookieOptions}`;
+        // Если токена нет в localStorage, но есть в cookie - восстанавливаем
+        if (!token && cookieString.includes('accessToken')) {
+            console.log('🔄 [AUTH] Token in cookie but not localStorage, restoring...');
+            // Извлекаем токен из куки (упрощенно)
+            const cookieParts = cookieString.split('accessToken=');
+            if (cookieParts[1]) {
+                token = cookieParts[1].split(';')[0].trim();
+                console.log('🔄 [AUTH] Restored accessToken from cookie');
             }
-            console.log('🔄 [AUTH] After sync, cookie string:', document.cookie);
-            console.log('🔄 [AUTH] After sync, has accessToken:', document.cookie.includes('accessToken'));
-        } else if (token && cookieString.includes('accessToken')) {
-            console.log('🔄 [AUTH] Token already in cookie');
+        }
+        
+        if (!refreshToken && cookieString.includes('refreshToken')) {
+            const cookieParts = cookieString.split('refreshToken=');
+            if (cookieParts[1]) {
+                refreshToken = cookieParts[1].split(';')[0].trim();
+                console.log('🔄 [AUTH] Restored refreshToken from cookie');
+            }
+        }
+        
+        // Сохраняем в localStorage для consistency
+        if (token && !localStorage.getItem('accessToken')) {
+            localStorage.setItem('accessToken', token);
+            console.log('🔄 [AUTH] Saved token to localStorage');
+        }
+        if (refreshToken && !localStorage.getItem('refreshToken')) {
+            localStorage.setItem('refreshToken', refreshToken);
         }
         
         if (!token) {
-            console.log('ℹ️ [AUTH] No token in localStorage, setting isLoading to false');
+            console.log('ℹ️ [AUTH] No token found, setting isLoading to false');
             setIsLoading(false);
             return;
         }
