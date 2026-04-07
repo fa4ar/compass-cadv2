@@ -466,7 +466,7 @@ function DispatcherPageContent() {
             
             if (res.ok) {
                 const data = await res.json();
-                toast({ title: 'Приглашение отправлено', description: `${createPairData.unit1.unit} пригласил ${createPairData.unit2.unit} в пару` });
+                toast({ title: 'Пара создана', description: `Патрульная пара "${data.pairName || createPairData.pairName || 'Без названия'}" создана` });
                 setShowCreatePairModal(false);
                 setCreatePairData(null);
                 fetchData();
@@ -1404,37 +1404,54 @@ function DispatcherPageContent() {
             {/* Create Pair Modal - Drag and Drop */}
             {showCreatePairModal && createPairData && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setShowCreatePairModal(false); setCreatePairData(null); }}>
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
-                        <div className="text-center space-y-4">
-                            <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto">
-                                <Users className="w-8 h-8 text-purple-500" />
-                            </div>
-                            <div>
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+                        <div className="space-y-6">
+                            <div className="text-center">
+                                <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <Users className="w-8 h-8 text-purple-500" />
+                                </div>
                                 <h2 className="text-xl font-bold text-white">Создать патрульную пару</h2>
-                                <p className="text-zinc-400 mt-2">Объедините двух юнитов в пару</p>
+                                <p className="text-zinc-400 mt-1 text-sm">Объедините двух юнитов в пару</p>
                             </div>
                             
-                            <div className="flex items-center justify-center gap-4 py-4">
-                                <div className="text-center">
-                                    <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                                        <User className="w-6 h-6 text-blue-400" />
+                            <div className="flex items-center justify-center gap-0">
+                                {/* Unit 1 */}
+                                <div className="flex flex-col items-center">
+                                    <div className="w-20 h-20 rounded-full overflow-hidden bg-zinc-800 border-2 border-blue-500/50 mb-2">
+                                        {createPairData.unit1?.user?.avatarUrl ? (
+                                            <img src={getImageUrl(createPairData.unit1.user.avatarUrl)!} alt={createPairData.unit1.officer} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-zinc-500"><User className="w-8 h-8" /></div>
+                                        )}
                                     </div>
-                                    <p className="text-sm font-medium text-white">{createPairData.unit1?.officer}</p>
-                                    <p className="text-xs text-zinc-500">{createPairData.unit1?.unit}</p>
+                                    <p className="text-sm font-bold text-white text-center">{createPairData.unit1?.officer}</p>
+                                    <p className="text-xs text-zinc-500">@{createPairData.unit1?.user?.username || 'user'}</p>
+                                    <p className="text-xs text-blue-400 font-bold mt-1">{createPairData.unit1?.unit}</p>
                                 </div>
-                                <div className="text-zinc-500">
-                                    <Users className="w-6 h-6" />
-                                </div>
-                                <div className="text-center">
-                                    <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                                        <User className="w-6 h-6 text-blue-400" />
+                                
+                                {/* Plus */}
+                                <div className="mx-4 -mt-8">
+                                    <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
+                                        <span className="text-white font-bold text-xl">+</span>
                                     </div>
-                                    <p className="text-sm font-medium text-white">{createPairData.unit2?.officer}</p>
-                                    <p className="text-xs text-zinc-500">{createPairData.unit2?.unit}</p>
+                                </div>
+                                
+                                {/* Unit 2 */}
+                                <div className="flex flex-col items-center">
+                                    <div className="w-20 h-20 rounded-full overflow-hidden bg-zinc-800 border-2 border-blue-500/50 mb-2">
+                                        {createPairData.unit2?.user?.avatarUrl ? (
+                                            <img src={getImageUrl(createPairData.unit2.user.avatarUrl)!} alt={createPairData.unit2.officer} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-zinc-500"><User className="w-8 h-8" /></div>
+                                        )}
+                                    </div>
+                                    <p className="text-sm font-bold text-white text-center">{createPairData.unit2?.officer}</p>
+                                    <p className="text-xs text-zinc-500">@{createPairData.unit2?.user?.username || 'user'}</p>
+                                    <p className="text-xs text-blue-400 font-bold mt-1">{createPairData.unit2?.unit}</p>
                                 </div>
                             </div>
-
-                            <div className="text-left">
+                            
+                            <div>
                                 <Label className="text-xs text-zinc-400 uppercase tracking-wide">Название пары</Label>
                                 <Input 
                                     value={createPairData.pairName}
@@ -1444,7 +1461,7 @@ function DispatcherPageContent() {
                                 />
                             </div>
                             
-                            <div className="flex gap-3 pt-2">
+                            <div className="flex gap-3">
                                 <Button variant="outline" className="flex-1" onClick={() => { setShowCreatePairModal(false); setCreatePairData(null); }}>
                                     Отмена
                                 </Button>
