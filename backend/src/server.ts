@@ -18,7 +18,11 @@ export const io = initSocket(server);
 // Импортируем бота
 import { discordBotService } from './services/discord-bot.service';
 
-app.use(cors());
+app.use(cors({
+    origin: true, // Разрешаем текущий источник
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.resolve(__dirname, '..', 'uploads'), {

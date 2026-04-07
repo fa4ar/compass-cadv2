@@ -1,6 +1,22 @@
 import { io } from 'socket.io-client';
 
-const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000';
+const getSocketUrl = () => {
+    let url = process.env.NEXT_PUBLIC_SOCKET_URL || '';
+    
+    if (typeof window !== 'undefined') {
+        const isDomain = window.location.hostname !== 'localhost' && !window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/);
+        if (isDomain && (!url || url.includes('localhost'))) {
+            // Пытаемся угадать SOCKET URL на основе текущего домена
+            url = `${window.location.protocol}//api.${window.location.hostname}`;
+            console.warn(`⚠️ [SOCKET] Socket URL points to localhost but we are on a domain. Dynamic fallback to: ${url}`);
+        } else if (!url) {
+            url = 'http://localhost:4000';
+        }
+    }
+    return url || 'http://localhost:4000';
+};
+
+const socketUrl = getSocketUrl();
 
 export const socket = io(socketUrl, {
     autoConnect: false,

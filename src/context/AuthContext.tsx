@@ -65,6 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         let token = localStorage.getItem('accessToken');
         const refreshToken = localStorage.getItem('refreshToken');
         
+        console.log('🔄 [AUTH] Starting fetchUser, token present:', !!token);
+        
         // СИНХРОНИЗАЦИЯ: Если есть в localStorage, но нет в Cookies (Middleware нужен Cookie)
         if (token && !document.cookie.includes('accessToken')) {
             const expires = new Date();
@@ -76,17 +78,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         
         if (!token) {
+            console.log('ℹ️ [AUTH] No token found, setting isLoading to false');
             setIsLoading(false);
             return;
         }
 
         try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            // Определяем API URL динамически, если NEXT_PUBLIC_API_URL не задан или равен localhost
+            let apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+            
+            // Если мы на домене, а apiUrl указывает на localhost - это ошибка конфигурации сборки
+            if (typeof window !== 'undefined') {
+                const isDomain = window.location.hostname !== 'localhost' && !window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/);
+                if (isDomain && (!apiUrl || apiUrl.includes('localhost'))) {
+                    // Пытаемся угадать API URL на основе текущего домена
+                    apiUrl = `${window.location.protocol}//api.${window.location.hostname}`;
+                    console.warn(`⚠️ [AUTH] API URL points to localhost but we are on a domain. Dynamic fallback to: ${apiUrl}`);
+                } else if (!apiUrl) {
+                    apiUrl = 'http://localhost:4000';
+                }
+            }
+
+            console.log('📡 [AUTH] Fetching user from:', `${apiUrl}/api/auth/me`);
+            
             let response = await fetch(`${apiUrl}/api/auth/me`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
+            console.log('📡 [AUTH] Response status:', response.status);
+
             if (response.status === 401 && !skipRefresh) {
+                console.log('🔄 [AUTH] Token expired, attempting refresh...');
                 const refreshToken = localStorage.getItem('refreshToken');
                 if (refreshToken) {
                     const refreshRes = await fetch(`${apiUrl}/api/auth/refresh`, {
@@ -97,6 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
                     if (refreshRes.ok) {
                         const tokens = await refreshRes.json();
+                        console.log('✅ [AUTH] Token refreshed successfully');
                         localStorage.setItem('accessToken', tokens.accessToken);
                         localStorage.setItem('refreshToken', tokens.refreshToken);
                         
@@ -110,6 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                             headers: { 'Authorization': `Bearer ${token}` }
                         });
                     } else {
+                        console.error('❌ [AUTH] Token refresh failed');
                         clearAuthState();
                         setIsLoading(false);
                         return;
