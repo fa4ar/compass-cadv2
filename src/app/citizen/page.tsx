@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { toast } from '@/hooks/use-toast';
 import { ImageUpload } from '@/components/ImageUpload';
+import { getApiUrl } from '@/lib/utils';
 
 interface Vehicle {
     id: number;
@@ -101,18 +102,18 @@ interface DepartmentRank {
 
 
 export default function CitizenPage() {
-    const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+    const { user, isAuthenticated, isBanned: isUserBanned, isLoading: authLoading } = useAuth();
     const router = useRouter();
     const [characters, setCharacters] = useState<Character[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     useEffect(() => {
-        if (!authLoading && !isAuthenticated) {
+        if (!authLoading && !isAuthenticated && !isUserBanned) {
             console.log('🔄 [CITIZEN] Not authenticated, redirecting to login...');
-            router.replace('/auth/login');
+            window.location.replace('/auth/login');
         }
-    }, [authLoading, isAuthenticated, router]);
+    }, [authLoading, isAuthenticated, isUserBanned]);
 
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showCallModal, setShowCallModal] = useState(false);
@@ -189,15 +190,7 @@ export default function CitizenPage() {
         try {
             const token = localStorage.getItem('accessToken');
             
-            let apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
-            if (typeof window !== 'undefined') {
-                const isDomain = window.location.hostname !== 'localhost' && !window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/);
-                if (isDomain && (!apiUrl || apiUrl.includes('localhost'))) {
-                    apiUrl = `${window.location.protocol}//api.${window.location.hostname}`;
-                } else if (!apiUrl) {
-                    apiUrl = 'http://localhost:4000';
-                }
-            }
+            const apiUrl = getApiUrl();
 
             const [vRes, wRes, lRes, aRes, fRes] = await Promise.all([
                 fetch(`${apiUrl}/api/civilian/characters/${charId}/vehicles`, { headers: { 'Authorization': `Bearer ${token}` } }),
@@ -226,15 +219,7 @@ export default function CitizenPage() {
             }
             
             // Определяем API URL динамически
-            let apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
-            if (typeof window !== 'undefined') {
-                const isDomain = window.location.hostname !== 'localhost' && !window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/);
-                if (isDomain && (!apiUrl || apiUrl.includes('localhost'))) {
-                    apiUrl = `${window.location.protocol}//api.${window.location.hostname}`;
-                } else if (!apiUrl) {
-                    apiUrl = 'http://localhost:4000';
-                }
-            }
+            const apiUrl = getApiUrl();
             
             console.log('📡 [CITIZEN] Fetching characters from:', `${apiUrl}/api/characters`);
             
@@ -261,15 +246,7 @@ export default function CitizenPage() {
             const token = localStorage.getItem('accessToken');
             if (!token) return;
             
-            let apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
-            if (typeof window !== 'undefined') {
-                const isDomain = window.location.hostname !== 'localhost' && !window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/);
-                if (isDomain && (!apiUrl || apiUrl.includes('localhost'))) {
-                    apiUrl = `${window.location.protocol}//api.${window.location.hostname}`;
-                } else if (!apiUrl) {
-                    apiUrl = 'http://localhost:4000';
-                }
-            }
+            const apiUrl = getApiUrl();
             
             const res = await fetch(`${apiUrl}/api/departments`, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -288,17 +265,17 @@ export default function CitizenPage() {
         if (!authLoading && isAuthenticated) {
             if (user?.isBanned) {
                 console.log('🚫 [CITIZEN] User is banned, redirecting...');
-                router.replace('/banned');
+                window.location.replace('/banned');
                 return;
             }
             console.log('✅ [CITIZEN] Authenticated, fetching data...');
             fetchCharacters();
             fetchDepartments();
         } else if (!authLoading && !isAuthenticated) {
-            // Если не авторизован, выключаем локальную загрузку, чтобы не висел спиннер до редиректа
-            setIsLoading(false);
+            // Если не авторизован, НЕ выключаем загрузку, пока не произойдет редирект (чтобы не было моргания)
+            // setIsLoading(false); // Убираем это
         }
-    }, [authLoading, isAuthenticated, user?.isBanned, router]);
+    }, [authLoading, isAuthenticated, user?.isBanned]);
 
     const handleRefresh = () => {
         setIsRefreshing(true);

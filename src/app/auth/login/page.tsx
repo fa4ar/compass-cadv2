@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { getApiUrl } from '@/lib/utils';
 
 function LoginContent() {
     const searchParams = useSearchParams();
@@ -57,7 +58,9 @@ function LoginContent() {
         setError('');
         
         try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const apiUrl = getApiUrl();
+            
+            console.log('📡 [LOGIN] Connecting to API:', `${apiUrl}/api/auth/discord`);
             const response = await fetch(`${apiUrl}/api/auth/discord`);
             const data = await response.json();
             

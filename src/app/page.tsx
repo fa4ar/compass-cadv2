@@ -87,10 +87,10 @@ export default function SelectorPage() {
 function SelectorPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { user, hasRole, isAuthenticated, isLoading, logout } = useAuth();
+    const { user, hasRole, isAuthenticated, isBanned: isUserBanned, isLoading, logout } = useAuth();
     
-    const isBanned = searchParams.get('banned') === 'true';
-    const banReason = searchParams.get('reason');
+    const isBanned = searchParams.get('banned') === 'true' || isUserBanned;
+    const banReason = searchParams.get('reason') || user?.banReason;
     
     useEffect(() => {
         if (!isLoading) {
@@ -99,14 +99,14 @@ function SelectorPageContent() {
                 if (window.location.pathname === '/banned') return;
                 
                 const target = banReason ? `/banned?reason=${encodeURIComponent(banReason)}` : '/banned';
-                router.replace(target);
-            } else if (!isAuthenticated) {
+                window.location.replace(target);
+            } else if (!isAuthenticated && !isUserBanned) {
                 console.log('🔄 [SELECTOR] Not authenticated, redirecting to login');
                 if (window.location.pathname === '/auth/login') return;
-                router.replace('/auth/login');
+                window.location.replace('/auth/login');
             }
         }
-    }, [isLoading, isAuthenticated, isBanned, banReason, router]);
+    }, [isLoading, isAuthenticated, isBanned, banReason, isUserBanned]);
 
     if (isLoading) {
         return (

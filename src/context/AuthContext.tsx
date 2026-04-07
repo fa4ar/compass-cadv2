@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { socket } from '../lib/socket';
+import { getApiUrl } from '../lib/utils';
 
 interface User {
     id: number;
@@ -18,6 +19,7 @@ interface AuthContextType {
     user: User | null;
     isLoading: boolean;
     isAuthenticated: boolean;
+    isBanned: boolean;
     hasRole: (roles: string[]) => boolean;
     logout: () => void;
     refreshUser: () => Promise<void>;
@@ -43,8 +45,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const redirectBannedUser = (reason?: string | null, clearSession = true) => {
         console.log('🚫 [AUTH] Redirecting banned user, clearSession:', clearSession);
         
-        const currentUrl = new URL(window.location.href);
-        if (currentUrl.pathname === '/banned') {
+        // ВАЖНО: Используем window.location.pathname для проверки, чтобы избежать циклов
+        if (typeof window !== 'undefined' && window.location.pathname === '/banned') {
             console.log('ℹ️ [AUTH] Already on /banned, skipping redirect');
             return;
         }
@@ -53,13 +55,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             clearAuthState();
         }
 
-        const bannedUrl = new URL('/banned', window.location.origin);
-        const nextReason = (reason || '').trim();
-        if (nextReason) {
-            bannedUrl.searchParams.set('reason', nextReason);
+        // Если мы на клиенте, делаем жесткий редирект для надежности
+        if (typeof window !== 'undefined') {
+            const bannedUrl = new URL('/banned', window.location.origin);
+            const nextReason = (reason || '').trim();
+            if (nextReason) {
+                bannedUrl.searchParams.set('reason', nextReason);
+            }
+            console.log('🚀 [AUTH] Executing window.location.replace to:', bannedUrl.toString());
+            window.location.replace(bannedUrl.toString());
         }
-
-        window.location.replace(bannedUrl.toString());
     };
 
     const fetchUser = async (skipRefresh = false) => {
@@ -85,21 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         try {
-            // Определяем API URL динамически, если NEXT_PUBLIC_API_URL не задан или равен localhost
-            let apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
-            
-            // Если мы на домене, а apiUrl указывает на localhost - это ошибка конфигурации сборки
-            if (typeof window !== 'undefined') {
-                const isDomain = window.location.hostname !== 'localhost' && !window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/);
-                if (isDomain && (!apiUrl || apiUrl.includes('localhost'))) {
-                    // Пытаемся угадать API URL на основе текущего домена
-                    apiUrl = `${window.location.protocol}//api.${window.location.hostname}`;
-                    console.warn(`⚠️ [AUTH] API URL points to localhost but we are on a domain. Dynamic fallback to: ${apiUrl}`);
-                } else if (!apiUrl) {
-                    apiUrl = 'http://localhost:4000';
-                }
-            }
-
+            const apiUrl = getApiUrl();
             console.log('📡 [AUTH] Fetching user from:', `${apiUrl}/api/auth/me`);
             
             let response = await fetch(`${apiUrl}/api/auth/me`, {
@@ -272,6 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             user, 
             isLoading, 
             isAuthenticated: !!user,
+            isBanned: !!user?.isBanned,
             hasRole,
             logout,
             refreshUser

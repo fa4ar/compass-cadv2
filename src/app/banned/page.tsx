@@ -6,6 +6,7 @@ import { Loader2, Lock, LogOut, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
+import { getApiUrl } from '@/lib/utils';
 
 function BannedPageContent() {
     const router = useRouter();
@@ -38,7 +39,7 @@ function BannedPageContent() {
             const token = localStorage.getItem('accessToken');
             if (!token) return;
 
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const apiUrl = getApiUrl();
             const response = await fetch(`${apiUrl}/api/users/${user.id}/ban`, {
                 method: 'PATCH',
                 headers: {
