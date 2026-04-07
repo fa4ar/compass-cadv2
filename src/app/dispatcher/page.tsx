@@ -394,7 +394,7 @@ function DispatcherPageContent() {
         if (!draggedUnit || draggedUnit.unit === unit.unit) return;
         
         // Only allow dropping on non-paired units
-        if (!unit.userId) return;
+        if (!unit.userId || unit.partnerUserId) return;
         
         setDropTargetUnit(unit);
     };
@@ -764,7 +764,7 @@ function DispatcherPageContent() {
                                                 {units.map((u) => (
                                                     <tr
                                                         key={u.unit}
-                                                        draggable={!!u.userId}
+                                                        draggable={!u.partnerUserId && !!u.userId}
                                                         onDragStart={() => handleDragStart(u)}
                                                         onDragOver={(e) => handleDragOver(e, u)}
                                                         onDragLeave={handleDragLeave}
@@ -775,7 +775,7 @@ function DispatcherPageContent() {
                                                             ${selectedUnit?.unit === u.unit ? 'bg-blue-900/10' : ''}
                                                             ${dropTargetUnit?.unit === u.unit && draggedUnit?.unit !== u.unit ? 'bg-purple-500/20 border-2 border-purple-500' : ''}
                                                             ${draggedUnit?.unit === u.unit ? 'opacity-50' : ''}
-                                                            ${u.userId ? 'cursor-grab' : ''}
+                                                            ${!u.partnerUserId && u.userId ? 'cursor-grab' : ''}
                                                         `}
                                                         onClick={() => setSelectedUnit(u)}
                                                     >
