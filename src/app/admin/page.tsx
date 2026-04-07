@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
+import { clearClientCaches, invalidateClientCache } from '@/lib/cache';
 import {
     Tooltip,
     TooltipContent,
@@ -174,6 +175,7 @@ export default function AdminPage() {
     const [characters, setCharacters] = useState<Character[]>([]);
     const [closedCalls911, setClosedCalls911] = useState<ClosedCall911[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isClearingCache, setIsClearingCache] = useState(false);
     const [betaTestEnabled, setBetaTestEnabled] = useState(false);
 
     const [showUserModal, setShowUserModal] = useState(false);
@@ -302,6 +304,7 @@ export default function AdminPage() {
             if (res.ok) {
                 const data = await res.json();
                 setBetaTestEnabled(data.enabled);
+                await invalidateClientCache(['/api/settings/beta-test']);
                 toast({ 
                     title: data.enabled ? 'BETA TEST включен' : 'BETA TEST выключен', 
                     description: data.enabled 
@@ -311,6 +314,26 @@ export default function AdminPage() {
             }
         } catch (err) {
             toast({ title: 'Ошибка', description: 'Не удалось изменить настройку', variant: 'destructive' });
+        }
+    };
+
+    const handleForceClearCache = async () => {
+        setIsClearingCache(true);
+        try {
+            await clearClientCaches();
+            toast({
+                title: 'Кэш очищен',
+                description: 'Клиентский кэш сброшен, страница будет обновлена.',
+            });
+            window.location.reload();
+        } catch {
+            toast({
+                title: 'Ошибка',
+                description: 'Не удалось очистить клиентский кэш',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsClearingCache(false);
         }
     };
 
@@ -352,6 +375,7 @@ export default function AdminPage() {
             if (res.ok) {
                 toast({ title: 'Успешно', description: 'Вызов 911 удален' });
                 setSelectedClosedCall911(null);
+                await invalidateClientCache([`${apiUrl}/api/calls911/closed`, `${apiUrl}/api/calls911/${callId}`]);
                 fetchClosedCalls911();
             } else {
                 toast({ title: 'Ошибка', description: 'Не удалось удалить вызов', variant: 'destructive' });
@@ -383,6 +407,7 @@ export default function AdminPage() {
             if (res.ok) {
                 toast({ title: 'Success', description: `User ${userForm.action === 'ban' ? 'banned' : 'unbanned'} successfully` });
                 setShowUserModal(false);
+                await invalidateClientCache([`${apiUrl}/api/users`, `${apiUrl}/api/users/${selectedUser.id}/ban`]);
                 fetchData();
             }
         } catch (err) {
@@ -410,6 +435,7 @@ export default function AdminPage() {
                 toast({ title: 'Success', description: 'Department created successfully' });
                 setShowDepartmentModal(false);
                 setDepartmentForm({ name: '', code: '', type: 'police', description: '', motto: '' });
+                await invalidateClientCache([`${apiUrl}/api/departments`, `${apiUrl}/api/departments?includeInactive=true`]);
                 fetchData();
             } else {
                 const data = await res.json();
@@ -1138,6 +1164,22 @@ export default function AdminPage() {
                                             <p className="text-zinc-500 text-xs">
                                                 Role ID из ENV: <span className="text-zinc-300 font-mono">{process.env.BETA_TEST_ROLE_ID || 'не настроен'}</span>
                                             </p>
+                                        </div>
+                                    </div>
+                                    <div className="bg-zinc-800/40 p-4 rounded-lg border border-zinc-700">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div>
+                                                <h3 className="text-zinc-200 font-medium">Принудительный сброс кэша</h3>
+                                                <p className="text-zinc-500 text-xs">Очистить service worker и браузерный cache storage</p>
+                                            </div>
+                                            <Button
+                                                onClick={handleForceClearCache}
+                                                disabled={isClearingCache}
+                                                variant="outline"
+                                                className="border-zinc-600"
+                                            >
+                                                {isClearingCache ? 'Очистка...' : 'Сбросить кэш'}
+                                            </Button>
                                         </div>
                                     </div>
                                 </div>

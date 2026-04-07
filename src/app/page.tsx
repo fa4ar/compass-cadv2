@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { 
     IdCard, 
-    Shield, 
+    Shield,
     Radio, 
     Heart, 
     Settings, 
@@ -89,23 +89,22 @@ function SelectorPageContent() {
     const searchParams = useSearchParams();
     const { user, hasRole, isAuthenticated, isLoading, logout } = useAuth();
     
-    // Check both URL param and user object status
-    const isBanned = searchParams.get('banned') === 'true' || user?.isBanned === true;
-    const banReason = searchParams.get('reason') || user?.banReason;
+    const isBanned = searchParams.get('banned') === 'true';
+    const banReason = searchParams.get('reason');
     
-    const [mounted, setMounted] = useState(false);
-
     useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    useEffect(() => {
-        if (!isLoading && !isAuthenticated && mounted && !isBanned) {
-            router.push('/auth/login');
+        if (isBanned) {
+            const target = banReason ? `/banned?reason=${encodeURIComponent(banReason)}` : '/banned';
+            router.replace(target);
+            return;
         }
-    }, [isLoading, isAuthenticated, mounted, router, isBanned]);
 
-    if (isLoading || !mounted) {
+        if (!isLoading && !isAuthenticated && !isBanned) {
+            router.replace('/auth/login');
+        }
+    }, [isLoading, isAuthenticated, router, isBanned, banReason]);
+
+    if (isLoading) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center">
                 <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
@@ -114,78 +113,9 @@ function SelectorPageContent() {
     }
 
     if (isBanned) {
-        const userRoles = (user?.roles || []).map((r: string) => r.toLowerCase());
-        const isAdmin = userRoles.includes('admin') || userRoles.includes('supervisor');
-
-        const handleUnbanSelf = async () => {
-            if (!user) return;
-            try {
-                const token = localStorage.getItem('accessToken');
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-                const res = await fetch(`${apiUrl}/api/users/${user.id}/ban`, {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ isBanned: false })
-                });
-                if (res.ok) {
-                    window.location.href = '/';
-                }
-            } catch (err) {
-                console.error('Failed to unban self:', err);
-            }
-        };
-
         return (
-            <div className="min-h-screen bg-black text-zinc-100 flex flex-col font-sans selection:bg-red-500/30 items-center justify-center p-6">
-                <motion.div 
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="max-w-md w-full"
-                >
-                    <Card className="bg-zinc-900/50 border-red-500/20 backdrop-blur-xl p-8 text-center space-y-6">
-                        <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto border border-red-500/20">
-                            <Lock className="w-10 h-10 text-red-500" />
-                        </div>
-                        
-                        <div className="space-y-2">
-                            <h1 className="text-3xl font-black tracking-tight text-white uppercase tracking-wider">Access Revoked</h1>
-                            <p className="text-zinc-500 text-sm font-medium">
-                                Your account has been suspended from the Compass CAD network.
-                            </p>
-                        </div>
-
-                        <div className="bg-black/40 rounded-xl p-4 border border-zinc-800/50 text-left space-y-1">
-                            <span className="text-[10px] font-black uppercase text-red-500 tracking-widest">Reason for Ban</span>
-                            <p className="text-zinc-300 text-sm font-medium italic">
-                                "{banReason || 'No specific reason provided by administration.'}"
-                            </p>
-                        </div>
-
-                        <div className="pt-4 space-y-3">
-                            {isAdmin && (
-                                <Button 
-                                    onClick={handleUnbanSelf}
-                                    className="w-full bg-red-600 hover:bg-red-700 text-white font-bold"
-                                >
-                                    <Shield className="w-4 h-4 mr-2" /> Unban Myself (Admin)
-                                </Button>
-                            )}
-                            <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-wider">
-                                If you believe this is an error, contact support.
-                            </p>
-                            <Button 
-                                variant="outline" 
-                                onClick={logout}
-                                className="w-full border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800/50"
-                            >
-                                <LogOut className="w-4 h-4 mr-2" /> Sign Out from Account
-                            </Button>
-                        </div>
-                    </Card>
-                </motion.div>
+            <div className="min-h-screen bg-black flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
             </div>
         );
     }

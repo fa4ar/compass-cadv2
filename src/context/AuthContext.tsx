@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { socket } from '../lib/socket';
 
 interface User {
@@ -28,6 +28,33 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const isBanRedirecting = useRef(false);
+
+    const clearAuthState = () => {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        document.cookie = 'accessToken=; path=/; max-age=0';
+        document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        document.cookie = 'refreshToken=; path=/; max-age=0';
+        document.cookie = 'refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        setUser(null);
+    };
+
+    const redirectBannedUser = (reason?: string | null) => {
+        if (isBanRedirecting.current) {
+            return;
+        }
+
+        isBanRedirecting.current = true;
+        clearAuthState();
+
+        const bannedUrl = new URL('/banned', window.location.origin);
+        if (reason) {
+            bannedUrl.searchParams.set('reason', reason);
+        }
+
+        window.location.replace(bannedUrl.toString());
+    };
 
     const fetchUser = async (skipRefresh = false) => {
         let token = localStorage.getItem('accessToken');
@@ -78,10 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                             headers: { 'Authorization': `Bearer ${token}` }
                         });
                     } else {
-                        localStorage.removeItem('accessToken');
-                        localStorage.removeItem('refreshToken');
-                        document.cookie = 'accessToken=; path=/; max-age=0';
-                        document.cookie = 'refreshToken=; path=/; max-age=0';
+                        clearAuthState();
                         setIsLoading(false);
                         return;
                     }
@@ -91,10 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (response.status === 403) {
                 const data = await response.json();
                 if (data.banned) {
-                    localStorage.removeItem('accessToken');
-                    localStorage.removeItem('refreshToken');
-                    setUser(null);
-                    window.location.href = `/?banned=true&reason=${encodeURIComponent(data.reason || '')}`;
+                    redirectBannedUser(data.reason);
                     return;
                 }
             }
@@ -110,22 +131,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     const isAdmin = userRoles.includes('admin') || userRoles.includes('supervisor');
 
                     if (!isAdmin) {
-                        localStorage.removeItem('accessToken');
-                        localStorage.removeItem('refreshToken');
-                        document.cookie = 'accessToken=; path=/; max-age=0';
-                        document.cookie = 'refreshToken=; path=/; max-age=0';
-                        setUser(null);
-                        window.location.href = `/?banned=true&reason=${encodeURIComponent(data.user.banReason || '')}`;
+                        redirectBannedUser(data.user.banReason || '');
                     } else {
                         // Для админов просто обновляем состояние, чтобы они могли разбаниться сами
                         setUser(prev => prev ? { ...prev, isBanned: true, banReason: data.user.banReason || undefined } : null);
                     }
                 }
             } else {
-                localStorage.removeItem('accessToken');
-                localStorage.removeItem('refreshToken');
-                document.cookie = 'accessToken=; path=/; max-age=0';
-                document.cookie = 'refreshToken=; path=/; max-age=0';
+                clearAuthState();
             }
         } catch (err) {
             console.error('Failed to fetch user:', err);
@@ -138,18 +151,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         fetchUser();
     }, []);
 
+    useEffect(() => {
+        if (!('serviceWorker' in navigator)) {
+            return;
+        }
+
+        navigator.serviceWorker.register('/sw.js').catch(() => undefined);
+    }, []);
+
     const hasRole = (requiredRoles: string[]): boolean => {
         if (!user || !user.roles || user.roles.length === 0) return false;
         return requiredRoles.some(role => user.roles.includes(role));
     };
 
     const logout = () => {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        document.cookie = 'accessToken=; path=/; max-age=0';
-        document.cookie = 'refreshToken=; path=/; max-age=0';
-        setUser(null);
-        window.location.href = '/auth/login';
+        clearAuthState();
+        window.location.replace('/auth/login');
     };
 
     // ✅ МГНОВЕННАЯ СИНХРОНИЗАЦИЯ: Слушаем сокет для обновления ролей
@@ -185,11 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     if (data.isBanned) {
                         console.log('🚫 [AUTH] You have been banned:', data.reason);
                         if (!isAdmin) {
-                            localStorage.removeItem('accessToken');
-                            localStorage.removeItem('refreshToken');
-                            document.cookie = 'accessToken=; path=/; max-age=0';
-                            document.cookie = 'refreshToken=; path=/; max-age=0';
-                            setUser(null);
+                            redirectBannedUser(data.reason);
                         } else {
                             // Для админов просто обновляем состояние
                             setUser(prev => prev ? { ...prev, isBanned: true, banReason: data.reason || undefined } : null);
@@ -203,12 +216,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         } else {
                             // Для обычных юзеров делаем чистый логаут
                             console.log('Logging out for clean state...');
-                            localStorage.removeItem('accessToken');
-                            localStorage.removeItem('refreshToken');
-                            document.cookie = 'accessToken=; path=/; max-age=0';
-                            document.cookie = 'refreshToken=; path=/; max-age=0';
-                            setUser(null);
-                            window.location.href = '/auth/login?unbanned=true';
+                            clearAuthState();
+                            window.location.replace('/auth/login?unbanned=true');
                         }
                     }
                 }

@@ -109,7 +109,7 @@ export default function CitizenPage() {
 
     useEffect(() => {
         if (!authLoading && !isAuthenticated) {
-            router.push('/auth/login');
+            router.replace('/auth/login');
         }
     }, [authLoading, isAuthenticated, router]);
 

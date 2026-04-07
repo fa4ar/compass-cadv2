@@ -3,13 +3,14 @@ import type { NextRequest } from 'next/server';
 
 export function proxy(request: NextRequest) {
     const token = request.cookies.get('accessToken')?.value;
-    const { pathname } = request.nextUrl;
+    const { pathname, searchParams } = request.nextUrl;
 
     // 1. Публичные пути, которые ВСЕГДА доступны
     // (auth страницы, ресурсы, иконки)
     const isAuthPage = pathname.startsWith('/auth/');
     const isStaticRes = pathname.startsWith('/_next') || pathname.includes('.') || pathname === '/favicon.ico';
     const isApi = pathname.startsWith('/api');
+    const isBannedPage = pathname === '/banned';
 
     // Главная страница / - тоже публичная, но с логикой
     const isRoot = pathname === '/';
@@ -19,8 +20,17 @@ export function proxy(request: NextRequest) {
         return NextResponse.redirect(new URL('/citizen', request.url));
     }
 
-    // 3. Если это защищенный путь (не auth, не статика, не api, не корень) и токена нет — редирект в логин
-    if (!token && !isAuthPage && !isStaticRes && !isApi && !isRoot) {
+    if (isRoot && searchParams.get('banned') === 'true') {
+        const bannedUrl = new URL('/banned', request.url);
+        const reason = searchParams.get('reason');
+        if (reason) {
+            bannedUrl.searchParams.set('reason', reason);
+        }
+        return NextResponse.redirect(bannedUrl);
+    }
+
+    // 3. Если это защищенный путь (не auth, не статика, не api, не корень, не banned) и токена нет — редирект в логин
+    if (!token && !isAuthPage && !isStaticRes && !isApi && !isRoot && !isBannedPage) {
         const loginUrl = new URL('/auth/login', request.url);
         loginUrl.searchParams.set('from', pathname);
         return NextResponse.redirect(loginUrl);

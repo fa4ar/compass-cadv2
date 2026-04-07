@@ -83,7 +83,7 @@ export default function ProfilePage() {
             try {
                 const token = localStorage.getItem('accessToken');
                 if (!token) {
-                    router.push('/auth/login');
+                    router.replace('/auth/login');
                     return;
                 }
 

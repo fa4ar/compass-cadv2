@@ -1,41 +1,138 @@
-// Исправленный Service Worker
-self.addEventListener('fetch', (event) => {
-	// Пропускаем POST, PUT, DELETE, PATCH запросы
-	if (event.request.method !== 'GET') {
-		return; // Не кэшируем не-GET запросы
+const STATIC_CACHE = 'cad-static-v3';
+const RUNTIME_CACHE = 'cad-runtime-v3';
+const META_CACHE = 'cad-runtime-meta-v3';
+const RUNTIME_TTL_MS = 5 * 60 * 1000;
+
+const isCacheableStaticAsset = (request) => {
+	if (request.method !== 'GET') {
+		return false;
 	}
 
-	// Обрабатываем только GET запросы
-	event.respondWith(
-		caches.match(event.request).then((response) => {
-			if (response) {
-				return response;
-			}
-			return fetch(event.request).then((response) => {
-				// Кэшируем только успешные GET запросы
-				if (response.status === 200 && event.request.method === 'GET') {
-					const responseClone = response.clone();
-					caches.open('my-cache').then((cache) => {
-						cache.put(event.request, responseClone);
-					});
-				}
-				return response;
-			});
-		})
+	const url = new URL(request.url);
+	const isSameOrigin = url.origin === self.location.origin;
+	if (!isSameOrigin) {
+		return false;
+	}
+
+	if (request.mode === 'navigate') {
+		return false;
+	}
+
+	if (url.pathname.startsWith('/api')) {
+		return false;
+	}
+
+	return (
+		url.pathname.startsWith('/_next/static/') ||
+		url.pathname.startsWith('/map/') ||
+		/\.(js|css|png|jpg|jpeg|gif|webp|svg|ico|woff2?|ttf)$/.test(url.pathname)
+	);
+};
+
+const readRuntimeTimestamp = async (requestUrl) => {
+	const metaCache = await caches.open(META_CACHE);
+	const metadata = await metaCache.match(requestUrl);
+	if (!metadata) {
+		return 0;
+	}
+	const value = await metadata.text();
+	const timestamp = Number(value);
+	return Number.isFinite(timestamp) ? timestamp : 0;
+};
+
+const writeRuntimeTimestamp = async (requestUrl) => {
+	const metaCache = await caches.open(META_CACHE);
+	await metaCache.put(requestUrl, new Response(String(Date.now())));
+};
+
+self.addEventListener('install', (event) => {
+	event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener('activate', (event) => {
+	event.waitUntil(
+		(async () => {
+			const keys = await caches.keys();
+			await Promise.all(
+				keys
+					.filter((key) => ![STATIC_CACHE, RUNTIME_CACHE, META_CACHE].includes(key))
+					.map((key) => caches.delete(key))
+			);
+			await self.clients.claim();
+		})()
 	);
 });
 
-// При установке кэшируем только GET запросы
-self.addEventListener('install', (event) => {
-	event.waitUntil(
-		caches.open('my-cache').then((cache) => {
-			return cache.addAll([
-				'/',
-				'/index.html',
-				// Только GET-ресурсы
-			]).catch(err => {
-				console.log('Cache addAll failed:', err);
-			});
-		})
+self.addEventListener('fetch', (event) => {
+	if (!isCacheableStaticAsset(event.request)) {
+		return;
+	}
+
+	event.respondWith(
+		(async () => {
+			const runtimeCache = await caches.open(RUNTIME_CACHE);
+			const cached = await runtimeCache.match(event.request);
+
+			if (cached) {
+				const cachedAt = await readRuntimeTimestamp(event.request.url);
+				if (Date.now() - cachedAt < RUNTIME_TTL_MS) {
+					return cached;
+				}
+			}
+
+			const networkResponse = await fetch(event.request);
+			if (networkResponse.ok) {
+				await runtimeCache.put(event.request, networkResponse.clone());
+				await writeRuntimeTimestamp(event.request.url);
+			}
+
+			return networkResponse;
+		})()
 	);
+});
+
+self.addEventListener('message', (event) => {
+	const message = event.data || {};
+	const port = event.ports?.[0];
+
+	const reply = (ok) => {
+		if (port) {
+			port.postMessage({ ok });
+		}
+	};
+
+	if (message.type === 'CLEAR_ALL_CACHES') {
+		event.waitUntil(
+			(async () => {
+				const keys = await caches.keys();
+				await Promise.all(keys.map((key) => caches.delete(key)));
+				reply(true);
+			})()
+		);
+		return;
+	}
+
+	if (message.type === 'INVALIDATE_URLS') {
+		const urls = Array.isArray(message.urls) ? message.urls : [];
+		event.waitUntil(
+			(async () => {
+				const runtimeCache = await caches.open(RUNTIME_CACHE);
+				const staticCache = await caches.open(STATIC_CACHE);
+				const metaCache = await caches.open(META_CACHE);
+
+				await Promise.all(
+					urls.flatMap((url) => [
+						runtimeCache.delete(url),
+						staticCache.delete(url),
+						metaCache.delete(url),
+					])
+				);
+
+				reply(true);
+			})()
+		);
+		return;
+	}
+
+	reply(false);
 });

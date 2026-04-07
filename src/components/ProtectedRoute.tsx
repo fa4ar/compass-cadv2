@@ -18,7 +18,7 @@ export function ProtectedRoute({ children, allowedRoles = [] }: ProtectedRoutePr
     // ✅ ПЕРЕНАПРАВЛЕНИЕ: Переносим логику редиректа в useEffect
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
-            router.push('/auth/login');
+            router.replace('/auth/login');
         }
     }, [isLoading, isAuthenticated, router]);
 

@@ -21,10 +21,20 @@ import { discordBotService } from './services/discord-bot.service';
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static(path.resolve(__dirname, '..', 'uploads')));
+app.use('/uploads', express.static(path.resolve(__dirname, '..', 'uploads'), {
+    maxAge: '1d',
+    immutable: false,
+}));
 
 app.get('/', (req: Request, res: Response) => {
     res.json({ message: "Server is online", status: "ready" });
+});
+
+app.use('/api', (req: Request, res: Response, next) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    next();
 });
 
 app.use('/api', apiRoutes);
