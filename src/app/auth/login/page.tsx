@@ -44,14 +44,26 @@ function LoginContent() {
             
             const expires = new Date();
             expires.setDate(expires.getDate() + 7);
+            const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
             
-            document.cookie = `accessToken=${accessToken}; path=/; expires=${expires.toUTCString()}`;
-            document.cookie = `refreshToken=${refreshToken}; path=/; expires=${expires.toUTCString()}`;
+            let domain = '';
+            if (typeof window !== 'undefined') {
+                const hostname = window.location.hostname;
+                const parts = hostname.split('.');
+                if (parts.length >= 2) {
+                    domain = `; domain=.${parts.slice(-2).join('.')}`;
+                }
+            }
+            
+            const cookieOptions = `; path=/; expires=${expires.toUTCString()}${domain}${isSecure ? '; Secure; SameSite=Lax' : ''}`;
+            
+            document.cookie = `accessToken=${accessToken}${cookieOptions}`;
+            document.cookie = `refreshToken=${refreshToken}${cookieOptions}`;
             
             console.log('Tokens saved, redirecting to /citizen...');
-            router.replace('/citizen');
+            window.location.href = '/citizen';
         }
-    }, [searchParams, router]);
+    }, [searchParams]);
 
     const handleDiscordLogin = async () => {
         setIsLoading(true);

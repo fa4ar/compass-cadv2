@@ -18,8 +18,21 @@ function AuthCallbackContent() {
             
             const expires = new Date();
             expires.setDate(expires.getDate() + 7);
-            document.cookie = `accessToken=${accessToken}; path=/; expires=${expires.toUTCString()}`;
-            document.cookie = `refreshToken=${refreshToken}; path=/; expires=${expires.toUTCString()}`;
+            const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
+            
+            let domain = '';
+            if (typeof window !== 'undefined') {
+                const hostname = window.location.hostname;
+                const parts = hostname.split('.');
+                if (parts.length >= 2) {
+                    domain = `; domain=.${parts.slice(-2).join('.')}`;
+                }
+            }
+            
+            const cookieOptions = `; path=/; expires=${expires.toUTCString()}${domain}${isSecure ? '; Secure; SameSite=Lax' : ''}`;
+            
+            document.cookie = `accessToken=${accessToken}${cookieOptions}`;
+            document.cookie = `refreshToken=${refreshToken}${cookieOptions}`;
             
             window.location.href = newUser === 'true' ? '/?newUser=true' : '/';
         } else {

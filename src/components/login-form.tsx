@@ -18,6 +18,7 @@ import {
     FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { getApiUrl } from "@/lib/utils";
 
 export function LoginForm({ ...props }: React.ComponentProps<typeof Card>) {
     const router = useRouter();
@@ -37,9 +38,23 @@ export function LoginForm({ ...props }: React.ComponentProps<typeof Card>) {
             localStorage.setItem("accessToken", accessToken);
             localStorage.setItem("refreshToken", refreshToken);
             
-            const cookieExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toUTCString();
-            document.cookie = `accessToken=${accessToken}; path=/; expires=${cookieExpiry}`;
-            document.cookie = `refreshToken=${refreshToken}; path=/; expires=${cookieExpiry}`;
+            const expires = new Date();
+            expires.setDate(expires.getDate() + 7);
+            const isSecure = typeof window !== "undefined" && window.location.protocol === "https:";
+            
+            let domain = "";
+            if (typeof window !== "undefined") {
+                const hostname = window.location.hostname;
+                const parts = hostname.split(".");
+                if (parts.length >= 2) {
+                    domain = `; domain=.${parts.slice(-2).join(".")}`;
+                }
+            }
+            
+            const cookieOptions = `; path=/; expires=${expires.toUTCString()}${domain}${isSecure ? "; Secure; SameSite=Lax" : ""}`;
+            
+            document.cookie = `accessToken=${accessToken}${cookieOptions}`;
+            document.cookie = `refreshToken=${refreshToken}${cookieOptions}`;
             
             const targetUrl = newUser === "true" ? "/citizen?newUser=true" : "/citizen";
             window.location.href = targetUrl;
@@ -57,7 +72,7 @@ export function LoginForm({ ...props }: React.ComponentProps<typeof Card>) {
         setIsLoading(true);
 
         try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const apiUrl = getApiUrl();
             const response = await fetch(`${apiUrl}/api/auth/login`, {
                 method: "POST",
                 headers: {
@@ -88,7 +103,7 @@ export function LoginForm({ ...props }: React.ComponentProps<typeof Card>) {
 
     const handleDiscordLogin = async () => {
         try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const apiUrl = getApiUrl();
             const response = await fetch(`${apiUrl}/api/auth/discord`);
             const data = await response.json();
             

@@ -14,10 +14,16 @@ export function getApiUrl(): string {
       const parts = hostname.split('.');
       if (parts.length >= 2) {
         const baseDomain = parts.slice(-2).join('.');
-        apiUrl = `${window.location.protocol}//api.${baseDomain}`;
+        // Проверяем, если мы уже на поддомене api., то используем текущий hostname
+        if (hostname.startsWith('api.')) {
+            apiUrl = `${window.location.protocol}//${hostname}`;
+        } else {
+            apiUrl = `${window.location.protocol}//api.${baseDomain}`;
+        }
       } else {
         apiUrl = `${window.location.protocol}//api.${hostname}`;
       }
+      console.log(`📡 [UTILS] Dynamic API URL resolved: ${apiUrl}`);
     } else if (!apiUrl) {
       apiUrl = 'http://localhost:4000';
     }

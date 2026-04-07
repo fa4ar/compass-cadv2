@@ -31,14 +31,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
+    const getCookieOptions = (days = 7) => {
+        const expires = new Date();
+        expires.setDate(expires.getDate() + days);
+        const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
+        
+        let domain = '';
+        if (typeof window !== 'undefined') {
+            const hostname = window.location.hostname;
+            const parts = hostname.split('.');
+            if (parts.length >= 2) {
+                // Пытаемся установить куки на основной домен (например, .example.com)
+                // Это позволит и frontend (cad.example.com) и backend (api.example.com) видеть их
+                domain = `; domain=.${parts.slice(-2).join('.')}`;
+            }
+        }
+        
+        return `; path=/; expires=${expires.toUTCString()}${domain}${isSecure ? '; Secure; SameSite=Lax' : ''}`;
+    };
+
     const clearAuthState = () => {
         console.log('🧹 [AUTH] Clearing auth state (localStorage & Cookies)');
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
-        document.cookie = 'accessToken=; path=/; max-age=0';
-        document.cookie = 'accessToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-        document.cookie = 'refreshToken=; path=/; max-age=0';
-        document.cookie = 'refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        
+        const clearOptions = `; path=/; max-age=0`;
+        const domainOptions = getCookieOptions(0).replace(/expires=[^;]+/, 'max-age=0');
+        
+        document.cookie = `accessToken=${clearOptions}`;
+        document.cookie = `accessToken=${domainOptions}`;
+        document.cookie = `refreshToken=${clearOptions}`;
+        document.cookie = `refreshToken=${domainOptions}`;
+        
         setUser(null);
     };
 
@@ -75,11 +99,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         // СИНХРОНИЗАЦИЯ: Если есть в localStorage, но нет в Cookies (Middleware нужен Cookie)
         if (token && !document.cookie.includes('accessToken')) {
-            const expires = new Date();
-            expires.setDate(expires.getDate() + 7);
-            document.cookie = `accessToken=${token}; path=/; expires=${expires.toUTCString()}`;
+            const cookieOptions = getCookieOptions(7);
+            document.cookie = `accessToken=${token}${cookieOptions}`;
             if (refreshToken) {
-                document.cookie = `refreshToken=${refreshToken}; path=/; expires=${expires.toUTCString()}`;
+                document.cookie = `refreshToken=${refreshToken}${cookieOptions}`;
             }
         }
         
@@ -115,10 +138,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         localStorage.setItem('accessToken', tokens.accessToken);
                         localStorage.setItem('refreshToken', tokens.refreshToken);
                         
-                        const expires = new Date();
-                        expires.setDate(expires.getDate() + 7);
-                        document.cookie = `accessToken=${tokens.accessToken}; path=/; expires=${expires.toUTCString()}`;
-                        document.cookie = `refreshToken=${tokens.refreshToken}; path=/; expires=${expires.toUTCString()}`;
+                        const cookieOptions = getCookieOptions(7);
+                        document.cookie = `accessToken=${tokens.accessToken}${cookieOptions}`;
+                        document.cookie = `refreshToken=${tokens.refreshToken}${cookieOptions}`;
                         
                         token = tokens.accessToken;
                         response = await fetch(`${apiUrl}/api/auth/me`, {
