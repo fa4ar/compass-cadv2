@@ -187,7 +187,17 @@ export default function CitizenPage() {
     const fetchCivilianData = async (charId: string) => {
         try {
             const token = localStorage.getItem('accessToken');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            
+            let apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+            if (typeof window !== 'undefined') {
+                const isDomain = window.location.hostname !== 'localhost' && !window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/);
+                if (isDomain && (!apiUrl || apiUrl.includes('localhost'))) {
+                    apiUrl = `${window.location.protocol}//api.${window.location.hostname}`;
+                } else if (!apiUrl) {
+                    apiUrl = 'http://localhost:4000';
+                }
+            }
+
             const [vRes, wRes, lRes, aRes, fRes] = await Promise.all([
                 fetch(`${apiUrl}/api/civilian/characters/${charId}/vehicles`, { headers: { 'Authorization': `Bearer ${token}` } }),
                 fetch(`${apiUrl}/api/civilian/characters/${charId}/weapons`, { headers: { 'Authorization': `Bearer ${token}` } }),
@@ -209,11 +219,23 @@ export default function CitizenPage() {
         try {
             const token = localStorage.getItem('accessToken');
             if (!token) {
+                console.log('ℹ️ [CITIZEN] No token found, skipping fetchCharacters');
                 setIsLoading(false);
                 return;
             }
             
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            // Определяем API URL динамически
+            let apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+            if (typeof window !== 'undefined') {
+                const isDomain = window.location.hostname !== 'localhost' && !window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/);
+                if (isDomain && (!apiUrl || apiUrl.includes('localhost'))) {
+                    apiUrl = `${window.location.protocol}//api.${window.location.hostname}`;
+                } else if (!apiUrl) {
+                    apiUrl = 'http://localhost:4000';
+                }
+            }
+            
+            console.log('📡 [CITIZEN] Fetching characters from:', `${apiUrl}/api/characters`);
             
             const res = await fetch(`${apiUrl}/api/characters`, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -221,10 +243,13 @@ export default function CitizenPage() {
             
             if (res.ok) {
                 const data = await res.json();
+                console.log(`✅ [CITIZEN] Loaded ${data.length} characters`);
                 setCharacters(data);
+            } else {
+                console.error(`❌ [CITIZEN] Failed to fetch characters: ${res.status}`);
             }
         } catch (err) {
-            console.error("Failed to load characters", err);
+            console.error("❌ [CITIZEN] Error loading characters:", err);
         } finally {
             setIsLoading(false);
         }
@@ -235,7 +260,15 @@ export default function CitizenPage() {
             const token = localStorage.getItem('accessToken');
             if (!token) return;
             
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            let apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+            if (typeof window !== 'undefined') {
+                const isDomain = window.location.hostname !== 'localhost' && !window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/);
+                if (isDomain && (!apiUrl || apiUrl.includes('localhost'))) {
+                    apiUrl = `${window.location.protocol}//api.${window.location.hostname}`;
+                } else if (!apiUrl) {
+                    apiUrl = 'http://localhost:4000';
+                }
+            }
             
             const res = await fetch(`${apiUrl}/api/departments`, {
                 headers: { 'Authorization': `Bearer ${token}` }
