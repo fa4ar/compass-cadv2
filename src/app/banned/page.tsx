@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo } from 'react';
+import { Suspense, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Lock, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
 
-export default function BannedPage() {
+function BannedPageContent() {
     const searchParams = useSearchParams();
     const { logout } = useAuth();
 
@@ -42,5 +42,19 @@ export default function BannedPage() {
                 </Button>
             </Card>
         </div>
+    );
+}
+
+export default function BannedPage() {
+    return (
+        <Suspense
+            fallback={
+                <div className="min-h-screen bg-black flex items-center justify-center">
+                    <div className="w-10 h-10 border-4 border-red-500/20 border-t-red-500 rounded-full animate-spin" />
+                </div>
+            }
+        >
+            <BannedPageContent />
+        </Suspense>
     );
 }
