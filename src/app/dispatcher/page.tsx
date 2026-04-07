@@ -57,6 +57,8 @@ interface Call911 {
     priority?: string;
     phoneNumber?: string;
     notes?: CallNote[];
+    units?: Unit[];
+    mainUnitId?: number;
 }
 
 interface CallNote {
@@ -931,6 +933,46 @@ function DispatcherPageContent() {
                                                         {selectedCall.description}
                                                     </div>
                                                 </div>
+
+                                                {/* Assigned Units */}
+                                                {selectedCall.units && selectedCall.units.length > 0 && (
+                                                    <div className="space-y-2 pt-2 border-t border-zinc-800">
+                                                        <Label className="text-[10px] uppercase text-zinc-500">Прикреплённые юниты</Label>
+                                                        <div className="space-y-2">
+                                                            {selectedCall.units.map((unit: any) => {
+                                                                const isMainUnit = selectedCall.mainUnitId === unit.userId;
+                                                                return (
+                                                                    <div 
+                                                                        key={unit.userId}
+                                                                        className={`flex items-center justify-between p-2 rounded border ${
+                                                                            isMainUnit ? 'bg-red-900/30 border-red-700' : 'bg-zinc-800/50 border-zinc-700'
+                                                                        }`}
+                                                                    >
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className="flex -space-x-2">
+                                                                                <div className="w-6 h-6 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700">
+                                                                                    {unit.user?.avatarUrl ? (
+                                                                                        <img src={getImageUrl(unit.user.avatarUrl)!} alt="" className="w-full h-full object-cover" />
+                                                                                    ) : (
+                                                                                        <div className="w-full h-full flex items-center justify-center text-zinc-600"><User className="w-3 h-3" /></div>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                            <div>
+                                                                                <p className="text-zinc-200 text-[11px] font-medium">
+                                                                                    {unit.callSign || unit.character?.firstName + ' ' + unit.character?.lastName || unit.user?.username}
+                                                                                </p>
+                                                                                {isMainUnit && (
+                                                                                    <span className="text-[9px] text-red-400 font-bold uppercase tracking-tighter">ГЛАВНЫЙ</span>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
 
                                                 <div className="grid grid-cols-2 gap-2">
                                                     <Button
