@@ -8,245 +8,138 @@
     <style>
         :root {
             --font-main: 'Roboto', sans-serif;
-            --lspd-blue: #1a3a5c;
-            --lspd-dark: #0d1b2a;
-            --lspd-accent: #00a8e8;
-            --lspd-text: #e8e8e8;
+            --bg-dark: #0a0a0a;
+            --bg-card: #141414;
+            --border: #2a2a2a;
+            --text-main: #e5e5e5;
+            --text-muted: #737373;
+            --accent: #3b82f6;
+            --priority-high: #ef4444;
+            --priority-medium: #f59e0b;
         }
         
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: var(--font-main); }
         body { background: transparent; overflow: hidden; }
         
-        /* Call Card - Left Side */
+        /* Call Card - Left Side - Minimal */
         #call-card {
             position: fixed;
             top: 50%;
-            left: 20px;
+            left: 15px;
             transform: translateY(-50%);
-            width: 350px;
-            background: linear-gradient(180deg, rgba(13, 27, 42, 0.95) 0%, rgba(26, 58, 92, 0.95) 100%);
-            border: 1px solid rgba(0, 168, 232, 0.5);
-            border-left: 4px solid #00a8e8;
-            border-radius: 8px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+            width: 220px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent);
+            border-radius: 4px;
             z-index: 1000;
             opacity: 0;
             visibility: hidden;
-            transition: opacity 0.3s ease, transform 0.3s ease;
+            transition: opacity 0.2s;
+            padding: 8px 10px;
+            font-size: 11px;
+        }
+        
+        #call-card.show { opacity: 1; visibility: visible; }
+        #call-card.hide { opacity: 0; visibility: hidden; }
+        
+        #call-card .id {
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 2px;
+        }
+        
+        #call-card .location {
+            color: var(--text-muted);
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        #call-card .description {
+            color: var(--text-muted);
+            font-size: 10px;
+            margin-bottom: 4px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
             overflow: hidden;
         }
         
-        #call-card.show {
-            opacity: 1;
-            visibility: visible;
-            transform: translateY(-50%) translateX(0);
-        }
-        
-        #call-card.hide {
-            opacity: 0;
-            visibility: hidden;
-            transform: translateY(-50%) translateX(-120%);
-        }
-        
-        .card-header {
-            background: linear-gradient(90deg, #00a8e8 0%, #0077b6 100%);
-            padding: 12px 16px;
+        #call-card .meta {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .card-header .call-id {
-            font-size: 20px;
-            font-weight: 700;
-            color: white;
-        }
-        
-        .card-header .call-type {
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.8);
-            text-transform: uppercase;
-        }
-        
-        .priority-badge {
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-        
-        .card-body { padding: 14px; }
-        
-        .card-location {
-            display: flex;
-            align-items: flex-start;
             gap: 8px;
-            margin-bottom: 12px;
-        }
-        
-        .card-location .icon { color: #00a8e8; margin-top: 2px; }
-        .card-location .text { font-size: 14px; color: #e8e8e8; }
-        
-        .card-description {
-            padding: 10px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 6px;
-            border-left: 3px solid #00a8e8;
-            margin-bottom: 12px;
-        }
-        
-        .card-description .text {
-            font-size: 13px;
-            color: #9ca3af;
-            font-style: italic;
-            line-height: 1.4;
-        }
-        
-        .card-caller {
-            display: flex;
-            gap: 16px;
-            font-size: 12px;
-            color: #6b7280;
-            margin-bottom: 10px;
-        }
-        
-        .card-caller .item { display: flex; align-items: center; gap: 6px; }
-        .card-caller .icon { color: #00a8e8; }
-        
-        .card-time {
-            font-size: 11px;
-            color: #6b7280;
-        }
-        
-        .card-units {
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .card-units .label {
+            color: var(--text-muted);
             font-size: 10px;
-            color: #6b7280;
-            text-transform: uppercase;
-            margin-bottom: 8px;
         }
         
-        .unit-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 10px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 4px;
-            margin-bottom: 4px;
+        #call-card .priority {
+            display: inline-block;
+            padding: 1px 5px;
+            border-radius: 2px;
+            font-size: 9px;
+            font-weight: 600;
         }
         
-        .unit-status { width: 6px; height: 6px; border-radius: 50%; }
-        .unit-status.enroute { background: #f59e0b; animation: blink 1s infinite; }
-        .unit-status.onscene { background: #10b981; }
-        .unit-status.dispatched { background: #3b82f6; }
+        #call-card .priority.high { background: rgba(239, 68, 68, 0.2); color: var(--priority-high); }
+        #call-card .priority.medium { background: rgba(245, 158, 11, 0.2); color: var(--priority-medium); }
         
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-        
-        .unit-name { font-size: 12px; color: #e8e8e8; }
-        
-        /* Notification Toast */
+        /* Toast - Minimal */
         #toast-notification {
             position: fixed;
-            top: 20px;
-            right: 20px;
-            width: 320px;
-            background: rgba(13, 27, 42, 0.95);
-            border-left: 4px solid #00a8e8;
-            border-radius: 8px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+            top: 15px;
+            right: 15px;
+            width: 200px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
             z-index: 2000;
             transform: translateX(120%);
             opacity: 0;
-            transition: transform 0.3s ease, opacity 0.3s ease;
-            padding: 14px 16px;
+            transition: transform 0.2s, opacity 0.2s;
+            padding: 8px 10px;
+            font-size: 11px;
         }
         
-        #toast-notification.show {
-            transform: translateX(0);
-            opacity: 1;
-        }
+        #toast-notification.show { transform: translateX(0); opacity: 1; }
         
-        #toast-notification .toast-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 8px;
-        }
-        
-        #toast-notification .pulse {
-            width: 8px;
-            height: 8px;
-            background: #ef4444;
-            border-radius: 50%;
-            animation: pulse 1s infinite;
-        }
-        
-        #toast-notification .toast-title {
-            font-size: 13px;
-            font-weight: 700;
-            color: #00a8e8;
+        #toast-notification .title {
+            color: var(--text-muted);
+            font-size: 9px;
             text-transform: uppercase;
+            margin-bottom: 2px;
         }
         
-        #toast-notification .toast-type {
-            font-size: 16px;
-            font-weight: 600;
-            color: #e8e8e8;
-            margin-bottom: 4px;
+        #toast-notification .type {
+            color: var(--text-main);
+            font-weight: 500;
         }
         
-        #toast-notification .toast-location {
-            font-size: 13px;
-            color: #9ca3af;
+        #toast-notification .location {
+            color: var(--text-muted);
+            font-size: 10px;
+            margin-top: 2px;
         }
-        
-        /* Responsive */
-        @media screen and (min-aspect-ratio: 21/9) { #call-card { width: 380px; } }
-        @media screen and (max-aspect-ratio: 16/9) { #call-card { width: 320px; } }
     </style>
 </head>
 <body>
     <!-- Call Card - Left Side -->
     <div id="call-card" class="hide">
-        <div class="card-header">
-            <div>
-                <div class="call-id" id="card-id">#0000</div>
-                <div class="call-type" id="card-type">ДТП</div>
-            </div>
-            <div class="priority-badge" id="card-priority">Высокий</div>
-        </div>
-        <div class="card-body">
-            <div class="card-location">
-                <span class="icon">📍</span>
-                <span class="text" id="card-location">Vinewood Blvd</span>
-            </div>
-            <div class="card-description">
-                <span class="text" id="card-description">Описание вызова</span>
-            </div>
-            <div class="card-caller">
-                <div class="item"><span class="icon">👤</span><span id="card-caller">John Doe</span></div>
-                <div class="item"><span class="icon">📞</span><span id="card-phone">555-1234</span></div>
-            </div>
-            <div class="card-time" id="card-time">Только что</div>
-            <div class="card-units" id="card-units"></div>
+        <div class="id" id="card-id">#0000</div>
+        <div class="location" id="card-location">-</div>
+        <div class="description" id="card-description">-</div>
+        <div class="meta">
+            <span class="priority" id="card-priority">-</span>
+            <span id="card-time">-</span>
         </div>
     </div>
     
-    <!-- Toast Notification - Hidden by default -->
+    <!-- Toast Notification -->
     <div id="toast-notification" class="hidden">
-        <div class="toast-header">
-            <div class="pulse"></div>
-            <span class="toast-title">Новый вызов 911</span>
-        </div>
-        <div class="toast-type" id="toast-type">ДТП</div>
-        <div class="toast-location" id="toast-location">Vinewood Blvd</div>
+        <div class="title">Новый вызов</div>
+        <div class="type" id="toast-type">-</div>
+        <div class="location" id="toast-location">-</div>
     </div>
     
     <script>
@@ -254,53 +147,40 @@
             currentCall: null,
             toastTimeout: null,
             
-            typeTranslations: {
-                traffic_accident: "ДТП", disturbance: "Нарушение порядка", robbery: "Ограбление",
-                assault: "Нападение", domestic: "Семейный конфликт", welfare_check: "Проверка безопасности",
-                suspicious: "Подозрительная активность", fire: "Пожар", medical: "Медицинская помощь",
+            typeLabels: {
+                traffic_accident: "ДТП", disturbance: "Нарушение", robbery: "Ограбление",
+                assault: "Нападение", domestic: "Семейный", welfare_check: "Проверка",
+                suspicious: "Подозрительно", fire: "Пожар", medical: "Медицина",
                 accident: "Авария", other: "Другое"
             },
             
-            priorityLabels: { routine: 'Обычный', low: 'Низкий', medium: 'Средний', high: 'Высокий', emergency: 'Экстренный' },
-            priorityColors: { routine: '#6b7280', low: '#3b82f6', medium: '#f59e0b', high: '#ef4444', emergency: '#dc2626' },
-            
-            getTypeLabel(type) { return this.typeTranslations[type] || type || 'Другое'; },
+            getTypeLabel(type) { return this.typeLabels[type] || type || '-'; },
             
             formatTime(ts) {
-                if (!ts) return 'Неизвестно';
+                if (!ts) return '-';
                 const diff = Date.now() - ts;
                 const mins = Math.floor(diff / 60000);
-                const hours = Math.floor(mins / 60);
-                if (hours > 0) return `${hours}ч ${mins % 60}мин назад`;
-                return mins > 0 ? `${mins}мин назад` : 'Только что';
+                if (mins > 0) return mins + 'м';
+                return 'сейчас';
             },
             
             showCall(call) {
                 this.currentCall = call;
-                const type = this.getTypeLabel(call.type);
-                const priority = this.priorityLabels[call.priority] || 'Средний';
-                const priorityColor = this.priorityColors[call.priority] || '#f59e0b';
-                
                 document.getElementById('card-id').textContent = '#' + call.id;
-                document.getElementById('card-type').textContent = type;
-                document.getElementById('card-location').textContent = call.location || 'Не указано';
-                document.getElementById('card-description').textContent = call.description || 'Нет описания';
-                document.getElementById('card-caller').textContent = call.callerName || 'Неизвестно';
-                document.getElementById('card-phone').textContent = call.callerPhone || 'Нет';
+                document.getElementById('card-location').textContent = call.location || '-';
+                document.getElementById('card-description').textContent = call.description || '-';
                 document.getElementById('card-time').textContent = this.formatTime(call.createdAt);
                 
                 const badge = document.getElementById('card-priority');
-                badge.textContent = priority;
-                badge.style.background = priorityColor + '30';
-                badge.style.color = priorityColor;
-                
-                const unitsDiv = document.getElementById('card-units');
-                if (call.responders && call.responders.length > 0) {
-                    unitsDiv.innerHTML = '<div class="label">На месте</div>' + 
-                        call.responders.map(r => `<div class="unit-item"><div class="unit-status ${r.status || 'dispatched'}"></div><span class="unit-name">${r.name}</span></div>`).join('');
-                    unitsDiv.style.display = 'block';
+                if (call.priority === 'high' || call.priority === 'emergency') {
+                    badge.className = 'priority high';
+                    badge.textContent = 'ВАЖНО';
+                } else if (call.priority === 'medium') {
+                    badge.className = 'priority medium';
+                    badge.textContent = 'СРЕДН';
                 } else {
-                    unitsDiv.style.display = 'none';
+                    badge.className = 'priority';
+                    badge.textContent = 'ОБЫЧН';
                 }
                 
                 document.getElementById('call-card').classList.remove('hide');
@@ -315,7 +195,7 @@
             
             showToast(call) {
                 document.getElementById('toast-type').textContent = this.getTypeLabel(call.type);
-                document.getElementById('toast-location').textContent = call.location || 'Не указано';
+                document.getElementById('toast-location').textContent = call.location || '-';
                 
                 const toast = document.getElementById('toast-notification');
                 toast.classList.remove('show');
@@ -323,10 +203,7 @@
                 toast.classList.add('show');
                 
                 if (this.toastTimeout) clearTimeout(this.toastTimeout);
-                this.toastTimeout = setTimeout(() => toast.classList.remove('show'), 5000);
-                
-                // Also show the card
-                this.showCall(call);
+                this.toastTimeout = setTimeout(() => toast.classList.remove('show'), 4000);
             },
             
             updateCall(call) { this.showCall(call); }
@@ -340,10 +217,10 @@
             else if (d.action === 'showCall') CallUI.showCall(d.call);
             else if (d.action === 'hideCall') CallUI.hideCall();
             else if (d.action === 'updateCall') CallUI.updateCall(d.call);
-            else if (d.action === 'newCall') CallUI.showToast(d.call); // Backward compatibility
+            else if (d.action === 'newCall') CallUI.showToast(d.call);
         });
         
-        console.log('[CAD-911] UI ready');
+        console.log('[CAD-911] Ready');
     </script>
 </body>
 </html>
