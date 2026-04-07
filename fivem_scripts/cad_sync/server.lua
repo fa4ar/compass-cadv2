@@ -79,7 +79,9 @@ AddEventHandler('cad_sync:updatePosition', function(data)
     end
 end)
 
-AddEventHandler('playerDropped', function() linkedPlayers[source] = nil end)
+AddEventHandler('playerDropped', function()
+    linkedPlayers[source] = nil
+end)
 
 -- =====================================================
 -- 911 CALL HANDLING
