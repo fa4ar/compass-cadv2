@@ -39,11 +39,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         let domain = '';
         if (typeof window !== 'undefined') {
             const hostname = window.location.hostname;
-            const parts = hostname.split('.');
-            if (parts.length >= 2) {
-                // Пытаемся установить куки на основной домен (например, .example.com)
-                // Это позволит и frontend (cad.example.com) и backend (api.example.com) видеть их
-                domain = `; domain=.${parts.slice(-2).join('.')}`;
+            const isIP = hostname.match(/^\d+\.\d+\.\d+\.\d+$/);
+            // Не устанавливаем domain для localhost или IP
+            if (!isIP && hostname !== 'localhost') {
+                const parts = hostname.split('.');
+                if (parts.length >= 2) {
+                    // Пробуем установить на основной домен
+                    domain = `; domain=.${parts.slice(-2).join('.')}`;
+                    console.log('🍪 [AUTH] Setting cookie domain:', parts.slice(-2).join('.'));
+                }
+            } else {
+                console.log('🍪 [AUTH] Skipping domain for IP/localhost');
             }
         }
         
