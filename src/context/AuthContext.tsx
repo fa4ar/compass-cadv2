@@ -43,10 +43,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (clearSession) {
             clearAuthState();
         }
+
         const bannedUrl = new URL('/banned', window.location.origin);
-        if (reason) {
-            bannedUrl.searchParams.set('reason', reason);
+        const nextReason = (reason || '').trim();
+        if (nextReason) {
+            bannedUrl.searchParams.set('reason', nextReason);
         }
+
+        const currentUrl = new URL(window.location.href);
+        const currentReason = (currentUrl.searchParams.get('reason') || '').trim();
+        const isAlreadyOnBannedPage = currentUrl.pathname === '/banned';
+
+        if (isAlreadyOnBannedPage && currentReason === nextReason) {
+            return;
+        }
+
         window.location.replace(bannedUrl.toString());
     };
 
