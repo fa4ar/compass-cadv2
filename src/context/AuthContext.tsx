@@ -30,6 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
 
     const clearAuthState = () => {
+        console.log('🧹 [AUTH] Clearing auth state (localStorage & Cookies)');
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         document.cookie = 'accessToken=; path=/; max-age=0';
@@ -40,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const redirectBannedUser = (reason?: string | null, clearSession = true) => {
+        console.log('🚫 [AUTH] Redirecting banned user, clearSession:', clearSession);
         if (clearSession) {
             clearAuthState();
         }
@@ -50,15 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             bannedUrl.searchParams.set('reason', nextReason);
         }
 
-        const currentUrl = new URL(window.location.href);
-        const currentReason = (currentUrl.searchParams.get('reason') || '').trim();
-        const isAlreadyOnBannedPage = currentUrl.pathname === '/banned';
-
-        if (isAlreadyOnBannedPage && currentReason === nextReason) {
-            return;
-        }
-
-        window.location.replace(bannedUrl.toString());
+        window.location.href = bannedUrl.toString();
     };
 
     const fetchUser = async (skipRefresh = false) => {
@@ -254,6 +248,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await fetchUser();
     };
 
+    const [showDebug, setShowDebug] = useState(false);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (isLoading) {
+                console.warn('⚠️ [AUTH] Loading is taking too long (>5s). Showing debug UI.');
+                setShowDebug(true);
+            }
+        }, 5000);
+        return () => clearTimeout(timer);
+    }, [isLoading]);
+
     return (
         <AuthContext.Provider value={{ 
             user, 
@@ -264,6 +270,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             refreshUser
         }}>
             {children}
+            {showDebug && isLoading && (
+                <div className="fixed bottom-4 left-4 z-[10000] bg-red-900/90 text-white p-4 rounded-lg border border-red-500 shadow-2xl max-w-xs text-[10px] font-mono">
+                    <p className="font-bold mb-2 text-xs">Auth Debugger</p>
+                    <p>Status: {isLoading ? 'LOADING' : 'READY'}</p>
+                    <p>Auth: {!!user ? 'YES' : 'NO'}</p>
+                    <p>Domain: {typeof window !== 'undefined' ? window.location.hostname : 'N/A'}</p>
+                    <p>API: {process.env.NEXT_PUBLIC_API_URL || 'DEFAULT'}</p>
+                    <button 
+                        onClick={() => window.location.reload()} 
+                        className="mt-2 bg-white text-black px-2 py-1 rounded"
+                    >
+                        Reload Page
+                    </button>
+                    <button 
+                        onClick={() => clearAuthState()} 
+                        className="mt-2 ml-2 bg-zinc-800 text-white px-2 py-1 rounded border border-zinc-600"
+                    >
+                        Clear Auth
+                    </button>
+                </div>
+            )}
         </AuthContext.Provider>
     );
 }
