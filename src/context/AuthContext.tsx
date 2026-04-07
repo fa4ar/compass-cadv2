@@ -105,8 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         let token = localStorage.getItem('accessToken');
         const refreshToken = localStorage.getItem('refreshToken');
         
-        console.log('🔄 [AUTH] Starting fetchUser, token present:', !!token);
-        console.log('🔄 [AUTH] Cookie check:', document.cookie.includes('accessToken'));
+        console.log('🔄 [AUTH] fetchUser called, token in localStorage:', !!token);
+        console.log('🔄 [AUTH] Cookie has accessToken:', document.cookie.includes('accessToken'));
         
         // СИНХРОНИЗАЦИЯ: Если есть в localStorage, но нет в Cookies (Middleware нужен Cookie)
         if (token && !document.cookie.includes('accessToken')) {
@@ -116,11 +116,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (refreshToken) {
                 document.cookie = `refreshToken=${refreshToken}${cookieOptions}`;
             }
-            console.log('🔄 [AUTH] Cookie set, now:', document.cookie.includes('accessToken'));
+            console.log('🔄 [AUTH] After sync, cookie has accessToken:', document.cookie.includes('accessToken'));
+        } else if (token && document.cookie.includes('accessToken')) {
+            console.log('🔄 [AUTH] Token already in cookie');
         }
         
         if (!token) {
-            console.log('ℹ️ [AUTH] No token found, setting isLoading to false');
+            console.log('ℹ️ [AUTH] No token in localStorage, setting isLoading to false');
             setIsLoading(false);
             return;
         }
