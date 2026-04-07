@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { toast } from '@/hooks/use-toast';
 import { ImageUpload } from '@/components/ImageUpload';
-import { getApiUrl } from '@/lib/utils';
+import { getApiUrl, fetchWithTimeout } from '@/lib/utils';
 
 interface Vehicle {
     id: number;
@@ -107,6 +107,8 @@ export default function CitizenPage() {
     const [characters, setCharacters] = useState<Character[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [dataLoadTimeout, setDataLoadTimeout] = useState(false);
 
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showCallModal, setShowCallModal] = useState(false);
@@ -189,21 +191,23 @@ export default function CitizenPage() {
     const fetchCivilianData = async (charId: string) => {
         try {
             const token = localStorage.getItem('accessToken');
+            if (!token) return;
             
             const apiUrl = getApiUrl();
 
-            const [vRes, wRes, lRes, aRes, fRes] = await Promise.all([
-                fetch(`${apiUrl}/api/civilian/characters/${charId}/vehicles`, { headers: { 'Authorization': `Bearer ${token}` } }),
-                fetch(`${apiUrl}/api/civilian/characters/${charId}/weapons`, { headers: { 'Authorization': `Bearer ${token}` } }),
-                fetch(`${apiUrl}/api/civilian/characters/${charId}/licenses`, { headers: { 'Authorization': `Bearer ${token}` } }),
-                fetch(`${apiUrl}/api/civilian/licenses`, { headers: { 'Authorization': `Bearer ${token}` } }),
-                fetch(`${apiUrl}/api/fines/character/${charId}`, { headers: { 'Authorization': `Bearer ${token}` } })
+            const [vRes, wRes, lRes, aRes, fRes] = await Promise.allSettled([
+                fetchWithTimeout(`${apiUrl}/api/civilian/characters/${charId}/vehicles`, { headers: { 'Authorization': `Bearer ${token}` }, timeout: 5000 }),
+                fetchWithTimeout(`${apiUrl}/api/civilian/characters/${charId}/weapons`, { headers: { 'Authorization': `Bearer ${token}` }, timeout: 5000 }),
+                fetchWithTimeout(`${apiUrl}/api/civilian/characters/${charId}/licenses`, { headers: { 'Authorization': `Bearer ${token}` }, timeout: 5000 }),
+                fetchWithTimeout(`${apiUrl}/api/civilian/licenses`, { headers: { 'Authorization': `Bearer ${token}` }, timeout: 5000 }),
+                fetchWithTimeout(`${apiUrl}/api/fines/character/${charId}`, { headers: { 'Authorization': `Bearer ${token}` }, timeout: 5000 })
             ]);
-            if (vRes.ok) setCharVehicles(await vRes.json());
-            if (wRes.ok) setCharWeapons(await wRes.json());
-            if (lRes.ok) setCharLicenses(await lRes.json());
-            if (aRes.ok) setAvailableLicenses(await aRes.json());
-            if (fRes.ok) setCharFines(await fRes.json());
+            
+            if (vRes.status === 'fulfilled' && vRes.value.ok) setCharVehicles(await vRes.value.json());
+            if (wRes.status === 'fulfilled' && wRes.value.ok) setCharWeapons(await wRes.value.json());
+            if (lRes.status === 'fulfilled' && lRes.value.ok) setCharLicenses(await lRes.value.json());
+            if (aRes.status === 'fulfilled' && aRes.value.ok) setAvailableLicenses(await aRes.value.json());
+            if (fRes.status === 'fulfilled' && fRes.value.ok) setCharFines(await fRes.value.json());
         } catch (err) {
             console.error("Failed to fetch civilian data", err);
         }
@@ -218,24 +222,32 @@ export default function CitizenPage() {
                 return;
             }
             
-            // Определяем API URL динамически
             const apiUrl = getApiUrl();
             
             console.log('📡 [CITIZEN] Fetching characters from:', `${apiUrl}/api/characters`);
             
-            const res = await fetch(`${apiUrl}/api/characters`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+            const res = await fetchWithTimeout(`${apiUrl}/api/characters`, {
+                headers: { 'Authorization': `Bearer ${token}` },
+                timeout: 8000,
+                retries: 2,
+                retryDelay: 1000
             });
             
             if (res.ok) {
                 const data = await res.json();
                 console.log(`✅ [CITIZEN] Loaded ${data.length} characters`);
                 setCharacters(data);
+            } else if (res.status === 401) {
+                console.error('❌ [CITIZEN] Unauthorized, clearing auth');
+                localStorage.removeItem('accessToken');
+                setIsLoading(false);
             } else {
                 console.error(`❌ [CITIZEN] Failed to fetch characters: ${res.status}`);
+                setError(`Ошибка загрузки персонажей (${res.status})`);
             }
-        } catch (err) {
-            console.error("❌ [CITIZEN] Error loading characters:", err);
+        } catch (err: any) {
+            console.error("❌ [CITIZEN] Error loading characters:", err.message);
+            setError(`Ошибка сети: ${err.message}`);
         } finally {
             setIsLoading(false);
         }
@@ -248,8 +260,9 @@ export default function CitizenPage() {
             
             const apiUrl = getApiUrl();
             
-            const res = await fetch(`${apiUrl}/api/departments`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+            const res = await fetchWithTimeout(`${apiUrl}/api/departments`, {
+                headers: { 'Authorization': `Bearer ${token}` },
+                timeout: 5000
             });
             
             if (res.ok) {
@@ -269,8 +282,20 @@ export default function CitizenPage() {
                 return;
             }
             console.log('✅ [CITIZEN] Authenticated, fetching data...');
+            
+            const timeoutId = setTimeout(() => {
+                if (isLoading) {
+                    console.warn('⚠️ [CITIZEN] Data load timeout, forcing stop');
+                    setIsLoading(false);
+                    setDataLoadTimeout(true);
+                    setError('Превышен таймаут загрузки данных');
+                }
+            }, 15000);
+            
             fetchCharacters();
             fetchDepartments();
+            
+            return () => clearTimeout(timeoutId);
         }
     }, [authLoading, isAuthenticated, user?.isBanned]);
 
@@ -363,7 +388,7 @@ export default function CitizenPage() {
         setIsSubmitting(true);
         try {
             const token = localStorage.getItem('accessToken');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const apiUrl = getApiUrl();
             const res = await fetch(`${apiUrl}/api/civilian/vehicles`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -385,7 +410,7 @@ export default function CitizenPage() {
         setIsSubmitting(true);
         try {
             const token = localStorage.getItem('accessToken');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const apiUrl = getApiUrl();
             const res = await fetch(`${apiUrl}/api/civilian/weapons`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -406,7 +431,7 @@ export default function CitizenPage() {
         if (!confirm("Вы уверены, что хотите снять этот транспорт с регистрации?")) return;
         try {
             const token = localStorage.getItem('accessToken');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const apiUrl = getApiUrl();
             const res = await fetch(`${apiUrl}/api/civilian/vehicles/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -419,7 +444,7 @@ export default function CitizenPage() {
         if (!confirm("Вы уверены, что хотите снять это оружие с регистрации?")) return;
         try {
             const token = localStorage.getItem('accessToken');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const apiUrl = getApiUrl();
             const res = await fetch(`${apiUrl}/api/civilian/weapons/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -431,7 +456,7 @@ export default function CitizenPage() {
     const toggleVehicleStatus = async (id: number, currentStatus: string) => {
         try {
             const token = localStorage.getItem('accessToken');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const apiUrl = getApiUrl();
             const newStatus = currentStatus === 'Valid' ? 'Inactive' : 'Valid';
             await fetch(`${apiUrl}/api/civilian/vehicles/${id}`, {
                 method: 'PATCH',
@@ -445,7 +470,7 @@ export default function CitizenPage() {
     const toggleWeaponStatus = async (id: number, currentStatus: string) => {
         try {
             const token = localStorage.getItem('accessToken');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const apiUrl = getApiUrl();
             const newStatus = currentStatus === 'Valid' ? 'Inactive' : 'Valid';
             await fetch(`${apiUrl}/api/civilian/weapons/${id}`, {
                 method: 'PATCH',
@@ -460,7 +485,7 @@ export default function CitizenPage() {
         if (!selectedCharacter) return;
         try {
             const token = localStorage.getItem('accessToken');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const apiUrl = getApiUrl();
             const res = await fetch(`${apiUrl}/api/civilian/characters/${selectedCharacter.id}/licenses`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -474,7 +499,7 @@ export default function CitizenPage() {
         if (!selectedCharacter) return;
         try {
             const token = localStorage.getItem('accessToken');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const apiUrl = getApiUrl();
             const res = await fetch(`${apiUrl}/api/civilian/characters/${selectedCharacter.id}/licenses/${licenseId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -533,7 +558,7 @@ export default function CitizenPage() {
             const token = localStorage.getItem('accessToken');
             if (!token) return;
 
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const apiUrl = getApiUrl();
             
             const res = await fetch(`${apiUrl}/api/characters/${selectedCharacter.id}`, {
                 method: 'PUT',
@@ -577,7 +602,7 @@ export default function CitizenPage() {
             const token = localStorage.getItem('accessToken');
             if (!token) return;
 
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const apiUrl = getApiUrl();
             
             const res = await fetch(`${apiUrl}/api/characters/${selectedCharacter.id}`, {
                 method: 'DELETE',
@@ -630,7 +655,7 @@ export default function CitizenPage() {
             const token = localStorage.getItem('accessToken');
             if (!token) return;
 
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const apiUrl = getApiUrl();
             
             const res = await fetch(`${apiUrl}/api/departments/${departmentForm.departmentId}/members`, {
                 method: 'POST',
@@ -671,6 +696,24 @@ export default function CitizenPage() {
                 {authLoading || isLoading ? (
                     <div className="flex items-center justify-center h-64">
                         <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                ) : error ? (
+                    <div className="flex flex-col items-center justify-center h-64 text-zinc-500">
+                        <div className="w-20 h-20 rounded-full bg-red-900/30 flex items-center justify-center mb-4">
+                            <AlertTriangle className="w-10 h-10 text-red-500" />
+                        </div>
+                        <p className="text-lg font-medium text-zinc-300">Ошибка загрузки</p>
+                        <p className="text-sm mt-1 text-zinc-500">{error}</p>
+                        <div className="flex gap-3 mt-6">
+                            <Button variant="outline" onClick={() => { setError(null); setIsLoading(true); fetchCharacters(); }} className="bg-zinc-900/50 border-zinc-700 hover:bg-zinc-800">
+                                <RefreshCw className="w-4 h-4 mr-2" />
+                                Повторить
+                            </Button>
+                            <Button onClick={openCreateModal} className="bg-blue-600 hover:bg-blue-500 px-6">
+                                <Plus className="w-4 h-4 mr-2" />
+                                Создать персонажа
+                            </Button>
+                        </div>
                     </div>
                 ) : characters.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-64 text-zinc-500">
