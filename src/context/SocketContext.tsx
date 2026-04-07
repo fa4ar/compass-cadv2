@@ -2,7 +2,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
-import { socket } from "@/lib/socket";
+import { socket } from "../lib/socket";
 
 interface SocketContextType {
     socket: any;
@@ -19,17 +19,27 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         const handleConnect = () => {
-            console.log('✅ [SocketContext] Connected');
+            console.log('✅ [SocketContext] Connected to:', socket.io.uri);
+            console.log('🆔 [SocketContext] Socket ID:', socket.id);
             setIsConnected(true);
         };
 
         const handleDisconnect = (reason: string) => {
             console.log('❌ [SocketContext] Disconnected:', reason);
+            if (reason === "io server disconnect") {
+                // the disconnection was initiated by the server, you need to reconnect manually
+                socket.connect();
+            }
             setIsConnected(false);
         };
 
         const handleConnectError = (error: any) => {
-            console.error('⚠️ [SocketContext] Connection error:', error?.message || error);
+            console.error('⚠️ [SocketContext] Connection error details:', {
+                message: error?.message,
+                description: error?.description,
+                context: error?.context,
+                type: error?.type
+            });
             setIsConnected(false);
         };
 

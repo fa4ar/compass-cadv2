@@ -178,22 +178,39 @@ function DispatcherPageContent() {
     }, [selectedCall?.id]);
 
     const fetchData = async () => {
+        console.log('[DISPATCHER] fetchData called');
         try {
             const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
             const [unitsRes, callsRes] = await Promise.all([
-                fetch(`${apiUrl}/api/units`, { headers: { 'Authorization': `Bearer ${token}` } }),
-                fetch(`${apiUrl}/api/calls911/active`, { headers: { 'Authorization': `Bearer ${token}` } })
+                fetch(`${apiUrl}/api/units`, { 
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Cache-Control': 'no-store, no-cache, must-revalidate',
+                        'Pragma': 'no-cache'
+                    } 
+                }),
+                fetch(`${apiUrl}/api/calls911/active`, { 
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Cache-Control': 'no-store, no-cache, must-revalidate',
+                        'Pragma': 'no-cache'
+                    } 
+                })
             ]);
 
             if (unitsRes.ok) {
                 const data = await unitsRes.json();
                 setUnits(data);
+            } else {
+                console.error('[DISPATCHER] Units fetch failed:', unitsRes.status);
             }
             if (callsRes.ok) {
                 const data = await callsRes.json();
                 setCalls(data);
+            } else {
+                console.error('[DISPATCHER] Calls fetch failed:', callsRes.status);
             }
         } catch (err) {
             console.error('Failed to fetch dispatcher data', err);
@@ -215,7 +232,9 @@ function DispatcherPageContent() {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${token}`,
+                    'Cache-Control': 'no-store, no-cache, must-revalidate',
+                    'Pragma': 'no-cache'
                 },
                 body: JSON.stringify(body)
             });
@@ -241,7 +260,9 @@ function DispatcherPageContent() {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${token}`,
+                    'Cache-Control': 'no-store, no-cache, must-revalidate',
+                    'Pragma': 'no-cache'
                 },
                 body: JSON.stringify({ status })
             });
@@ -265,7 +286,11 @@ function DispatcherPageContent() {
 
             const res = await fetch(`${apiUrl}/api/calls911/${callId}`, {
                 method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Cache-Control': 'no-store, no-cache, must-revalidate',
+                    'Pragma': 'no-cache'
+                }
             });
 
             if (res.ok) {
@@ -307,7 +332,9 @@ function DispatcherPageContent() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${token}`,
+                    'Cache-Control': 'no-store, no-cache, must-revalidate',
+                    'Pragma': 'no-cache'
                 },
                 body: JSON.stringify({ 
                     text: newNoteText,
@@ -318,7 +345,13 @@ function DispatcherPageContent() {
             if (res.ok) {
                 setNewNoteText("");
                 fetchData();
-                const updatedCallRes = await fetch(`${apiUrl}/api/calls911/active`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const updatedCallRes = await fetch(`${apiUrl}/api/calls911/active`, { 
+                    headers: { 
+                        'Authorization': `Bearer ${token}',
+                        'Cache-Control': 'no-store, no-cache, must-revalidate',
+                        'Pragma': 'no-cache'
+                    } 
+                });
                 if (updatedCallRes.ok) {
                     const data = await updatedCallRes.json();
                     const current = data.find((c: any) => c.id === callId);
@@ -335,36 +368,57 @@ function DispatcherPageContent() {
         
         setIsSearching(true);
         setSearchError(null);
+        
+        var searchId = 'search_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        console.log('[DISPATCHER SEARCH] ' + searchId + ' Starting search');
+        
         try {
-            const token = localStorage.getItem('accessToken');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            var token = localStorage.getItem('accessToken');
+            var apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
             
-            let endpoint = '';
-            let body: any = {};
+            var endpoint = '';
+            var body: any = {};
             
             if (searchType === 'person') {
-                const [firstName, lastName, ssn] = searchQuery.split(' ');
-                endpoint = `${apiUrl}/api/dispatcher/search/person`;
-                body = { firstName: firstName || '', lastName: lastName || '', ssn: ssn || '' };
+                var parts = searchQuery.split(' ');
+                endpoint = apiUrl + '/api/dispatcher/search/person';
+                body = { firstName: parts[0] || '', lastName: parts[1] || '', ssn: parts[2] || '' };
             } else if (searchType === 'vehicle') {
-                endpoint = `${apiUrl}/api/dispatcher/search/vehicle`;
+                endpoint = apiUrl + '/api/dispatcher/search/vehicle';
                 body = { plate: searchQuery };
             } else if (searchType === 'weapon') {
-                endpoint = `${apiUrl}/api/dispatcher/search/weapon`;
+                endpoint = apiUrl + '/api/dispatcher/search/weapon';
                 body = { serialNumber: searchQuery };
             }
             
-            const res = await fetch(endpoint, {
+            console.log('[DISPATCHER SEARCH] endpoint:', endpoint);
+            
+            // Добавляем timestamp для обхода кэширования на уровне прокси/CDN
+            const urlWithCacheBuster = new URL(endpoint);
+            urlWithCacheBuster.searchParams.append('_t', Date.now().toString());
+            urlWithCacheBuster.searchParams.append('requestId', searchId);
+            
+            var res = await fetch(urlWithCacheBuster.toString(), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': 'Bearer ' + token,
+                    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                    'X-Request-ID': searchId,
+                    'X-Cache-Bypass': 'true'
                 },
                 body: JSON.stringify(body)
             });
             
+            console.log('[DISPATCHER SEARCH] ' + searchId + ' Response status:', res.status);
+            console.log('[DISPATCHER SEARCH] ' + searchId + ' Response headers:', 
+                Object.fromEntries([...res.headers.entries()]));
+            
             if (res.ok) {
-                const data = await res.json();
+                var data = await res.json();
+                console.log('[DISPATCHER SEARCH] ' + searchId + ' Data received:', data);
                 setSearchResults(Array.isArray(data) ? data : [data]);
                 if (data && data.length > 0) {
                     playSound('search_success');
@@ -374,16 +428,19 @@ function DispatcherPageContent() {
                     setSearchError('Ничего не найдено');
                 }
             } else {
+                var errorText = await res.text();
+                console.error('[DISPATCHER SEARCH] error:', errorText);
                 setSearchResults([]);
-                setSearchError('Ошибка поиска');
+                setSearchError('Ошибка поиска: ' + res.status);
                 playSound('search_error');
             }
         } catch (err) {
-            console.error('Search failed', err);
+            console.error('[DISPATCHER SEARCH] exception:', err);
             setSearchResults([]);
             setSearchError('Ошибка поиска');
         } finally {
             setIsSearching(false);
+            console.log('[DISPATCHER SEARCH] completed');
         }
     };
 
@@ -391,14 +448,16 @@ function DispatcherPageContent() {
         if (!messageText.trim() || !messageUnit) return;
         
         try {
-            const token = localStorage.getItem('accessToken');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            var token = localStorage.getItem('accessToken');
+            var apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
             
-            const res = await fetch(`${apiUrl}/api/dispatcher/message-unit`, {
+            var res = await fetch(apiUrl + '/api/dispatcher/message-unit', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': 'Bearer ' + token,
+                    'Cache-Control': 'no-store, no-cache, must-revalidate',
+                    'Pragma': 'no-cache'
                 },
                 body: JSON.stringify({
                     characterId: messageUnit.characterId || null,
@@ -409,13 +468,13 @@ function DispatcherPageContent() {
             });
             
             if (res.ok) {
-                toast({ title: 'Message Sent', description: `Message sent to ${messageUnit.unit}` });
+                toast({ title: 'Message Sent', description: 'Message sent to ' + messageUnit.unit });
                 playSound('notification');
                 setMessageText("");
                 setShowMessageModal(false);
                 setMessageUnit(null);
             } else {
-                const data = await res.json();
+                var data = await res.json();
                 toast({ title: 'Error', description: data.error || 'Failed to send message', variant: 'destructive' });
             }
         } catch (err) {
@@ -432,11 +491,11 @@ function DispatcherPageContent() {
                         <CardTitle className="text-lg font-bold text-zinc-100 flex items-center justify-between">
                             <span className="flex items-center gap-2">
                                 <Radio className="w-5 h-5 text-blue-500" />
-                                Консоль Диспетчера {callSign && `[${callSign}]`} - {units.filter(u => u.status === 'Available').length} Активных Юнитов / {calls.length} Вызовов
+                                Консоль Диспетчера {callSign ? '[' + callSign + ']' : ''} - {units.filter(function(u) { return u.status === 'Available'; }).length} Активных Юнитов / {calls.length} Вызовов
                             </span>
                             <div className="flex gap-2">
                                 <Button variant="outline" size="sm" onClick={fetchData} className="h-8 bg-zinc-800/50 border-zinc-700">
-                                    <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                                    <RefreshCw className={'w-4 h-4 ' + (isLoading ? 'animate-spin' : '')} />
                                 </Button>
                                 <Button variant="outline" size="sm" onClick={handleGoOffDuty} className="h-8 bg-zinc-800/50 border-red-900/50 text-red-400 hover:bg-red-950/30">
                                     <LogOut className="w-4 h-4 mr-2" />
@@ -488,7 +547,7 @@ function DispatcherPageContent() {
                                                     {calls.map((call) => (
                                                         <tr
                                                             key={call.id}
-                                                            className={`border-b border-zinc-800/50 hover:bg-zinc-800/30 cursor-pointer ${selectedCall?.id === call.id ? 'bg-blue-900/10' : ''}`}
+                                                            className={'border-b border-zinc-800/50 hover:bg-zinc-800/30 cursor-pointer ' + (selectedCall && selectedCall.id === call.id ? 'bg-blue-900/10' : '')}
                                                             onClick={() => setSelectedCall(call)}
                                                         >
                                                             <td className="px-3 py-2 text-zinc-400 font-mono text-xs">{new Date(call.createdAt).toLocaleTimeString()}</td>
@@ -496,10 +555,7 @@ function DispatcherPageContent() {
                                                             <td className="px-3 py-2 text-zinc-300">{call.location}</td>
                                                             <td className="px-3 py-2 text-zinc-100">{call.description.substring(0, 30)}...</td>
                                                             <td className="px-3 py-2">
-                                                                <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase font-bold ${call.status === 'pending' ? 'bg-amber-500/20 text-amber-500' :
-                                                                        call.status === 'dispatched' ? 'bg-blue-500/20 text-blue-500' :
-                                                                            'bg-zinc-500/20 text-zinc-500'
-                                                                    }`}>
+                                                                <span className={call.status === 'pending' ? 'px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-amber-500/20 text-amber-500' : call.status === 'dispatched' ? 'px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-blue-500/20 text-blue-500' : 'px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-zinc-500/20 text-zinc-500'}>
                                                                     {call.status === 'pending' ? 'ОЖИДАЕТ' : call.status === 'dispatched' ? 'ОТПРАВЛЕН' : call.status}
                                                                 </span>
                                                             </td>

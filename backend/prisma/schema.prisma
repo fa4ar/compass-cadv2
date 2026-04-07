@@ -33,6 +33,8 @@ model User {
   auditLogs           AuditLog[]
   assignedRoles       CharacterRole[] @relation("RoleAssigner")
   assignedSupervisors Supervisor[]    @relation("SupervisorAssigner")
+  roleplayEvents      RoleplayEventLog[]
+  roleplayBackups     RoleplayBackup[]
 
   unit Unit?
 
@@ -132,6 +134,9 @@ model Character {
   weapons              CivilianWeapon[]
   fines                Fine[]                @relation("CharacterFines")
   finesIssued          Fine[]                @relation("OfficerFines")
+  roleplayDocuments    RoleplayDocument[]
+  roleplayTags         CharacterRoleplayTag[]
+  roleplayEvents       RoleplayEventLog[]
 
   @@unique([userId, firstName, lastName])
   @@index([userId])
@@ -955,4 +960,79 @@ model Fine {
   @@index([characterId])
   @@index([status])
   @@index([issuedAt])
+}
+
+model RoleplayDocument {
+  id                    Int                  @id @default(autoincrement())
+  characterId           Int
+  issuerUserId          Int
+  type                  RoleplayDocumentType
+  offenseCode           String
+  title                 String
+  description           String
+  amount                Float?
+  status                String               @default("active")
+  isSelfIssued          Boolean              @default(true)
+  affectsOfficialHistory Boolean             @default(false)
+  createdAt             DateTime             @default(now())
+  expiresAt             DateTime?
+  metadata              Json?
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  issuer    User      @relation(fields: [issuerUserId], references: [id], onDelete: Cascade)
+
+  @@index([characterId])
+  @@index([issuerUserId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model CharacterRoleplayTag {
+  id           Int      @id @default(autoincrement())
+  characterId  Int
+  tagKey       String
+  label        String
+  description  String?
+  color        String?
+  isTemporary  Boolean  @default(false)
+  expiresAt    DateTime?
+  isActive     Boolean  @default(true)
+  createdById  Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@index([characterId])
+  @@index([tagKey])
+  @@index([isActive])
+  @@index([expiresAt])
+}
+
+model RoleplayEventLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int?
+  characterId Int
+  action      String
+  payload     Json?
+  createdAt   DateTime @default(now())
+
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([characterId])
+  @@index([createdAt])
+}
+
+model RoleplayBackup {
+  id          Int      @id @default(autoincrement())
+  createdById Int?
+  snapshot    Json
+  createdAt   DateTime @default(now())
+
+  creator User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([createdById])
+  @@index([createdAt])
 }

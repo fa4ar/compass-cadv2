@@ -18,75 +18,175 @@ router.use(authMiddleware);
 router.use(requireDispatcherOrAdmin);
 
 router.post('/search/person', async (req: Request, res: Response) => {
+    const requestId = req.headers['x-request-id'] || `req_${Date.now()}`;
+    console.log(`[DISPATCHER SEARCH ${requestId}] POST /search/person`);
+    console.log(`[DISPATCHER SEARCH ${requestId}] Body:`, req.body);
+    console.log(`[DISPATCHER SEARCH ${requestId}] Headers:`, {
+        'content-type': req.headers['content-type'],
+        'authorization': req.headers['authorization'] ? 'Bearer [PRESENT]' : 'NONE',
+        'cache-control': req.headers['cache-control'],
+        'pragma': req.headers['pragma'],
+    });
+    
     try {
         const { firstName, lastName, ssn } = req.body;
+        
+        console.log(`[DISPATCHER SEARCH ${requestId}] Parsed params: firstName="${firstName}", lastName="${lastName}", ssn="${ssn}"`);
         
         const where: any = {};
         if (firstName) where.firstName = { contains: firstName, mode: 'insensitive' };
         if (lastName) where.lastName = { contains: lastName, mode: 'insensitive' };
         if (ssn) where.ssn = ssn;
 
-        const characters = await (prisma as any).character.findMany({
-            where,
-            include: {
-                job: true,
-                warrants: true,
-                citations: true,
-                vehicles: true,
-                weapons: true,
-                licenses: {
-                    include: { license: true }
+        console.log(`[DISPATCHER SEARCH ${requestId}] Prisma where:`, JSON.stringify(where));
+
+        let characters;
+        try {
+            // Исправляем запрос Prisma: используем только существующие отношения
+            characters = await (prisma as any).character.findMany({
+                where,
+                include: {
+                    job: true,
+                    fines: {
+                        orderBy: { issuedAt: 'desc' },
+                        take: 10
+                    },
+                    roleplayDocuments: {
+                        orderBy: { createdAt: 'desc' },
+                        take: 10
+                    },
+                    vehicles: {
+                        take: 10
+                    },
+                    weapons: {
+                        take: 10
+                    },
+                    licenses: {
+                        include: { license: true }
+                    }
                 },
-                notes: {
-                    orderBy: { createdAt: 'desc' },
-                    take: 10
+                take: 10
+            });
+        } catch (dbError: any) {
+            console.error(`[DISPATCHER SEARCH ${requestId}] Database query error:`, dbError.message);
+            console.error(`[DISPATCHER SEARCH ${requestId}] Database error code:`, dbError.code);
+            return res.status(500).json({ error: 'Database query failed', details: dbError.message });
+        }
+
+        console.log(`[DISPATCHER SEARCH ${requestId}] Found ${characters.length} characters`);
+        
+        // Настройка заголовков для предотвращения кэширования
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.setHeader('Surrogate-Control', 'no-store');
+        
+        // Мапим данные под ожидания фронтенда
+        const mappedCharacters = characters.map((c: any) => {
+            return {
+                type: 'person',
+                data: {
+                    ...c,
+                    // Мапим штрафы в citations
+                    citations: c.fines?.map((f: any) => ({
+                        id: f.id,
+                        reason: f.reason,
+                        amount: f.amount,
+                        status: f.status,
+                        issuedAt: f.issuedAt
+                    })) || [],
+                    // Мапим документы в warrants (упрощенно)
+                    warrants: c.roleplayDocuments?.map((d: any) => ({
+                        id: d.id,
+                        crime: d.title || d.offenseCode,
+                        description: d.description,
+                        status: d.status,
+                        createdAt: d.createdAt
+                    })) || [],
+                    // Убеждаемся, что есть пустой массив для notes, если фронт его ждет
+                    notes: []
                 }
-            },
-            take: 10
+            };
         });
 
-        res.json(characters.map((c: any) => ({ type: 'person', data: c })));
-    } catch (error) {
-        console.error('Person search error:', error);
-        res.status(500).json({ error: 'Search failed' });
+        res.json(mappedCharacters);
+    } catch (error: any) {
+        console.error(`[DISPATCHER SEARCH ${requestId}] Error:`, error);
+        res.status(500).json({ error: 'Search failed', details: error.message });
     }
 });
 
 router.post('/search/vehicle', async (req: Request, res: Response) => {
+    const requestId = req.headers['x-request-id'] || `req_${Date.now()}`;
+    console.log(`[DISPATCHER SEARCH ${requestId}] POST /search/vehicle`, req.body);
+    
     try {
         const { plate } = req.body;
         
-        const vehicles = await (prisma as any).vehicle.findMany({
+        console.log(`[DISPATCHER SEARCH ${requestId}] Searching for plate: "${plate}"`);
+        
+        // Исправляем модель: используем civilianVehicle вместо vehicle
+        const vehicles = await (prisma as any).civilianVehicle.findMany({
             where: {
                 plate: { contains: plate, mode: 'insensitive' }
             },
             take: 10
         });
 
-        res.json(vehicles.map((v: any) => ({ type: 'vehicle', data: v })));
+        console.log(`[DISPATCHER SEARCH ${requestId}] Found ${vehicles.length} vehicles`);
+        
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.setHeader('Surrogate-Control', 'no-store');
+        
+        // Мапим данные для фронтенда (добавляем make, если его нет в БД)
+        res.json(vehicles.map((v: any) => ({ 
+            type: 'vehicle', 
+            data: {
+                ...v,
+                make: v.make || 'Unknown'
+            } 
+        })));
     } catch (error) {
-        console.error('Vehicle search error:', error);
+        console.error(`[DISPATCHER SEARCH ${requestId}] Error:`, error);
         res.status(500).json({ error: 'Search failed' });
     }
 });
 
 router.post('/search/weapon', async (req: Request, res: Response) => {
+    const requestId = req.headers['x-request-id'] || `req_${Date.now()}`;
+    console.log(`[DISPATCHER SEARCH ${requestId}] POST /search/weapon`, req.body);
+    
     try {
         const { serialNumber } = req.body;
         
-        const weapons = await (prisma as any).weapon.findMany({
+        console.log(`[DISPATCHER SEARCH ${requestId}] Searching for serial: "${serialNumber}"`);
+        
+        // Исправляем модель: используем civilianWeapon вместо weapon
+        const weapons = await (prisma as any).civilianWeapon.findMany({
             where: {
-                serialNumber: { contains: serialNumber, mode: 'insensitive' }
+                serial: { contains: serialNumber, mode: 'insensitive' }
             },
             take: 10
         });
 
-        res.json(weapons.map((w: any) => ({ type: 'weapon', data: w })));
-    } catch (error) {
-        console.error('Weapon search error:', error);
-        res.status(500).json({ error: 'Search failed' });
-    }
-});
+        console.log(`[DISPATCHER SEARCH ${requestId}] Found ${weapons.length} weapons`);
+        
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.setHeader('Surrogate-Control', 'no-store');
+        
+        // Мапим данные для фронтенда (serial -> serialNumber, model -> weaponType)
+        res.json(weapons.map((w: any) => ({ 
+            type: 'weapon', 
+            data: {
+                ...w,
+                serialNumber: w.serial,
+                weaponType: w.model
+            } 
+        })));
 
 router.post('/message-unit', async (req: Request, res: Response) => {
     try {

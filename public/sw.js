@@ -18,7 +18,9 @@ const isCacheableStaticAsset = (request) => {
 		return false;
 	}
 
+	// Исключаем ВСЕ API маршруты из кэширования
 	if (url.pathname.startsWith('/api')) {
+		console.log('[SW] Skipping cache for API request:', url.pathname);
 		return false;
 	}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, Lock, LogOut, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,12 @@ function BannedPageContent() {
         return roles.includes('admin') || roles.includes('supervisor');
     }, [user?.roles]);
 
+    useEffect(() => {
+        if (user && !user.isBanned) {
+            router.replace('/citizen');
+        }
+    }, [user?.id, user?.isBanned, router]);
+
     const handleAdminUnban = async () => {
         if (!user) return;
         setIsUnbanning(true);
@@ -44,7 +50,7 @@ function BannedPageContent() {
 
             if (response.ok) {
                 await refreshUser();
-                router.replace('/');
+                router.replace('/citizen');
             }
         } finally {
             setIsUnbanning(false);
