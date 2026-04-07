@@ -182,7 +182,7 @@ export default function CitizenPage() {
     const [weaponForm, setWeaponForm] = useState({ serial: '', model: '' });
 
     const getImageUrl = (url?: string) => {
-        if (!url) return 'https://via.placeholder.com/150';
+        if (!url) return null;
         if (url.startsWith('http')) return url;
         const apiUrl = getApiUrl();
         return `${apiUrl}${url}`;

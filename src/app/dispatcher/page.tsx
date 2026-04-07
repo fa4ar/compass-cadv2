@@ -90,6 +90,12 @@ function DispatcherPageContent() {
     const [messageText, setMessageText] = useState("");
     const [messageUnit, setMessageUnit] = useState<Unit | null>(null);
 
+    // Drag and drop for pair creation
+    const [draggedUnit, setDraggedUnit] = useState<Unit | null>(null);
+    const [dropTargetUnit, setDropTargetUnit] = useState<Unit | null>(null);
+    const [showCreatePairModal, setShowCreatePairModal] = useState(false);
+    const [createPairData, setCreatePairData] = useState<{ unit1: Unit; unit2: Unit; pairName: string } | null>(null);
+
     // Sounds
     const { playSound } = useSound();
 
@@ -319,6 +325,77 @@ function DispatcherPageContent() {
         setShowDutyModal(true);
         localStorage.setItem('dispatcherOnDuty', 'false');
         toast({ title: 'Dispatcher Status', description: 'You are now off duty.' });
+    };
+
+    // Drag and drop handlers for pair creation
+    const handleDragStart = (unit: Unit) => {
+        setDraggedUnit(unit);
+    };
+
+    const handleDragOver = (e: React.DragEvent, unit: Unit) => {
+        e.preventDefault();
+        if (!draggedUnit || draggedUnit.unit === unit.unit) return;
+        
+        // Only allow dropping on non-paired units
+        if (!unit.userId) return;
+        
+        setDropTargetUnit(unit);
+    };
+
+    const handleDragLeave = () => {
+        setDropTargetUnit(null);
+    };
+
+    const handleDrop = (targetUnit: Unit) => {
+        if (!draggedUnit || !targetUnit) return;
+        if (draggedUnit.unit === targetUnit.unit) return;
+        
+        // Create pair with these two units
+        setCreatePairData({
+            unit1: draggedUnit,
+            unit2: targetUnit,
+            pairName: `${draggedUnit.unit}-${targetUnit.unit}`
+        });
+        setShowCreatePairModal(true);
+        setDraggedUnit(null);
+        setDropTargetUnit(null);
+    };
+
+    const handleDragEnd = () => {
+        setDraggedUnit(null);
+        setDropTargetUnit(null);
+    };
+
+    const handleCreatePair = async () => {
+        if (!createPairData?.unit1 || !createPairData?.unit2) return;
+        
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            
+            const res = await fetch(`${apiUrl}/api/units/create-pair`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({
+                    userId1: createPairData.unit1.userId,
+                    userId2: createPairData.unit2.userId,
+                    pairName: createPairData.pairName || `${createPairData.unit1.unit}-${createPairData.unit2.unit}`
+                })
+            });
+            
+            if (res.ok) {
+                toast({ title: 'Пара создана', description: `Патрульная пара "${createPairData.pairName || 'Без названия'}" создана` });
+                setShowCreatePairModal(false);
+                setCreatePairData(null);
+                fetchData();
+            } else {
+                const data = await res.json();
+                toast({ title: 'Ошибка', description: data.error || 'Не удалось создать пару', variant: 'destructive' });
+            }
+        } catch (err) {
+            console.error('Failed to create pair', err);
+            toast({ title: 'Ошибка', description: 'Не удалось создать пару', variant: 'destructive' });
+        }
     };
 
     const handleNoteSubmit = async (callId: number) => {
@@ -629,7 +706,19 @@ function DispatcherPageContent() {
                                                 {units.map((u) => (
                                                     <tr
                                                         key={u.unit}
-                                                        className={`border-b border-zinc-800/50 hover:bg-zinc-800/30 ${selectedUnit?.unit === u.unit ? 'bg-blue-900/10' : ''}`}
+                                                        draggable={!!u.userId}
+                                                        onDragStart={() => handleDragStart(u)}
+                                                        onDragOver={(e) => handleDragOver(e, u)}
+                                                        onDragLeave={handleDragLeave}
+                                                        onDrop={() => handleDrop(u)}
+                                                        onDragEnd={handleDragEnd}
+                                                        className={`
+                                                            border-b border-zinc-800/50 hover:bg-zinc-800/30 
+                                                            ${selectedUnit?.unit === u.unit ? 'bg-blue-900/10' : ''}
+                                                            ${dropTargetUnit?.unit === u.unit && draggedUnit?.unit !== u.unit ? 'bg-purple-500/20 border-2 border-purple-500' : ''}
+                                                            ${draggedUnit?.unit === u.unit ? 'opacity-50' : ''}
+                                                            ${u.userId ? 'cursor-grab' : ''}
+                                                        `}
                                                         onClick={() => setSelectedUnit(u)}
                                                     >
                                                         <td className="px-3 py-2 text-blue-400 font-bold">{u.unit}</td>
@@ -1171,6 +1260,62 @@ function DispatcherPageContent() {
                             )}
 
                             <Button variant="outline" className="w-full" onClick={() => setSelectedCharacter(null)}>Закрыть</Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Create Pair Modal - Drag and Drop */}
+            {showCreatePairModal && createPairData && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setShowCreatePairModal(false); setCreatePairData(null); }}>
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+                        <div className="text-center space-y-4">
+                            <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto">
+                                <Users className="w-8 h-8 text-purple-500" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-white">Создать патрульную пару</h2>
+                                <p className="text-zinc-400 mt-2">Объедините двух юнитов в пару</p>
+                            </div>
+                            
+                            <div className="flex items-center justify-center gap-4 py-4">
+                                <div className="text-center">
+                                    <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                                        <User className="w-6 h-6 text-blue-400" />
+                                    </div>
+                                    <p className="text-sm font-medium text-white">{createPairData.unit1?.officer}</p>
+                                    <p className="text-xs text-zinc-500">{createPairData.unit1?.unit}</p>
+                                </div>
+                                <div className="text-zinc-500">
+                                    <Users className="w-6 h-6" />
+                                </div>
+                                <div className="text-center">
+                                    <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                                        <User className="w-6 h-6 text-blue-400" />
+                                    </div>
+                                    <p className="text-sm font-medium text-white">{createPairData.unit2?.officer}</p>
+                                    <p className="text-xs text-zinc-500">{createPairData.unit2?.unit}</p>
+                                </div>
+                            </div>
+
+                            <div className="text-left">
+                                <Label className="text-xs text-zinc-400 uppercase tracking-wide">Название пары</Label>
+                                <Input 
+                                    value={createPairData.pairName}
+                                    onChange={(e) => setCreatePairData({ ...createPairData, pairName: e.target.value })}
+                                    placeholder="Например: Alpha-1"
+                                    className="mt-1 bg-zinc-800 border-zinc-700"
+                                />
+                            </div>
+                            
+                            <div className="flex gap-3 pt-2">
+                                <Button variant="outline" className="flex-1" onClick={() => { setShowCreatePairModal(false); setCreatePairData(null); }}>
+                                    Отмена
+                                </Button>
+                                <Button className="flex-1 bg-purple-600 hover:bg-purple-500" onClick={handleCreatePair}>
+                                    Создать пару
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </div>
