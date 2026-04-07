@@ -51,10 +51,7 @@ files {
 -- Metadata
 -- =====================================================
 
-dependencies {
-    'FiveM',
-    'NativeUI'
-}
+-- No external dependencies required
 
 export 'showCallPanel'
 export 'hideCallPanel'

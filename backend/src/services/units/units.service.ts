@@ -364,15 +364,22 @@ export class UnitsService {
 
         console.log(`[acceptPairInvite] Linking user ${userId} with ${pendingInvite.fromUserId}`);
 
-        // Link both units
+        // Generate combined badge - add +2 to the main unit's badge
+        const badge1 = senderUnit?.callSign || senderUnit?.departmentMember?.badgeNumber || pendingInvite.fromUserId.toString();
+        const badge2 = "";
+        const combinedBadge = `${badge1}+2`;
+        
+        console.log(`[acceptPairInvite] Combined badge: ${combinedBadge}`);
+
+        // Link both units with combined badge
         await (prisma as any).unit.update({
             where: { userId: pendingInvite.fromUserId },
-            data: { partnerUserId: userId }
+            data: { partnerUserId: userId, callSign: combinedBadge }
         });
 
         await (prisma as any).unit.update({
             where: { userId },
-            data: { partnerUserId: pendingInvite.fromUserId }
+            data: { partnerUserId: pendingInvite.fromUserId, callSign: combinedBadge }
         });
 
         // Clear pending invite
@@ -435,9 +442,23 @@ export class UnitsService {
     static async createPairDirectly(userId1: number, userId2: number, pairName: string) {
         const prisma = require('../../lib/prisma').default;
 
-        // Get both units
-        const unit1 = await prisma.unit.findUnique({ where: { userId: userId1 } });
-        const unit2 = await prisma.unit.findUnique({ where: { userId: userId2 } });
+        console.log(`[createPairDirectly] Sending invite from userId1: ${userId1} to userId2: ${userId2}`);
+
+        // Get both units with character and department info
+        const unit1 = await prisma.unit.findUnique({ 
+            where: { userId: userId1 },
+            include: { 
+                character: true,
+                departmentMember: true
+            }
+        });
+        const unit2 = await prisma.unit.findUnique({ 
+            where: { userId: userId2 },
+            include: { 
+                character: true,
+                departmentMember: true
+            }
+        });
 
         if (!unit1 || !unit2) {
             throw new Error('Both units must be on duty');
@@ -447,30 +468,48 @@ export class UnitsService {
             throw new Error('One or both units are already in a pair');
         }
 
-        // Create the pair
-        await prisma.unit.update({
-            where: { userId: userId1 },
-            data: { partnerUserId: userId2 }
-        });
+        // Store pending invite for userId2 (the one receiving the invite)
+        if (!(global as any).pendingPairInvites) {
+            (global as any).pendingPairInvites = {};
+        }
+        
+        const badge1 = unit1.callSign || unit1.departmentMember?.badgeNumber || unit1.id.toString();
+        (global as any).pendingPairInvites[userId2] = { 
+            fromUserId: userId1, 
+            timestamp: Date.now(),
+            isDispatcherCreated: true,
+            pairName: pairName || `${badge1}+2`
+        };
 
-        await prisma.unit.update({
-            where: { userId: userId2 },
-            data: { partnerUserId: userId1 }
-        });
+        // Get the officer name for notification
+        const officer1Name = unit1.character ? `${unit1.character.firstName} ${unit1.character.lastName}` : badge1;
 
-        // Emit events
+        // Emit socket event to target user only
         if (io) {
-            io.emit('pair_formed', { 
-                userId1, 
-                userId2, 
-                pairName,
-                unit1: unit1.callSign,
-                unit2: unit2.callSign
-            });
-            io.emit('unit_pair_update', { userId: userId1 });
-            io.emit('unit_pair_update', { userId: userId2 });
+            const targetSocketIds = activeUserSessions.get(userId2);
+            if (targetSocketIds && targetSocketIds.size > 0) {
+                for (const socketId of targetSocketIds) {
+                    io.to(socketId).emit('pair_invite', {
+                        fromUserId: userId1,
+                        fromCallSign: badge1,
+                        fromOfficerName: officer1Name,
+                        isDispatcherCreated: true,
+                        pairName: pairName || `${badge1}+2`
+                    });
+                }
+                console.log(`[createPairDirectly] Invite sent to user ${userId2}`);
+            } else {
+                console.log(`[createPairDirectly] Target user ${userId2} not online, invite stored`);
+            }
         }
 
-        return { success: true, pairName };
+        console.log(`[createPairDirectly] Invite created for pair: ${pairName || badge1 + '+2'}`);
+
+        return { 
+            success: true, 
+            message: 'Invite sent',
+            inviteToUserId: userId2,
+            pairName: pairName || `${badge1}+2`
+        };
     }
 }

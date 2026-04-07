@@ -17,6 +17,12 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface Unit {
     unit: string;
@@ -29,6 +35,16 @@ interface Unit {
     location: string;
     characterId?: number;
     userId?: number;
+    partnerUserId?: number;
+    partnerOfficer?: string;
+    partnerUser?: {
+        username: string;
+        avatarUrl: string;
+    };
+    user?: {
+        username: string;
+        avatarUrl: string;
+    };
 }
 
 interface Call911 {
@@ -98,6 +114,13 @@ function DispatcherPageContent() {
 
     // Sounds
     const { playSound } = useSound();
+
+    const getImageUrl = (url?: string) => {
+        if (!url) return null;
+        if (url.startsWith('http')) return url;
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+        return `${apiUrl}${url}`;
+    };
 
     // PERSISTENCE: Load from localStorage on mount
     useEffect(() => {
@@ -171,6 +194,20 @@ function DispatcherPageContent() {
             toast({ title: 'Сообщение от супервайзера', description: `${data.from}: ${data.message}` });
         });
 
+        socket.on('pair_formed', () => {
+            fetchData();
+            toast({ title: 'Пара создана', description: 'Новая патрульная пара создана' });
+        });
+
+        socket.on('pair_disbanded', () => {
+            fetchData();
+            toast({ title: 'Пара расформирована', description: 'Патрульная пара была разделена' });
+        });
+
+        socket.on('unit_pair_update', () => {
+            fetchData();
+        });
+
         return () => {
             socket.off('new_911_call');
             socket.off('update_911_call');
@@ -179,6 +216,9 @@ function DispatcherPageContent() {
             socket.off('supervisor_request');
             socket.off('dispatcher_message');
             socket.off('supervisor_message');
+            socket.off('pair_formed');
+            socket.off('pair_disbanded');
+            socket.off('unit_pair_update');
             socket.disconnect();
         };
     }, [selectedCall?.id]);
@@ -384,7 +424,8 @@ function DispatcherPageContent() {
             });
             
             if (res.ok) {
-                toast({ title: 'Пара создана', description: `Патрульная пара "${createPairData.pairName || 'Без названия'}" создана` });
+                const data = await res.json();
+                toast({ title: 'Приглашение отправлено', description: `${createPairData.unit1.unit} пригласил ${createPairData.unit2.unit} в пару` });
                 setShowCreatePairModal(false);
                 setCreatePairData(null);
                 fetchData();
@@ -721,7 +762,61 @@ function DispatcherPageContent() {
                                                         `}
                                                         onClick={() => setSelectedUnit(u)}
                                                     >
-                                                        <td className="px-3 py-2 text-blue-400 font-bold">{u.unit}</td>
+                                                        <td className="px-3 py-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-blue-400 font-bold">{u.unit}</span>
+                                                                {u.partnerUserId && (
+                                                                    <TooltipProvider>
+                                                                        <Tooltip>
+                                                                            <TooltipTrigger asChild>
+                                                                                <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-500/20 rounded text-[10px] text-blue-400 cursor-help transition-colors hover:bg-blue-500/30">
+                                                                                    <User className="w-3 h-3" />
+                                                                                    +2
+                                                                                </div>
+                                                                            </TooltipTrigger>
+                                                                            <TooltipContent className="bg-zinc-900 border-zinc-700 p-3 shadow-2xl">
+                                                                                <div className="space-y-2">
+                                                                                    <div className="flex items-center gap-2 pb-1 border-b border-zinc-800">
+                                                                                        <Users className="w-3.5 h-3.5 text-blue-400" />
+                                                                                        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Состав экипажа</span>
+                                                                                    </div>
+                                                                                    <div className="flex items-center gap-3">
+                                                                                        <div className="relative">
+                                                                                            <div className="w-8 h-8 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700">
+                                                                                                {u.user?.avatarUrl ? (
+                                                                                                    <img src={getImageUrl(u.user.avatarUrl)!} alt={u.user.username} className="w-full h-full object-cover" />
+                                                                                                ) : (
+                                                                                                    <div className="w-full h-full flex items-center justify-center text-zinc-600"><User className="w-4 h-4" /></div>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <div className="flex flex-col">
+                                                                                            <span className="text-xs font-bold text-white">{u.officer}</span>
+                                                                                            <span className="text-[10px] text-zinc-500">@{u.user?.username || 'user'}</span>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <div className="flex items-center gap-3">
+                                                                                        <div className="relative">
+                                                                                            <div className="w-8 h-8 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700">
+                                                                                                {u.partnerUser?.avatarUrl ? (
+                                                                                                    <img src={getImageUrl(u.partnerUser.avatarUrl)!} alt={u.partnerUser.username} className="w-full h-full object-cover" />
+                                                                                                ) : (
+                                                                                                    <div className="w-full h-full flex items-center justify-center text-zinc-600"><User className="w-4 h-4" /></div>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        <div className="flex flex-col">
+                                                                                            <span className="text-xs font-bold text-white">{u.partnerOfficer}</span>
+                                                                                            <span className="text-[10px] text-zinc-500">@{u.partnerUser?.username || 'user'}</span>
+                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </TooltipContent>
+                                                                        </Tooltip>
+                                                                    </TooltipProvider>
+                                                                )}
+                                                            </div>
+                                                        </td>
                                                         <td className="px-3 py-2 text-zinc-300">{u.officer}</td>
                                                         <td className="px-3 py-2">
                                                             {renderUnitStatusBadge(u.status)}

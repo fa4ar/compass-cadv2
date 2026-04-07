@@ -44,12 +44,33 @@ AddEventHandler('compass:showCallPanel', function(callData)
         data = callData
     })
     
-    -- Play sound ONLY for new attachment (not for self-attach)
+    -- Show toast notification instead of in-game notification
+    local typeLabel = callData.type or "Вызов"
+    local priorityLabel = callData.priority or "routine"
+    local toastType = "info"
+    
+    if priorityLabel == "emergency" or priorityLabel == "high" then
+        toastType = "error"
+    elseif priorityLabel == "medium" then
+        toastType = "warning"
+    end
+    
     if callData.isDispatched then
-        PlaySoundAlert("newCall")
-        ShowNotification("~b~ВАМ НАЗНАЧЕН ВЫЗОВ ~w~" .. callData.type, true)
+        SendNUIMessage({
+            action = "showToast",
+            title = "Вам назначен вызов",
+            message = "#" .. callId .. " - " .. typeLabel,
+            type = toastType,
+            duration = 6000
+        })
     else
-        ShowNotification("~g~Вы присоединились к вызову ~w~" .. callData.id, false)
+        SendNUIMessage({
+            action = "showToast",
+            title = "Вы присоединились к вызову",
+            message = "#" .. callId .. " - " .. typeLabel,
+            type = "success",
+            duration = 4000
+        })
     end
 end)
 
@@ -65,7 +86,13 @@ AddEventHandler('compass:hideCallPanel', function(callId)
         callId = callId
     })
     
-    ShowNotification("~r~Вы откреплены от вызова", false)
+    SendNUIMessage({
+        action = "showToast",
+        title = "Вы откреплены от вызова",
+        message = "#" .. callId,
+        type = "warning",
+        duration = 3000
+    })
 end)
 
 -- Update call data in real-time
@@ -97,7 +124,13 @@ AddEventHandler('compass:updateCallData', function(callData)
         -- Play sound on update if flag set
         if callData.playSound and changed then
             PlaySoundAlert("update")
-            ShowNotification("~y~Обновление вызова ~w~" .. callData.id, true)
+            SendNUIMessage({
+                action = "showToast",
+                title = "Обновление вызова",
+                message = "#" .. callId,
+                type = "info",
+                duration = 4000
+            })
         end
     end
 end)
@@ -112,7 +145,13 @@ AddEventHandler('compass:callClosedNotify', function(callId)
         callId = callId
     })
     
-    ShowNotification("~r~Вызов закрыт ~w~" .. callId, false)
+    SendNUIMessage({
+        action = "showToast",
+        title = "Вызов закрыт",
+        message = "#" .. callId,
+        type = "info",
+        duration = 3000
+    })
 end)
 
 -- Officer attached notification
@@ -131,7 +170,13 @@ AddEventHandler('compass:officerAttached', function(data)
             data = ActivePanels[data.callId]
         })
         
-        ShowNotification("~g~" .. data.officerName .. " присоединился к вызову", false)
+        SendNUIMessage({
+            action = "showToast",
+            title = "Офицер присоединился",
+            message = data.officerName .. " к вызову #" .. data.callId,
+            type = "info",
+            duration = 3000
+        })
     end
 end)
 

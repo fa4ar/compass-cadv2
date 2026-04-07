@@ -45,7 +45,55 @@
         resolved: 'Завершен',
         closed: 'Закрыт'
     };
-    
+
+    // Toast icons
+    const toastIcons = {
+        success: '✓',
+        warning: '⚠',
+        error: '✕',
+        info: 'ℹ'
+    };
+
+    // =====================================================
+    // TOAST NOTIFICATIONS
+    // =====================================================
+
+    function showToast(title, message, type = 'info', duration = 5000) {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+
+        const toastId = 'toast-' + Date.now();
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.id = toastId;
+        
+        toast.innerHTML = `
+            <span class="toast-icon">${toastIcons[type] || toastIcons.info}</span>
+            <div class="toast-content">
+                <div class="toast-title">${title}</div>
+                <div class="toast-message">${message}</div>
+            </div>
+            <button class="toast-close" onclick="dismissToast('${toastId}')">✕</button>
+        `;
+
+        container.appendChild(toast);
+
+        // Auto dismiss
+        setTimeout(() => {
+            dismissToast(toastId);
+        }, duration);
+    }
+
+    window.dismissToast = function(toastId) {
+        const toast = document.getElementById(toastId);
+        if (toast) {
+            toast.classList.add('removing');
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
+        }
+    };
+
     // =====================================================
     // UI RENDERING
     // =====================================================
@@ -276,6 +324,26 @@
                 if (container) {
                     container.classList.toggle('hidden', !data.visible);
                 }
+                break;
+                
+            case 'showToast':
+                showToast(data.title, data.message, data.type, data.duration);
+                break;
+                
+            case 'newCall':
+                const translatedType = typeTranslations[data.callData.type] || data.callData.type;
+                const priorityLabel = priorityTranslations[data.callData.priority] || data.callData.priority;
+                
+                // Show toast notification for new 911 call
+                showToast(
+                    `Новый вызов #${data.callData.id}`,
+                    `${translatedType} - ${priorityLabel}`,
+                    data.callData.priority === 'emergency' || data.callData.priority === 'high' ? 'error' : 'info',
+                    data.callData.priority === 'emergency' ? 8000 : 5000
+                );
+                
+                // Also render the panel
+                renderPanel(data.callData);
                 break;
         }
     });
