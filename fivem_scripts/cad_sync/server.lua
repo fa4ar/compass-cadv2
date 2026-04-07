@@ -1,5 +1,6 @@
 -- CAD Sync Server Side
 local linkedPlayers = {}
+local activeCalls = {} -- Store active 911 calls for unit assignment
 
 -- Функция для получения Discord ID
 function GetDiscordId(src)
@@ -80,6 +81,75 @@ end)
 
 AddEventHandler('playerDropped', function() linkedPlayers[source] = nil end)
 
+-- =====================================================
+-- 911 CALL HANDLING
+-- =====================================================
+
+-- Client accepts a call
+RegisterNetEvent('cad_sync:callAccepted')
+AddEventHandler('cad_sync:callAccepted', function(callId)
+    local src = source
+    local playerName = GetPlayerName(src)
+    print("[CAD-911] Player " .. playerName .. " accepted call #" .. callId)
+    
+    -- Notify CAD backend
+    PerformHttpRequest(Config.ApiUrl .. "/calls911/" .. callId .. "/assign", function(status, body, headers)
+        -- Handle response
+    end, 'POST', json.encode({ userId: src, username: playerName }), { ['Content-Type'] = 'application/json' })
+end)
+
+-- Client declines a call
+RegisterNetEvent('cad_sync:callDeclined')
+AddEventHandler('cad_sync:callDeclined', function(callId)
+    local src = source
+    local playerName = GetPlayerName(src)
+    print("[CAD-911] Player " .. playerName .. " declined call #" .. callId)
+end)
+
+-- Store active call for unit assignment
+function StoreActiveCall(call)
+    activeCalls[call.id] = call
+    -- Broadcast to all online players
+    TriggerClientEvent('cad_sync:new911Call', -1, call)
+end
+
+-- Send call to specific unit when assigned
+function SendCallToUnit(src, call)
+    TriggerClientEvent('cad_sync:callAssigned', src, call)
+end
+
+-- Test 911 call command
+RegisterCommand('test911', function(source, args, rawCommand)
+    local priority = args[1] or "high"
+    local callType = args[2] or "traffic_accident"
+    
+    local testCall = {
+        id = math.random(1000, 9999),
+        type = callType,
+        location = "Vinewood Blvd & Strawberry Ave",
+        description = "Тяжелый удар в заднюю часть. Один человек без сознания.",
+        priority = priority,
+        callerName = "John Doe",
+        callerPhone = "(555) 123-4567",
+        x = -234.5,
+        y = -789.2,
+        createdAt = os.time() * 1000,
+        status = "pending",
+        responders = {}
+    }
+    
+    -- Show to all players
+    for _, player in ipairs(GetPlayers()) do
+        TriggerClientEvent('cad_sync:new911Call', player, testCall)
+    end
+    
+    print("[CAD-911] Test call #" .. testCall.id .. " broadcasted to all players")
+end, true)
+
+-- =====================================================
+-- MAP SYNC LOOP
+-- =====================================================
+
 -- Цикл синхронизации
 CreateThread(function()
     while true do
@@ -103,7 +173,9 @@ CreateThread(function()
                 if res and res.success then
                     if res.units then TriggerClientEvent('cad_sync:updateMinimap', -1, res.units) end
                     if res.newCalls then
-                        for _, call in ipairs(res.newCalls) do TriggerClientEvent('cad_sync:receiveCall', -1, call) end
+                        for _, call in ipairs(res.newCalls) do 
+                            StoreActiveCall(call)
+                        end
                     end
                 end
             end

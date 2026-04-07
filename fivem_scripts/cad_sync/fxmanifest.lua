@@ -10,5 +10,12 @@ server_scripts {
 }
 
 client_scripts {
-    'client.lua'
+    'client.lua',
+    'client_911.lua'
+}
+
+ui_page 'html/call_ui.html'
+
+files {
+    'html/call_ui.html'
 }
