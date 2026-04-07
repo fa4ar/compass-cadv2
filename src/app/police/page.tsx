@@ -180,6 +180,12 @@ function PolicePageContent() {
         reason: ""
     });
 
+    // Drag and drop for pair creation
+    const [draggedUnit, setDraggedUnit] = useState<any | null>(null);
+    const [dropTargetUnit, setDropTargetUnit] = useState<any | null>(null);
+    const [showCreatePairModal, setShowCreatePairModal] = useState(false);
+    const [createPairData, setCreatePairData] = useState<{ unit1: any; unit2: any; pairName: string } | null>(null);
+
     useEffect(() => {
         fetchData();
         checkActiveUnit();
@@ -837,6 +843,79 @@ function PolicePageContent() {
         }
     };
 
+    const handleCreatePair = async () => {
+        if (!createPairData?.unit1 || !createPairData?.unit2) return;
+        
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            
+            const res = await fetch(`${apiUrl}/api/units/create-pair`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({
+                    userId1: createPairData.unit1.userId,
+                    userId2: createPairData.unit2.userId,
+                    pairName: createPairData.pairName || `${createPairData.unit1.unit}-${createPairData.unit2.unit}`
+                })
+            });
+            
+            if (res.ok) {
+                toast({ title: 'Пара создана', description: `Патрульная пара "${createPairData.pairName || 'Без названия'}" создана` });
+                setShowCreatePairModal(false);
+                setCreatePairData(null);
+                setDraggedUnit(null);
+                setDropTargetUnit(null);
+                fetchData();
+            } else {
+                const data = await res.json();
+                toast({ title: 'Ошибка', description: data.error || 'Не удалось создать пару', variant: 'destructive' });
+            }
+        } catch (err) {
+            console.error('Failed to create pair', err);
+            toast({ title: 'Ошибка', description: 'Не удалось создать пару', variant: 'destructive' });
+        }
+    };
+
+    const handleDragStart = (unit: any) => {
+        if (!canManageUnits) return;
+        setDraggedUnit(unit);
+    };
+
+    const handleDragOver = (e: React.DragEvent, unit: any) => {
+        e.preventDefault();
+        if (!canManageUnits || !draggedUnit || draggedUnit.userId === unit.userId) return;
+        
+        // Only allow dropping on non-paired units
+        if (!unit.partnerUserId && (!unit.pairedWith || unit.pairedWith.length === 0)) {
+            setDropTargetUnit(unit);
+        }
+    };
+
+    const handleDragLeave = () => {
+        setDropTargetUnit(null);
+    };
+
+    const handleDrop = (targetUnit: any) => {
+        if (!draggedUnit || !canManageUnits || !targetUnit) return;
+        if (draggedUnit.userId === targetUnit.userId) return;
+        
+        // Create pair with these two units
+        setCreatePairData({
+            unit1: draggedUnit,
+            unit2: targetUnit,
+            pairName: `${draggedUnit.unit}-${targetUnit.unit}`
+        });
+        setShowCreatePairModal(true);
+        setDraggedUnit(null);
+        setDropTargetUnit(null);
+    };
+
+    const handleDragEnd = () => {
+        setDraggedUnit(null);
+        setDropTargetUnit(null);
+    };
+
     return (
         <div className="fixed top-14 inset-x-0 bottom-0 bg-background flex flex-col overflow-hidden">
             <div className="flex-1 overflow-hidden flex flex-col p-3">
@@ -915,7 +994,18 @@ function PolicePageContent() {
                                                             {groupedUnits.map((row: any) => (
                                                                 <tr 
                                                                     key={row.userId} 
-                                                                    className={`${row.status === "Dispatched" ? "bg-blue-950/20" : ""} ${canManageUnits ? "cursor-pointer hover:bg-zinc-800/50" : ""}`}
+                                                                    draggable={canManageUnits && !row.partnerUserId && (!row.pairedWith || row.pairedWith.length === 0)}
+                                                                    onDragStart={() => handleDragStart(row)}
+                                                                    onDragOver={(e) => handleDragOver(e, row)}
+                                                                    onDragLeave={handleDragLeave}
+                                                                    onDrop={() => handleDrop(row)}
+                                                                    onDragEnd={handleDragEnd}
+                                                                    className={`
+                                                                        ${row.status === "Dispatched" ? "bg-blue-950/20" : ""} 
+                                                                        ${canManageUnits && !row.partnerUserId && (!row.pairedWith || row.pairedWith.length === 0) ? "cursor-grab hover:bg-zinc-800/50" : ""}
+                                                                        ${dropTargetUnit?.userId === row.userId && draggedUnit?.userId !== row.userId ? "bg-purple-500/20 border-2 border-purple-500" : ""}
+                                                                        ${draggedUnit?.userId === row.userId ? "opacity-50" : ""}
+                                                                    `}
                                                                     onClick={() => canManageUnits && setSelectedUnit(row)}
                                                                 >
                                                                     <td className={`px-3 py-2 font-semibold ${row.status === "Available" ? "text-green-400" : "text-blue-400"}`}>
@@ -1866,6 +1956,62 @@ function PolicePageContent() {
                                 </Button>
                                 <Button className="flex-1 bg-green-600 hover:bg-green-500" onClick={handleAcceptPairInvite}>
                                     Принять
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Create Pair Modal - Drag and Drop */}
+            {showCreatePairModal && createPairData && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setShowCreatePairModal(false); setCreatePairData(null); }}>
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+                        <div className="text-center space-y-4">
+                            <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto">
+                                <Users className="w-8 h-8 text-purple-500" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-white">Создать патрульную пару</h2>
+                                <p className="text-zinc-400 mt-2">Объедините двух юнитов в пару</p>
+                            </div>
+                            
+                            <div className="flex items-center justify-center gap-4 py-4">
+                                <div className="text-center">
+                                    <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                                        <User className="w-6 h-6 text-blue-400" />
+                                    </div>
+                                    <p className="text-sm font-medium text-white">{createPairData.unit1?.officer}</p>
+                                    <p className="text-xs text-zinc-500">{createPairData.unit1?.unit}</p>
+                                </div>
+                                <div className="text-zinc-500">
+                                    <Users className="w-6 h-6" />
+                                </div>
+                                <div className="text-center">
+                                    <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                                        <User className="w-6 h-6 text-blue-400" />
+                                    </div>
+                                    <p className="text-sm font-medium text-white">{createPairData.unit2?.officer}</p>
+                                    <p className="text-xs text-zinc-500">{createPairData.unit2?.unit}</p>
+                                </div>
+                            </div>
+
+                            <div className="text-left">
+                                <label className="text-xs text-zinc-400 uppercase tracking-wide">Название пары</label>
+                                <Input 
+                                    value={createPairData.pairName}
+                                    onChange={(e) => setCreatePairData({ ...createPairData, pairName: e.target.value })}
+                                    placeholder="Например: Alpha-1"
+                                    className="mt-1 bg-zinc-800 border-zinc-700"
+                                />
+                            </div>
+                            
+                            <div className="flex gap-3 pt-2">
+                                <Button variant="outline" className="flex-1" onClick={() => { setShowCreatePairModal(false); setCreatePairData(null); }}>
+                                    Отмена
+                                </Button>
+                                <Button className="flex-1 bg-purple-600 hover:bg-purple-500" onClick={handleCreatePair}>
+                                    Создать пару
                                 </Button>
                             </div>
                         </div>

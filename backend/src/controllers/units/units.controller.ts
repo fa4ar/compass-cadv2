@@ -155,4 +155,28 @@ export class UnitsController {
             next(error);
         }
     }
+
+    static async createPairDirectly(req: Request, res: Response, next: NextFunction) {
+        try {
+            const userId = (req as any).user?.userId;
+            const { userId1, userId2, pairName } = req.body;
+
+            if (!userId1 || !userId2) {
+                return res.status(400).json({ error: 'Both user IDs are required' });
+            }
+
+            // Check if user has supervisor/dispatcher role
+            const userRoles = (req as any).user?.roles || [];
+            const isSupervisor = userRoles.some((r: string) => ['admin', 'supervisor', 'dispatcher'].includes(r.toLowerCase()));
+
+            if (!isSupervisor) {
+                return res.status(403).json({ error: 'Only supervisors/dispatchers can create pairs directly' });
+            }
+
+            const result = await UnitsService.createPairDirectly(userId1, userId2, pairName || '');
+            res.json(result);
+        } catch (error: any) {
+            res.status(400).json({ error: error.message });
+        }
+    }
 }

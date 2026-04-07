@@ -431,4 +431,46 @@ export class UnitsService {
 
         return { success: true };
     }
+
+    static async createPairDirectly(userId1: number, userId2: number, pairName: string) {
+        const prisma = require('../../lib/prisma').default;
+
+        // Get both units
+        const unit1 = await prisma.unit.findUnique({ where: { userId: userId1 } });
+        const unit2 = await prisma.unit.findUnique({ where: { userId: userId2 } });
+
+        if (!unit1 || !unit2) {
+            throw new Error('Both units must be on duty');
+        }
+
+        if (unit1.partnerUserId || unit2.partnerUserId) {
+            throw new Error('One or both units are already in a pair');
+        }
+
+        // Create the pair
+        await prisma.unit.update({
+            where: { userId: userId1 },
+            data: { partnerUserId: userId2 }
+        });
+
+        await prisma.unit.update({
+            where: { userId: userId2 },
+            data: { partnerUserId: userId1 }
+        });
+
+        // Emit events
+        if (io) {
+            io.emit('pair_formed', { 
+                userId1, 
+                userId2, 
+                pairName,
+                unit1: unit1.callSign,
+                unit2: unit2.callSign
+            });
+            io.emit('unit_pair_update', { userId: userId1 });
+            io.emit('unit_pair_update', { userId: userId2 });
+        }
+
+        return { success: true, pairName };
+    }
 }

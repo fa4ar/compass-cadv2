@@ -30,4 +30,7 @@ router.post('/invite', authMiddleware as RequestHandler, UnitsController.inviteT
 router.post('/accept', authMiddleware as RequestHandler, UnitsController.acceptPairInvite);
 router.delete('/leave', authMiddleware as RequestHandler, UnitsController.leavePair);
 
+// Create pair (dispatcher/supervisor creates directly)
+router.post('/create-pair', authMiddleware as RequestHandler, UnitsController.createPairDirectly);
+
 export default router;
