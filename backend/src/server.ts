@@ -21,7 +21,7 @@ import { discordBotService } from './services/discord-bot.service';
 app.use(cors({
     origin: true, // Разрешаем текущий источник
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
