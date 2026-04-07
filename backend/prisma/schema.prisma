@@ -948,11 +948,28 @@ model Fine {
   id          Int      @id @default(autoincrement())
   characterId Int
   officerId   Int?
-  amount      Float
-  reason      String
-  status      String   @default("unpaid")
-  issuedAt    DateTime @default(now())
+  
+  amount       Float
+  reason       String
+  offenseCode  String?
+  description  String?
+  
+  status       FineStatus @default(unpaid)
+  paymentDue   DateTime?
+  
+  issuedAt    DateTime  @default(now())
   paidAt      DateTime?
+  cancelledAt DateTime?
+  cancelledBy Int?
+  cancelReason String?
+  
+  // Для самостоятельных штрафов от граждан
+  isSelfIssued Boolean @default(false)
+  issuedByUserId Int?
+  context       String? // roleplay, court, traffic_accident, etc.
+  
+  // История изменений
+  payments    FinePayment[]
 
   character Character  @relation("CharacterFines", fields: [characterId], references: [id], onDelete: Cascade)
   officer   Character? @relation("OfficerFines", fields: [officerId], references: [id], onDelete: SetNull)
@@ -960,6 +977,87 @@ model Fine {
   @@index([characterId])
   @@index([status])
   @@index([issuedAt])
+  @@index([isSelfIssued])
+}
+
+model FinePayment {
+  id        Int      @id @default(autoincrement())
+  fineId    Int
+  amount    Float
+  method    String?  // cash, card, bank_transfer
+  reference String?
+  createdAt DateTime @default(now())
+  
+  fine Fine @relation(fields: [fineId], references: [id], onDelete: Cascade)
+  
+  @@index([fineId])
+}
+
+// ==================== ОРДЕРА ====================
+
+model Warrant {
+  id            Int         @id @default(autoincrement())
+  characterId   Int
+  type          WarrantType
+  status        WarrantStatus @default(active)
+  
+  title         String
+  description   String
+  justification String    // Обоснование (обязательно)
+  
+  // Срок действия
+  issuedAt      DateTime    @default(now())
+  expiresAt     DateTime?
+  executedAt    DateTime?
+  
+  // Кем выдан
+  issuerUserId  Int
+  issuerName    String?
+  
+  // Причина отмены
+  cancelledAt   DateTime?
+  cancelledBy   Int?
+  cancelReason  String?
+  
+  // Связанные сущности
+  relatedIncidentId Int?
+  relatedFineId    Int?
+  
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  issuer    User      @relation(fields: [issuerUserId], references: [id], onDelete: Cascade)
+
+  @@index([characterId])
+  @@index([type])
+  @@index([status])
+  @@index([issuerUserId])
+  @@index([expiresAt])
+}
+
+// ==================== РОЛЕВЫЕ ТЕГИ (МЕТКИ) ====================
+
+model RoleplayTagDefinition {
+  id          Int       @id @default(autoincrement())
+  key         String    @unique  // gang_member, udо, recidivist, monitored, etc.
+  label       String
+  description String?
+  color       String    @default("#FF0000") // hex color для UI
+  icon        String?   // lucide icon name
+  category    TagCategory
+  priority    Int       @default(0) // для сортировки в UI
+  
+  // Ограничения
+  canBeSelfApplied Boolean @default(false)
+  maxInstances     Int     @default(1) // сколько раз может быть применен
+  requiresReason   Boolean @default(false)
+  autoExpireDays   Int?    // авто-истечение через N дней
+  
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  characterTags CharacterRoleplayTag[]
+
+  @@index([category])
+  @@index([isActive])
 }
 
 model RoleplayDocument {
@@ -1035,4 +1133,38 @@ model RoleplayBackup {
 
   @@index([createdById])
   @@index([createdAt])
+}
+
+// ==================== ENUMS ДЛЯ НОВЫХ МОДЕЛЕЙ ====================
+
+enum FineStatus {
+  unpaid
+  partially_paid
+  paid
+  cancelled
+  expired
+}
+
+enum WarrantType {
+  arrest
+  search
+  bench
+  probation
+  extradition
+}
+
+enum WarrantStatus {
+  active
+  executed
+  expired
+  cancelled
+  pending
+}
+
+enum TagCategory {
+  criminal
+  legal
+  behavioral
+  surveillance
+  system
 }

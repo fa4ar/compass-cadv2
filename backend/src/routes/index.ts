@@ -11,6 +11,8 @@ import fivemRoutes from "./fivem.routes";
 import dispatcherRoutes from "./dispatcher.routes";
 import finesRoutes from "./fines.routes";
 import settingsRoutes from "./settings.routes";
+import roleplayRoutes from "./roleplay.routes";
+import roleplayDocsRoutes from "./roleplay-docs.routes";
 
 import uploadRoutes from './upload.routes';
 
@@ -83,6 +85,8 @@ router.use('/fivem', fivemRoutes);
 router.use('/dispatcher', dispatcherRoutes);
 router.use('/fines', finesRoutes);
 router.use('/settings', settingsRoutes);
+router.use('/roleplay', roleplayRoutes);
+router.use('/roleplay', roleplayDocsRoutes);
 router.use('/upload', uploadRoutes);
 
 // Корневой эндпоинт API
