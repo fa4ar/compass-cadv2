@@ -1,0 +1,377 @@
+/* =====================================================
+   COMPASS CAD POLICE PANEL - Styles
+   Left-side call information display
+   ===================================================== */
+
+/* CSS Variables */
+:root {
+    --panel-bg: rgba(15, 15, 20, 0.95);
+    --panel-border: rgba(59, 130, 246, 0.6);
+    --panel-width: 380px;
+    --text-primary: #e5e7eb;
+    --text-secondary: #9ca3af;
+    --text-muted: #6b7280;
+    
+    /* Priority colors */
+    --priority-routine: #6b7280;
+    --priority-low: #3b82f6;
+    --priority-medium: #f59e0b;
+    --priority-high: #ef4444;
+    --priority-emergency: #dc2626;
+    
+    /* Status colors */
+    --status-dispatched: #3b82f6;
+    --status-enroute: #f59e0b;
+    --status-onscene: #10b981;
+    --status-closed: #6b7280;
+    
+    /* Animations */
+    --pulse-animation: pulse 2s infinite;
+}
+
+/* Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Container - positioned on left side */
+#police-panel-container {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    width: var(--panel-width);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    pointer-events: none;
+}
+
+/* Panel base styles */
+.call-panel {
+    background: var(--panel-bg);
+    border-left: 4px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 16px;
+    pointer-events: all;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+}
+
+/* Priority indicator */
+.call-panel.priority-routine { border-left-color: var(--priority-routine); }
+.call-panel.priority-low { border-left-color: var(--priority-low); }
+.call-panel.priority-medium { border-left-color: var(--priority-medium); }
+.call-panel.priority-high { border-left-color: var(--priority-high); }
+.call-panel.priority-emergency { 
+    border-left-color: var(--priority-emergency);
+    animation: urgent-pulse 1s infinite;
+}
+
+/* Header */
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.call-id {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 0.5px;
+}
+
+.call-type {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.priority-badge {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.priority-badge.routine { background: rgba(107, 114, 128, 0.3); color: var(--priority-routine); }
+.priority-badge.low { background: rgba(59, 130, 246, 0.3); color: var(--priority-low); }
+.priority-badge.medium { background: rgba(245, 158, 11, 0.3); color: var(--priority-medium); }
+.priority-badge.high { background: rgba(239, 68, 68, 0.3); color: var(--priority-high); }
+.priority-badge.emergency { background: rgba(220, 38, 38, 0.3); color: var(--priority-emergency); }
+
+/* Location */
+.panel-location {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.location-icon {
+    color: #3b82f6;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.location-text {
+    font-size: 14px;
+    color: var(--text-primary);
+    font-weight: 500;
+    word-break: break-word;
+}
+
+/* Description */
+.panel-description {
+    margin-bottom: 12px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+}
+
+.description-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    font-style: italic;
+}
+
+/* Caller info */
+.caller-info {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.caller-name, .caller-phone {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Time since call */
+.call-time {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+}
+
+/* Status section */
+.status-section {
+    margin-bottom: 12px;
+}
+
+.status-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+
+.status-selector {
+    display: flex;
+    gap: 6px;
+}
+
+.status-btn {
+    flex: 1;
+    padding: 8px 4px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+}
+
+.status-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+}
+
+.status-btn.active {
+    background: rgba(59, 130, 246, 0.3);
+    border-color: #3b82f6;
+    color: #3b82f6;
+}
+
+/* Responders */
+.responders-section {
+    margin-bottom: 12px;
+}
+
+.responders-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.responder-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.responder {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.responder-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.responder-status.dispatched { background: var(--status-dispatched); }
+.responder-status.enroute { background: var(--status-enroute); animation: blink 1s infinite; }
+.responder-status.onscene { background: var(--status-onscene); }
+.responder-status.offsite { background: var(--status-closed); }
+
+.responder-name {
+    color: var(--text-primary);
+    flex: 1;
+}
+
+/* Action buttons */
+.panel-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.action-btn {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.action-btn.primary {
+    background: #3b82f6;
+    color: white;
+}
+
+.action-btn.primary:hover {
+    background: #2563eb;
+}
+
+.action-btn.danger {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+    border: 1px solid #ef4444;
+}
+
+.action-btn.danger:hover {
+    background: rgba(239, 68, 68, 0.3);
+}
+
+/* Update indicator */
+.update-indicator {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 12px;
+    height: 12px;
+    background: #3b82f6;
+    border-radius: 50%;
+    animation: blink 0.5s ease-in-out;
+    display: none;
+}
+
+.call-panel.updated .update-indicator {
+    display: block;
+}
+
+/* Hidden state */
+.call-panel.hidden {
+    transform: translateX(-120%);
+    opacity: 0;
+}
+
+/* Container hidden state */
+#police-panel-container.hidden {
+    display: none;
+}
+
+/* Animations */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+@keyframes urgent-pulse {
+    0%, 100% { 
+        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4);
+        border-left-color: var(--priority-emergency);
+    }
+    50% { 
+        box-shadow: 0 0 0 8px rgba(220, 38, 38, 0);
+        border-left-color: #ff6b6b;
+    }
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.call-panel:not(.hidden) {
+    animation: slideIn 0.3s ease-out;
+}
+
+/* Responsive */
+@media (max-width: 800px) {
+    :root {
+        --panel-width: 320px;
+    }
+    
+    .call-panel {
+        padding: 12px;
+    }
+    
+    .call-type {
+        font-size: 16px;
+    }
+}
