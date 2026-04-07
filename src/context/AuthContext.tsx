@@ -193,6 +193,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         fetchUser();
+
+        // Аварийный тайм-аут: если загрузка длится слишком долго, принудительно выключаем её
+        const timeout = setTimeout(() => {
+            setIsLoading(current => {
+                if (current) {
+                    console.warn('⚠️ [AUTH] Initial load timeout reached, forcing isLoading to false');
+                    return false;
+                }
+                return current;
+            });
+        }, 5000); // 5 секунд достаточно для инициализации
+
+        return () => clearTimeout(timeout);
     }, []);
 
     useEffect(() => {
