@@ -187,6 +187,11 @@ router.post('/search/weapon', async (req: Request, res: Response) => {
                 weaponType: w.model
             } 
         })));
+    } catch (error) {
+        console.error(`[DISPATCHER SEARCH ${requestId}] Error:`, error);
+        res.status(500).json({ error: 'Search failed' });
+    }
+});
 
 router.post('/message-unit', async (req: Request, res: Response) => {
     try {
