@@ -93,11 +93,6 @@ AddEventHandler('cad_sync:callAccepted', function(callId)
     local src = source
     local playerName = GetPlayerName(src)
     print("[CAD-911] Player " .. playerName .. " accepted call #" .. callId)
-    
-    -- Notify CAD backend
-    PerformHttpRequest(Config.ApiUrl .. "/calls911/" .. callId .. "/assign", function(status, body, headers)
-        -- Handle response
-    end, 'POST', json.encode({ userId: src, username: playerName }), { ['Content-Type'] = 'application/json' })
 end)
 
 -- Client declines a call
