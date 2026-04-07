@@ -672,18 +672,24 @@ function DispatcherPageContent() {
 
     // Helper function to render unit status badge
     const renderUnitStatusBadge = (status: string) => {
-        const statusClasses = {
+        const statusClasses: Record<string, string> = {
             'Available': 'bg-green-500/20 text-green-400',
             'Busy': 'bg-amber-500/20 text-amber-400',
-            'Enroute': 'bg-blue-500/20 text-blue-400'
+            'Enroute': 'bg-blue-500/20 text-blue-400',
+            'On Scene': 'bg-emerald-500/20 text-emerald-400',
+            'Dispatched': 'bg-purple-500/20 text-purple-400',
+            'Resolving': 'bg-indigo-500/20 text-indigo-400'
         };
-        const statusText = {
-            'Available': 'ДОСТУПЕН',
-            'Busy': 'ЗАНЯТ',
-            'Enroute': 'В ПУТИ'
+        const statusText: Record<string, string> = {
+            'Available': '10-8 ДОСТУПЕН',
+            'Busy': '10-6 ЗАНЯТ',
+            'Enroute': '10-97 В ПУТИ',
+            'On Scene': '10-23 НА МЕСТЕ',
+            'Dispatched': '10-10 НАЗНАЧЕН',
+            'Resolving': '10-10 ОБРАБАТЫВАЕТСЯ'
         };
-        const className = statusClasses[status as keyof typeof statusClasses] || 'bg-red-500/20 text-red-400';
-        const text = statusText[status as keyof typeof statusText] || status;
+        const className = statusClasses[status] || 'bg-zinc-500/20 text-zinc-400';
+        const text = statusText[status] || status;
         
         return <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${className}`}>
             {text}

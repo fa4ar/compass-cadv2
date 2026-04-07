@@ -1073,10 +1073,10 @@ function PolicePageContent() {
                                                                     </td>
                                                                     <td className="px-3 py-2 text-zinc-300">{row.beat}</td>
                                                                     <td className="px-3 py-2 text-zinc-300">{row.call}</td>
-                                                                    <td className={`px-3 py-2 font-medium ${row.status === "Available" ? "text-green-400" : row.status === "Busy" ? "text-yellow-400" : row.status === "Enroute" ? "text-blue-400" : "text-red-400"}`}>
+                                                                    <td className={`px-3 py-2 font-medium ${row.status === "Available" ? "text-green-400" : row.status === "Busy" ? "text-yellow-400" : row.status === "Enroute" ? "text-blue-400" : row.status === "On Scene" ? "text-emerald-400" : row.status === "Dispatched" ? "text-purple-400" : row.status === "Resolving" ? "text-indigo-400" : "text-red-400"}`}>
                                                                         <div className="flex items-center gap-2">
-                                                                            <div className={`w-2 h-2 rounded-full ${row.status === "Available" ? "bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.8)]" : row.status === "Enroute" ? "bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.8)]" : row.status === "Busy" ? "bg-yellow-500 shadow-[0_0_6px_rgba(245,158,11,0.8)]" : "bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]"}`} />
-                                                                            {row.status === "Available" ? "10-8" : row.status === "Enroute" ? "10-97" : row.status === "Busy" ? "10-6" : row.status === "On Scene" ? "10-23" : row.status}
+                                                                            <div className={`w-2 h-2 rounded-full ${row.status === "Available" ? "bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.8)]" : row.status === "Enroute" ? "bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.8)]" : row.status === "Busy" ? "bg-yellow-500 shadow-[0_0_6px_rgba(245,158,11,0.8)]" : row.status === "On Scene" ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]" : row.status === "Dispatched" ? "bg-purple-500 shadow-[0_0_6px_rgba(168,85,247,0.8)]" : row.status === "Resolving" ? "bg-indigo-500 shadow-[0_0_6px_rgba(99,102,241,0.8)]" : "bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]"}`} />
+                                                                            {row.status === "Available" ? "10-8 ДОСТУПЕН" : row.status === "Enroute" ? "10-97 В ПУТИ" : row.status === "Busy" ? "10-6 ЗАНЯТ" : row.status === "On Scene" ? "10-23 НА МЕСТЕ" : row.status === "Dispatched" ? "10-10 НАЗНАЧЕН" : row.status === "Resolving" ? "10-10 ОБРАБАТЫВАЕТСЯ" : row.status}
                                                                         </div>
                                                                     </td>
                                                                     <td className="px-3 py-2 text-zinc-300">{row.time}</td>
@@ -1815,8 +1815,8 @@ function PolicePageContent() {
                                 </div>
                                 <div className="bg-zinc-800/50 p-2 rounded">
                                     <p className="text-[10px] text-zinc-500 uppercase">Статус</p>
-                                    <p className={`font-medium ${selectedUnit.status === "Available" ? "text-green-400" : selectedUnit.status === "Busy" ? "text-yellow-400" : selectedUnit.status === "Enroute" ? "text-blue-400" : "text-zinc-400"}`}>
-                                        {selectedUnit.status === "Available" ? "10-8 Доступен" : selectedUnit.status === "Busy" ? "10-6 Занят" : selectedUnit.status === "Enroute" ? "10-97 В пути" : selectedUnit.status === "On Scene" ? "10-23 На вызове" : selectedUnit.status}
+                                    <p className={`font-medium ${selectedUnit.status === "Available" ? "text-green-400" : selectedUnit.status === "Busy" ? "text-yellow-400" : selectedUnit.status === "Enroute" ? "text-blue-400" : selectedUnit.status === "On Scene" ? "text-emerald-400" : selectedUnit.status === "Dispatched" ? "text-purple-400" : selectedUnit.status === "Resolving" ? "text-indigo-400" : "text-zinc-400"}`}>
+                                        {selectedUnit.status === "Available" ? "10-8 ДОСТУПЕН" : selectedUnit.status === "Busy" ? "10-6 ЗАНЯТ" : selectedUnit.status === "Enroute" ? "10-97 В ПУТИ" : selectedUnit.status === "On Scene" ? "10-23 НА МЕСТЕ" : selectedUnit.status === "Dispatched" ? "10-10 НАЗНАЧЕН" : selectedUnit.status === "Resolving" ? "10-10 ОБРАБАТЫВАЕТСЯ" : selectedUnit.status}
                                     </p>
                                 </div>
                                 <div className="bg-zinc-800/50 p-2 rounded">
