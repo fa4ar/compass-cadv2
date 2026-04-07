@@ -239,6 +239,18 @@ function DispatcherPageContent() {
             ));
         });
 
+        socket.on('unit_unassigned', (data: { userId: number; callId: number }) => {
+            fetchData();
+            toast({ title: 'Юнит откреплен', description: `Юнит откреплен от вызова #${data.callId}` });
+        });
+
+        socket.on('call_assigned_to_unit', (data: { userId: number; call: any }) => {
+            fetchData();
+            if (data.call) {
+                toast({ title: 'Юнит прикреплен', description: `Юнит прикреплен к вызову #${data.call.id}` });
+            }
+        });
+
         socket.on('unit_on_duty', () => {
             fetchData();
         });
@@ -259,6 +271,7 @@ function DispatcherPageContent() {
             socket.off('pair_disbanded');
             socket.off('unit_pair_update');
             socket.off('unit_status_changed');
+            socket.off('unit_unassigned');
             socket.off('unit_on_duty');
             socket.off('unit_off_duty');
             socket.disconnect();

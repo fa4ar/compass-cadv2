@@ -250,6 +250,14 @@ function PolicePageContent() {
             fetchData();
         });
 
+        socket.on('call_assigned_to_unit', (data: { userId: number; call: any }) => {
+            if (data.userId === user?.id) {
+                playSound('notification');
+                toast({ title: 'Прикреплены к вызову', description: `Вы прикреплены к вызову #${data.call.id}` });
+                fetchData();
+            }
+        });
+
         socket.on('unit_status_changed', (data: { userId: number; status: string; unitCallSign: string }) => {
             setUnits(prev => prev.map(u => u.userId === data.userId ? { ...u, status: data.status } : u));
             setCurrentUnit(prev => {

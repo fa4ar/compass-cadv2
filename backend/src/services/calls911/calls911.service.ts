@@ -184,6 +184,40 @@ export class Calls911Service {
                 callId,
                 unitCallSign: existingUnit.callSign
             });
+            
+            const updatedCall = await prisma.call911.findUnique({
+                where: { id: callId },
+                include: {
+                    notes: true,
+                    units: {
+                        include: {
+                            character: true,
+                            user: { select: { username: true, avatarUrl: true } }
+                        }
+                    }
+                }
+            });
+            
+            if (updatedCall) {
+                io.emit('call_assigned_to_unit', {
+                    userId,
+                    call: {
+                        id: updatedCall.id,
+                        location: updatedCall.location,
+                        description: updatedCall.description,
+                        callerName: updatedCall.callerName,
+                        callerPhone: updatedCall.phoneNumber,
+                        createdAt: updatedCall.createdAt.getTime(),
+                        status: updatedCall.status,
+                        mainUnitId: updatedCall.mainUnitId,
+                        responders: updatedCall.units.map(u => ({
+                            name: u.character ? `${u.character.firstName} ${u.character.lastName}` : u.callSign,
+                            status: u.status.toLowerCase(),
+                            callSign: u.callSign
+                        }))
+                    }
+                });
+            }
         }
 
         return result;
@@ -219,7 +253,14 @@ export class Calls911Service {
                 where: { id: callId },
                 data: { mainUnitId: newMainUnitId }
             })
-        ]);
+        ]).then(() => {
+            if (io) {
+                io.emit('unit_unassigned', {
+                    userId,
+                    callId
+                });
+            }
+        });
     }
 
     static async setMainUnit(callId: number, userId: number) {
