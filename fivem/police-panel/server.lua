@@ -30,15 +30,20 @@ end)
 
 -- Create a new 911 call (called when officer attaches)
 RegisterServerEvent('compass:callAttached')
-AddEventHandler('compass:callAttached', function(callId)
+AddEventHandler('compass:callAttached', function(callId, attachedByDispatcher)
     local source = source
     local playerName = GetPlayerName(source)
+    local isDispatched = attachedByDispatcher == true
     
-    print(string.format("^3[COMPASS-PANEL] ^7Player %s (ID: %d) attached to call #%s", 
-        playerName, source, callId))
+    print(string.format("^3[COMPASS-PANEL] ^7Player %s (ID: %d) attached to call #%s (dispatched: %s)", 
+        playerName, source, callId, tostring(isDispatched)))
+    
+    -- Get call data from ActiveCalls
+    local callData = ActiveCalls[callId] or { id = callId }
+    callData.isDispatched = isDispatched
     
     -- Send call data to client
-    TriggerClientEvent('compass:showCallPanel', source, callId)
+    TriggerClientEvent('compass:showCallPanel', source, callData)
     
     -- Notify other officers on same call
     for _, playerId in ipairs(GetPlayers()) do
@@ -133,9 +138,10 @@ end)
 
 -- ============ COMMANDS ============
 
--- Test command to simulate 911 call
+-- Test command to simulate 911 call (dispatched by dispatcher)
 RegisterCommand('compass:testcall', function(source, args, rawCommand)
     local callId = args[1] or tostring(math.random(1000, 9999))
+    local dispatched = args[2] == "dispatched"
     
     local testCall = {
         id = callId,
@@ -146,18 +152,21 @@ RegisterCommand('compass:testcall', function(source, args, rawCommand)
         callerName = "John Doe",
         callerPhone = "(555) 123-4567",
         createdAt = os.time() * 1000,
+        isDispatched = dispatched,
         responders = {
-            { name = GetPlayerName(source), status = "enroute" }
+            { name = GetPlayerName(source), status = dispatched and "dispatched" or "enroute" }
         }
     }
     
     ActiveCalls[callId] = testCall
+    testCall.isDispatched = dispatched
     TriggerClientEvent('compass:showCallPanel', source, testCall)
     
-    print(string.format("^2[COMPASS-PANEL] ^7Test call #%s created for %s", callId, GetPlayerName(source)))
+    print(string.format("^2[COMPASS-PANEL] ^7Test call #%s created for %s (dispatched: %s)", 
+        callId, GetPlayerName(source), tostring(dispatched)))
 end, true)
 
--- Command to simulate call attachment
+-- Command to simulate call attachment (self-attach)
 RegisterCommand('compass:attach', function(source, args, rawCommand)
     local callId = args[1]
     if not callId then
@@ -172,6 +181,13 @@ RegisterCommand('compass:attach', function(source, args, rawCommand)
         description = "Тестовый вызов",
         priority = "routine",
         callerName = "Test Caller",
+        createdAt = os.time() * 1000,
+        isDispatched = false
+    }
+    
+    callData.isDispatched = false
+    ActiveCalls[callId] = callData
+    TriggerClientEvent('compass:showCallPanel', source, callData)
         createdAt = os.time() * 1000
     }
     

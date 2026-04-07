@@ -29,7 +29,7 @@ end)
 
 -- ============ EVENT HANDLERS ============
 
--- Show call panel
+-- Show call panel - ONLY when unit is attached to a call
 RegisterNetEvent('compass:showCallPanel')
 AddEventHandler('compass:showCallPanel', function(callData)
     local source = source
@@ -44,22 +44,28 @@ AddEventHandler('compass:showCallPanel', function(callData)
         data = callData
     })
     
-    -- Play sound if new call
-    PlaySoundAlert("newCall")
-    
-    -- Show notification
-    ShowNotification("~b~Новый вызов ~w~" .. callData.type, true)
+    -- Play sound ONLY for new attachment (not for self-attach)
+    if callData.isDispatched then
+        PlaySoundAlert("newCall")
+        ShowNotification("~b~ВАМ НАЗНАЧЕН ВЫЗОВ ~w~" .. callData.type, true)
+    else
+        ShowNotification("~g~Вы присоединились к вызову ~w~" .. callData.id, false)
+    end
 end)
 
--- Hide call panel (detach)
+-- Hide call panel - when unit detaches from call OR call is closed
 RegisterNetEvent('compass:hideCallPanel')
 AddEventHandler('compass:hideCallPanel', function(callId)
+    if not ActivePanels[callId] then return end
+    
     ActivePanels[callId] = nil
     
     SendNUIMessage({
         action = "hidePanel",
         callId = callId
     })
+    
+    ShowNotification("~r~Вы откреплены от вызова", false)
 end)
 
 -- Update call data in real-time
