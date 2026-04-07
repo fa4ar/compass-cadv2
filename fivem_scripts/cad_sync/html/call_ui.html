@@ -239,8 +239,8 @@
         </div>
     </div>
     
-    <!-- Toast Notification -->
-    <div id="toast-notification">
+    <!-- Toast Notification - Hidden by default -->
+    <div id="toast-notification" class="hidden">
         <div class="toast-header">
             <div class="pulse"></div>
             <span class="toast-title">Новый вызов 911</span>
@@ -336,10 +336,11 @@
             const d = e.data;
             if (!d || !d.action) return;
             
-            if (d.action === 'newCall') CallUI.showToast(d.call);
+            if (d.action === 'toast') CallUI.showToast(d.call);
             else if (d.action === 'showCall') CallUI.showCall(d.call);
             else if (d.action === 'hideCall') CallUI.hideCall();
             else if (d.action === 'updateCall') CallUI.updateCall(d.call);
+            else if (d.action === 'newCall') CallUI.showToast(d.call); // Backward compatibility
         });
         
         console.log('[CAD-911] UI ready');
