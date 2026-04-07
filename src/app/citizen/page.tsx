@@ -275,6 +275,15 @@ export default function CitizenPage() {
     };
 
     useEffect(() => {
+        console.log('📊 [CITIZEN] Auth state:', { authLoading, isAuthenticated, hasUser: !!user });
+        console.log('📦 [CITIZEN] localStorage token:', !!localStorage.getItem('accessToken'));
+        console.log('🍪 [CITIZEN] document.cookie:', document.cookie);
+        
+        if (!authLoading && !isAuthenticated) {
+            console.log('⚠️ [CITIZEN] Not authenticated, redirecting to login');
+            return;
+        }
+        
         if (!authLoading && isAuthenticated) {
             if (user?.isBanned) {
                 console.log('🚫 [CITIZEN] User is banned, redirecting...');
