@@ -200,12 +200,15 @@ function PolicePageContent() {
         socket.connect();
 
         socket.on('new_911_call', (newCall: any) => {
+            console.log('[SOCKET] new_911_call received:', newCall);
             setCalls(prev => [newCall, ...prev]);
             playSound('new_call_911').then(() => console.log('[Police] Sound played')).catch(e => console.error('[Police] Sound error:', e));
-            toast({ title: 'Новый вызов!', description: `${newCall.callerName}: ${newCall.description}` });
+            // Only show toast for new calls, NOT the full card
+            // Full card shows ONLY when this specific unit is assigned to call (handled by call_assigned_to_unit)
         });
 
         socket.on('update_911_call', (updatedCall: any) => {
+            console.log('[SOCKET] update_911_call received:', updatedCall);
             setCalls(prev => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
             setSelectedCallForNotes((prev: any) => (prev?.id === updatedCall.id ? updatedCall : prev));
         });
@@ -251,10 +254,14 @@ function PolicePageContent() {
         });
 
         socket.on('call_assigned_to_unit', (data: { userId: number; call: any }) => {
+            console.log('[SOCKET] call_assigned_to_unit received:', data);
             if (data.userId === user?.id) {
                 playSound('notification');
                 toast({ title: 'Прикреплены к вызову', description: `Вы прикреплены к вызову #${data.call.id}` });
                 fetchData();
+                
+                // Update currentUnit callId immediately without full refetch
+                setCurrentUnit(prev => prev ? { ...prev, callId: data.call.id, status: 'Dispatched' } : null);
             }
         });
 

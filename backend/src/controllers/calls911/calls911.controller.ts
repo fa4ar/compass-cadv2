@@ -30,7 +30,38 @@ export class Calls911Controller {
             });
             
             if (io) {
-                io.emit('new_911_call', newCall);
+                // Add type and priority for frontend
+                const descLower = description?.toLowerCase() || '';
+                let callType = 'other';
+                let callPriority = 'routine';
+                
+                if (descLower.includes('дтп') || descLower.includes('авари') || descLower.includes('accident')) {
+                    callType = 'traffic_accident';
+                } else if (descLower.includes('пожар') || descLower.includes('fire')) {
+                    callType = 'fire';
+                } else if (descLower.includes('медицин') || descLower.includes('medical')) {
+                    callType = 'medical';
+                } else if (descLower.includes('ограблен') || descLower.includes('robbery')) {
+                    callType = 'robbery';
+                } else if (descLower.includes('нападен') || descLower.includes('assault')) {
+                    callType = 'assault';
+                }
+                
+                if (descLower.includes('срочно') || descLower.includes('экстрен') || descLower.includes('emergency')) {
+                    callPriority = 'high';
+                } else if (descLower.includes('важно') || descLower.includes('средн')) {
+                    callPriority = 'medium';
+                }
+                
+                io.emit('new_911_call', {
+                    ...newCall,
+                    type: callType,
+                    priority: callPriority,
+                    createdAt: newCall.createdAt.getTime(),
+                    phoneNumber: newCall.phoneNumber,
+                    units: [],
+                    mainUnitId: null
+                });
             }
             
             res.status(201).json(newCall);

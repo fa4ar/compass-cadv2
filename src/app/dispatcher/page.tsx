@@ -245,8 +245,22 @@ function DispatcherPageContent() {
         });
 
         socket.on('call_assigned_to_unit', (data: { userId: number; call: any }) => {
+            console.log('[SOCKET] call_assigned_to_unit:', data);
             fetchData();
             if (data.call) {
+                // Update selected call if it's the same
+                if (selectedCall && selectedCall.id === data.call.id) {
+                    setSelectedCall(prev => prev ? { 
+                        ...prev, 
+                        units: data.call.responders ? data.call.responders.map((r: any) => ({
+                            userId: data.userId,
+                            callSign: r.callSign,
+                            character: { firstName: r.name?.split(' ')[0], lastName: r.name?.split(' ')[1] },
+                            status: r.status
+                        })) : [],
+                        mainUnitId: data.call.mainUnitId
+                    } : null);
+                }
                 toast({ title: 'Юнит прикреплен', description: `Юнит прикреплен к вызову #${data.call.id}` });
             }
         });
