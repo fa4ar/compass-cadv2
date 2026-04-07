@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { socket } from '../lib/socket';
 
 interface User {
@@ -28,7 +28,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const isBanRedirecting = useRef(false);
 
     const clearAuthState = () => {
         localStorage.removeItem('accessToken');
@@ -40,19 +39,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
     };
 
-    const redirectBannedUser = (reason?: string | null) => {
-        if (isBanRedirecting.current) {
-            return;
+    const redirectBannedUser = (reason?: string | null, clearSession = true) => {
+        if (clearSession) {
+            clearAuthState();
         }
-
-        isBanRedirecting.current = true;
-        clearAuthState();
-
         const bannedUrl = new URL('/banned', window.location.origin);
         if (reason) {
             bannedUrl.searchParams.set('reason', reason);
         }
-
         window.location.replace(bannedUrl.toString());
     };
 
@@ -127,15 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 
                 // Проверка на бан после загрузки
                 if (data.user?.isBanned) {
-                    const userRoles = (data.user.roles || []).map((r: string) => r.toLowerCase());
-                    const isAdmin = userRoles.includes('admin') || userRoles.includes('supervisor');
-
-                    if (!isAdmin) {
-                        redirectBannedUser(data.user.banReason || '');
-                    } else {
-                        // Для админов просто обновляем состояние, чтобы они могли разбаниться сами
-                        setUser(prev => prev ? { ...prev, isBanned: true, banReason: data.user.banReason || undefined } : null);
-                    }
+                    redirectBannedUser(data.user.banReason || '', false);
                 }
             } else {
                 clearAuthState();
@@ -201,12 +187,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
                     if (data.isBanned) {
                         console.log('🚫 [AUTH] You have been banned:', data.reason);
-                        if (!isAdmin) {
-                            redirectBannedUser(data.reason);
-                        } else {
-                            // Для админов просто обновляем состояние
-                            setUser(prev => prev ? { ...prev, isBanned: true, banReason: data.reason || undefined } : null);
-                        }
+                        setUser(prev => prev ? { ...prev, isBanned: true, banReason: data.reason || undefined } : null);
+                        redirectBannedUser(data.reason, !isAdmin);
                     } else {
                         console.log('✅ [AUTH] You have been unbanned.');
                         if (isAdmin) {

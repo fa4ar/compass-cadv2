@@ -1,15 +1,17 @@
 "use client";
 
-import { Suspense, useMemo } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { Lock, LogOut } from 'lucide-react';
+import { Suspense, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Loader2, Lock, LogOut, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
 
 function BannedPageContent() {
+    const router = useRouter();
     const searchParams = useSearchParams();
-    const { logout } = useAuth();
+    const { user, logout, refreshUser } = useAuth();
+    const [isUnbanning, setIsUnbanning] = useState(false);
 
     const reason = useMemo(() => {
         const value = searchParams.get('reason');
@@ -17,6 +19,37 @@ function BannedPageContent() {
             ? value
             : 'Причина блокировки не указана администрацией.';
     }, [searchParams]);
+
+    const isAdmin = useMemo(() => {
+        const roles = (user?.roles || []).map((role) => role.toLowerCase());
+        return roles.includes('admin') || roles.includes('supervisor');
+    }, [user?.roles]);
+
+    const handleAdminUnban = async () => {
+        if (!user) return;
+        setIsUnbanning(true);
+        try {
+            const token = localStorage.getItem('accessToken');
+            if (!token) return;
+
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const response = await fetch(`${apiUrl}/api/users/${user.id}/ban`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ isBanned: false })
+            });
+
+            if (response.ok) {
+                await refreshUser();
+                router.replace('/');
+            }
+        } finally {
+            setIsUnbanning(false);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-black text-zinc-100 flex items-center justify-center p-6">
@@ -32,6 +65,20 @@ function BannedPageContent() {
                     <p className="text-[10px] text-red-400 uppercase tracking-widest font-bold mb-2">Причина</p>
                     <p className="text-zinc-300 text-sm break-words">{reason}</p>
                 </div>
+                {isAdmin && (
+                    <Button
+                        onClick={handleAdminUnban}
+                        disabled={isUnbanning}
+                        className="w-full bg-red-600 hover:bg-red-700 text-white"
+                    >
+                        {isUnbanning ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                            <Shield className="w-4 h-4 mr-2" />
+                        )}
+                        {isUnbanning ? 'Разбан...' : 'Разбанить себя (Admin)'}
+                    </Button>
+                )}
                 <Button
                     variant="outline"
                     onClick={logout}
