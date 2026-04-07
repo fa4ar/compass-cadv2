@@ -499,13 +499,6 @@ export default function CitizenPage() {
         return new Date(dateStr).toLocaleDateString('ru-RU');
     };
 
-    const getImageUrl = (photoUrl?: string) => {
-        if (!photoUrl) return null;
-        if (photoUrl.startsWith('http')) return photoUrl;
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-        return `${apiUrl}${photoUrl}`;
-    };
-
     const openCreateModal = () => {
         setShowCreateModal(true);
         setStep(1);
