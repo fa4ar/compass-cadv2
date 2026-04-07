@@ -35,6 +35,8 @@ model User {
   assignedSupervisors Supervisor[]    @relation("SupervisorAssigner")
   roleplayEvents      RoleplayEventLog[]
   roleplayBackups     RoleplayBackup[]
+  issuedWarrants      Warrant[]
+  issuedDocuments     RoleplayDocument[]
 
   unit Unit?
 
@@ -134,6 +136,7 @@ model Character {
   weapons              CivilianWeapon[]
   fines                Fine[]                @relation("CharacterFines")
   finesIssued          Fine[]                @relation("OfficerFines")
+  warrants             Warrant[]
   roleplayDocuments    RoleplayDocument[]
   roleplayTags         CharacterRoleplayTag[]
   roleplayEvents       RoleplayEventLog[]
@@ -1099,7 +1102,8 @@ model CharacterRoleplayTag {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  character Character            @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  tagDefinition RoleplayTagDefinition? @relation(fields: [tagKey], references: [key])
 
   @@index([characterId])
   @@index([tagKey])
