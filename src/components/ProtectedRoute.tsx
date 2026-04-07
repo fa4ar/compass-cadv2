@@ -36,7 +36,27 @@ export function ProtectedRoute({ children, allowedRoles = [] }: ProtectedRoutePr
     }
 
     if (!isAuthenticated) {
-        return null;
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-zinc-950 p-4">
+                <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 shadow-2xl rounded-2xl p-8 flex flex-col items-center text-center">
+                    <div className="w-20 h-20 bg-blue-500/10 rounded-full flex items-center justify-center mb-6 ring-4 ring-blue-500/5">
+                        <LogOut className="w-10 h-10 text-blue-500" />
+                    </div>
+                    
+                    <h1 className="text-2xl font-bold text-white mb-2">Session Expired</h1>
+                    <p className="text-zinc-400 text-sm leading-relaxed mb-8">
+                        Your session has ended or you are not logged in. Please sign in to access this area.
+                    </p>
+                    
+                    <Button 
+                        className="w-full bg-blue-600 hover:bg-blue-700 py-6"
+                        onClick={() => window.location.href = '/auth/login'}
+                    >
+                        Go to Login
+                    </Button>
+                </div>
+            </div>
+        );
     }
 
     const hasAccess = allowedRoles.length === 0 || allowedRoles.some(role => user?.roles?.includes(role));

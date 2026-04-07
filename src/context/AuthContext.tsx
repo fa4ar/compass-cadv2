@@ -109,18 +109,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!token) {
             console.log('ℹ️ [AUTH] No token found, setting isLoading to false');
             setIsLoading(false);
-            
-            // ПРОВЕРКА: Редирект на логин только если мы на защищенной странице
-            if (typeof window !== 'undefined') {
-                const path = window.location.pathname;
-                const isAuthPage = path.startsWith('/auth/');
-                const isPublicPage = path === '/banned' || path === '/unauthorized';
-                
-                if (!isAuthPage && !isPublicPage && path !== '/auth/login') {
-                    console.log('🚀 [AUTH] No token, redirecting to login from:', path);
-                    window.location.replace('/auth/login');
-                }
-            }
             return;
         }
 
@@ -161,18 +149,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         console.error('❌ [AUTH] Token refresh failed');
                         clearAuthState();
                         setIsLoading(false);
-                        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth/')) {
-                            window.location.replace('/auth/login');
-                        }
                         return;
                     }
                 } else {
                     console.log('ℹ️ [AUTH] No refresh token, logging out');
                     clearAuthState();
                     setIsLoading(false);
-                    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth/')) {
-                        window.location.replace('/auth/login');
-                    }
                     return;
                 }
             }
@@ -200,14 +182,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 console.warn('⚠️ [AUTH] Request failed but NOT clearing state to prevent loop. Status:', response.status);
                 if (response.status === 401) {
                     clearAuthState();
-                    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth/')) {
-                        window.location.replace('/auth/login');
-                    }
                 }
             }
         } catch (err) {
             console.error('❌ [AUTH] Network error or CORS issue fetching user:', err);
-            // ПРИ ОШИБКЕ СЕТИ (CORS, DNS) НЕ ОЧИЩАЕМ СОСТОЯНИЕ! 
         } finally {
             setIsLoading(false);
         }
