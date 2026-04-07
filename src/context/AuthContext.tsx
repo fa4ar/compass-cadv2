@@ -102,14 +102,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const refreshToken = localStorage.getItem('refreshToken');
         
         console.log('🔄 [AUTH] Starting fetchUser, token present:', !!token);
+        console.log('🔄 [AUTH] Cookie check:', document.cookie.includes('accessToken'));
         
         // СИНХРОНИЗАЦИЯ: Если есть в localStorage, но нет в Cookies (Middleware нужен Cookie)
         if (token && !document.cookie.includes('accessToken')) {
+            console.log('🔄 [AUTH] Syncing token to cookie...');
             const cookieOptions = getCookieOptions(7);
             document.cookie = `accessToken=${token}${cookieOptions}`;
             if (refreshToken) {
                 document.cookie = `refreshToken=${refreshToken}${cookieOptions}`;
             }
+            console.log('🔄 [AUTH] Cookie set, now:', document.cookie.includes('accessToken'));
         }
         
         if (!token) {
