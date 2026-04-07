@@ -198,6 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     useEffect(() => {
+        console.log('🔔 [AUTH] useEffect triggered');
         fetchUser();
 
         // Аварийный тайм-аут: если загрузка длится слишком долго, принудительно выключаем её
