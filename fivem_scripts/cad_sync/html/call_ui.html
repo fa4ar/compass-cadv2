@@ -6,810 +6,343 @@
     <title>CAD 911 Call</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
-        /* =====================================================
-           CAD 911 Call UI - LSPD Style
-           Responsive: 16:9 and 21:9
-           Animations: 300ms smooth
-           ===================================================== */
-        
         :root {
             --font-main: 'Roboto', sans-serif;
             --lspd-blue: #1a3a5c;
             --lspd-dark: #0d1b2a;
             --lspd-accent: #00a8e8;
             --lspd-text: #e8e8e8;
-            --priority-routine: #6b7280;
-            --priority-low: #3b82f6;
-            --priority-medium: #f59e0b;
-            --priority-high: #ef4444;
-            --priority-emergency: #dc2626;
         }
         
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: var(--font-main);
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: var(--font-main); }
+        body { background: transparent; overflow: hidden; }
         
-        body {
-            background: transparent;
+        /* Call Card - Left Side */
+        #call-card {
+            position: fixed;
+            top: 50%;
+            left: 20px;
+            transform: translateY(-50%);
+            width: 350px;
+            background: linear-gradient(180deg, rgba(13, 27, 42, 0.95) 0%, rgba(26, 58, 92, 0.95) 100%);
+            border: 1px solid rgba(0, 168, 232, 0.5);
+            border-left: 4px solid #00a8e8;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, transform 0.3s ease;
             overflow: hidden;
         }
         
-        /* =====================================================
-           NOTIFICATION POPUP (Top Right, 8 seconds)
-           ===================================================== */
+        #call-card.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(-50%) translateX(0);
+        }
         
-        #call-notification {
+        #call-card.hide {
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-50%) translateX(-120%);
+        }
+        
+        .card-header {
+            background: linear-gradient(90deg, #00a8e8 0%, #0077b6 100%);
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .card-header .call-id {
+            font-size: 20px;
+            font-weight: 700;
+            color: white;
+        }
+        
+        .card-header .call-type {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.8);
+            text-transform: uppercase;
+        }
+        
+        .priority-badge {
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        
+        .card-body { padding: 14px; }
+        
+        .card-location {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .card-location .icon { color: #00a8e8; margin-top: 2px; }
+        .card-location .text { font-size: 14px; color: #e8e8e8; }
+        
+        .card-description {
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            border-left: 3px solid #00a8e8;
+            margin-bottom: 12px;
+        }
+        
+        .card-description .text {
+            font-size: 13px;
+            color: #9ca3af;
+            font-style: italic;
+            line-height: 1.4;
+        }
+        
+        .card-caller {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 10px;
+        }
+        
+        .card-caller .item { display: flex; align-items: center; gap: 6px; }
+        .card-caller .icon { color: #00a8e8; }
+        
+        .card-time {
+            font-size: 11px;
+            color: #6b7280;
+        }
+        
+        .card-units {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .card-units .label {
+            font-size: 10px;
+            color: #6b7280;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        
+        .unit-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+            margin-bottom: 4px;
+        }
+        
+        .unit-status { width: 6px; height: 6px; border-radius: 50%; }
+        .unit-status.enroute { background: #f59e0b; animation: blink 1s infinite; }
+        .unit-status.onscene { background: #10b981; }
+        .unit-status.dispatched { background: #3b82f6; }
+        
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        
+        .unit-name { font-size: 12px; color: #e8e8e8; }
+        
+        /* Notification Toast */
+        #toast-notification {
             position: fixed;
             top: 20px;
             right: 20px;
-            width: 350px;
-            max-width: 90vw;
-            background: linear-gradient(135deg, var(--lspd-dark) 0%, var(--lspd-blue) 100%);
-            border-left: 4px solid var(--lspd-accent);
+            width: 320px;
+            background: rgba(13, 27, 42, 0.95);
+            border-left: 4px solid #00a8e8;
             border-radius: 8px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
             z-index: 2000;
             transform: translateX(120%);
             opacity: 0;
             transition: transform 0.3s ease, opacity 0.3s ease;
-            overflow: hidden;
+            padding: 14px 16px;
         }
         
-        #call-notification.show {
+        #toast-notification.show {
             transform: translateX(0);
             opacity: 1;
         }
         
-        #call-notification.hidden {
-            transform: translateX(120%);
-            opacity: 0;
-        }
-        
-        .notification-header {
-            background: rgba(0, 168, 232, 0.2);
-            padding: 12px 16px;
+        #toast-notification .toast-header {
             display: flex;
             align-items: center;
-            gap: 10px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            gap: 8px;
+            margin-bottom: 8px;
         }
         
-        .notification-header .pulse {
-            width: 10px;
-            height: 10px;
+        #toast-notification .pulse {
+            width: 8px;
+            height: 8px;
             background: #ef4444;
             border-radius: 50%;
             animation: pulse 1s infinite;
         }
         
-        @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.7; transform: scale(1.2); }
-        }
-        
-        .notification-header h3 {
-            color: var(--lspd-accent);
-            font-size: 14px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        
-        .notification-body {
-            padding: 16px;
-        }
-        
-        .notification-type {
-            font-size: 18px;
-            font-weight: 700;
-            color: var(--lspd-text);
-            margin-bottom: 8px;
-            text-transform: uppercase;
-        }
-        
-        .notification-location {
-            font-size: 14px;
-            color: #9ca3af;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        
-        .notification-priority {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            margin-bottom: 16px;
-        }
-        
-        .notification-buttons {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .btn {
-            flex: 1;
-            padding: 10px 16px;
-            border: none;
-            border-radius: 6px;
+        #toast-notification .toast-title {
             font-size: 13px;
+            font-weight: 700;
+            color: #00a8e8;
+            text-transform: uppercase;
+        }
+        
+        #toast-notification .toast-type {
+            font-size: 16px;
             font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            text-transform: uppercase;
-        }
-        
-        .btn-accept {
-            background: #10b981;
-            color: white;
-        }
-        
-        .btn-accept:hover {
-            background: #059669;
-            box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
-        }
-        
-        .btn-accept:active {
-            transform: scale(0.95);
-        }
-        
-        .btn-decline {
-            background: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
-            border: 1px solid #ef4444;
-        }
-        
-        .btn-decline:hover {
-            background: rgba(239, 68, 68, 0.3);
-        }
-        
-        /* =====================================================
-           FULL CALL PANEL (Center Screen)
-           ===================================================== */
-        
-        #call-panel {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 500px;
-            max-width: 95vw;
-            max-height: 90vh;
-            background: linear-gradient(180deg, var(--lspd-dark) 0%, var(--lspd-blue) 100%);
-            border: 1px solid rgba(0, 168, 232, 0.5);
-            border-radius: 12px;
-            box-shadow: 0 16px 64px rgba(0, 0, 0, 0.8);
-            z-index: 1500;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.3s ease, visibility 0.3s ease;
-            overflow: hidden;
-        }
-        
-        #call-panel.show {
-            opacity: 1;
-            visibility: visible;
-        }
-        
-        #call-panel.hidden {
-            opacity: 0;
-            visibility: hidden;
-            transform: translate(-50%, -50%) scale(0.9);
-        }
-        
-        .panel-header {
-            background: linear-gradient(90deg, var(--lspd-accent) 0%, #0077b6 100%);
-            padding: 16px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .panel-header-left {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .panel-header-left .call-id {
-            font-size: 24px;
-            font-weight: 700;
-            color: white;
-        }
-        
-        .panel-header-left .call-type {
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.8);
-            text-transform: uppercase;
-        }
-        
-        .panel-priority-badge {
-            padding: 6px 14px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        
-        .panel-body {
-            padding: 20px;
-            max-height: calc(90vh - 80px);
-            overflow-y: auto;
-        }
-        
-        .info-section {
-            margin-bottom: 16px;
-        }
-        
-        .info-label {
-            font-size: 11px;
-            color: #6b7280;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            color: #e8e8e8;
             margin-bottom: 4px;
         }
         
-        .info-value {
-            font-size: 15px;
-            color: var(--lspd-text);
-            font-weight: 500;
-        }
-        
-        .info-value.location {
-            display: flex;
-            align-items: flex-start;
-            gap: 8px;
-        }
-        
-        .info-value.location .icon {
-            color: var(--lspd-accent);
-            flex-shrink: 0;
-            margin-top: 2px;
-        }
-        
-        .caller-info {
-            display: flex;
-            gap: 16px;
-            padding: 12px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
-            margin-bottom: 16px;
-        }
-        
-        .caller-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
+        #toast-notification .toast-location {
+            font-size: 13px;
             color: #9ca3af;
         }
         
-        .caller-item .icon {
-            color: var(--lspd-accent);
-        }
-        
-        .description-box {
-            padding: 12px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
-            border-left: 3px solid var(--lspd-accent);
-            margin-bottom: 16px;
-        }
-        
-        .description-text {
-            font-size: 14px;
-            color: #d1d5db;
-            font-style: italic;
-            line-height: 1.5;
-        }
-        
-        .units-section {
-            margin-top: 16px;
-        }
-        
-        .units-header {
-            font-size: 12px;
-            color: #6b7280;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 10px;
-        }
-        
-        .unit-list {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        
-        .unit-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 12px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 6px;
-        }
-        
-        .unit-status {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-        }
-        
-        .unit-status.dispatched { background: #3b82f6; }
-        .unit-status.enroute { background: #f59e0b; animation: blink 1s infinite; }
-        .unit-status.onscene { background: #10b981; }
-        
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
-        }
-        
-        .unit-name {
-            font-size: 14px;
-            color: var(--lspd-text);
-            font-weight: 500;
-        }
-        
-        .panel-footer {
-            padding: 16px 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            gap: 12px;
-        }
-        
-        .btn-accept-call {
-            flex: 1;
-            padding: 14px 20px;
-            background: linear-gradient(90deg, #10b981 0%, #059669 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 700;
-            text-transform: uppercase;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-        
-        .btn-accept-call:hover {
-            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
-            transform: translateY(-1px);
-        }
-        
-        .btn-accept-call:active {
-            transform: translateY(0) scale(0.98);
-        }
-        
-        .btn-accept-call .checkmark {
-            display: none;
-        }
-        
-        .btn-accept-call.confirmed .checkmark {
-            display: inline;
-        }
-        
-        .btn-accept-call.confirmed .text {
-            display: none;
-        }
-        
-        /* =====================================================
-           RESPONSIVE DESIGN
-           ===================================================== */
-        
-        /* 21:9 Ultra-wide */
-        @media screen and (min-aspect-ratio: 21/9) {
-            #call-notification {
-                width: 400px;
-            }
-            
-            #call-panel {
-                width: 550px;
-            }
-        }
-        
-        /* 16:9 Standard */
-        @media screen and (max-aspect-ratio: 16/9) {
-            #call-panel {
-                width: 450px;
-            }
-        }
-        
-        /* Mobile/Landscape phone */
-        @media screen and (max-width: 600px) {
-            #call-notification {
-                width: calc(100% - 40px);
-                right: 20px;
-                left: 20px;
-            }
-            
-            #call-panel {
-                width: calc(100% - 20px);
-                max-height: 95vh;
-            }
-            
-            .panel-header {
-                padding: 12px 16px;
-            }
-            
-            .panel-body {
-                padding: 16px;
-            }
-            
-            .notification-buttons {
-                flex-direction: column;
-            }
-        }
-        
-        /* Scrollbar styling */
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.3);
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: var(--lspd-accent);
-            border-radius: 3px;
-        }
+        /* Responsive */
+        @media screen and (min-aspect-ratio: 21/9) { #call-card { width: 380px; } }
+        @media screen and (max-aspect-ratio: 16/9) { #call-card { width: 320px; } }
     </style>
 </head>
 <body>
-    <!-- Notification Popup -->
-    <div id="call-notification" class="hidden">
-        <div class="notification-header">
-            <div class="pulse"></div>
-            <h3 id="notif-title">Новый вызов 911</h3>
+    <!-- Call Card - Left Side -->
+    <div id="call-card" class="hide">
+        <div class="card-header">
+            <div>
+                <div class="call-id" id="card-id">#0000</div>
+                <div class="call-type" id="card-type">ДТП</div>
+            </div>
+            <div class="priority-badge" id="card-priority">Высокий</div>
         </div>
-        <div class="notification-body">
-            <div class="notification-type" id="notif-type">ДТП</div>
-            <div class="notification-location">
-                <span>📍</span>
-                <span id="notif-location">Vinewood Blvd & Strawberry Ave</span>
+        <div class="card-body">
+            <div class="card-location">
+                <span class="icon">📍</span>
+                <span class="text" id="card-location">Vinewood Blvd</span>
             </div>
-            <div class="notification-priority" id="notif-priority">Высокий приоритет</div>
-            <div class="notification-buttons">
-                <button class="btn btn-accept" onclick="acceptNotification()">Принять</button>
-                <button class="btn btn-decline" onclick="declineNotification()">Отклонить</button>
+            <div class="card-description">
+                <span class="text" id="card-description">Описание вызова</span>
             </div>
+            <div class="card-caller">
+                <div class="item"><span class="icon">👤</span><span id="card-caller">John Doe</span></div>
+                <div class="item"><span class="icon">📞</span><span id="card-phone">555-1234</span></div>
+            </div>
+            <div class="card-time" id="card-time">Только что</div>
+            <div class="card-units" id="card-units"></div>
         </div>
     </div>
     
-    <!-- Full Call Panel -->
-    <div id="call-panel" class="hidden">
-        <div class="panel-header">
-            <div class="panel-header-left">
-                <div class="call-id" id="call-id">#0000</div>
-                <div class="call-type" id="call-type-display">ДТП</div>
-            </div>
-            <div class="panel-priority-badge" id="call-priority-badge">Высокий</div>
+    <!-- Toast Notification -->
+    <div id="toast-notification">
+        <div class="toast-header">
+            <div class="pulse"></div>
+            <span class="toast-title">Новый вызов 911</span>
         </div>
-        
-        <div class="panel-body">
-            <div class="info-section">
-                <div class="info-label">Местоположение</div>
-                <div class="info-value location">
-                    <span class="icon">📍</span>
-                    <span id="call-location">Vinewood Blvd & Strawberry Ave</span>
-                </div>
-            </div>
-            
-            <div class="caller-info">
-                <div class="caller-item">
-                    <span class="icon">👤</span>
-                    <span id="call-caller">John Doe</span>
-                </div>
-                <div class="caller-item">
-                    <span class="icon">📞</span>
-                    <span id="call-phone">(555) 123-4567</span>
-                </div>
-                <div class="caller-item">
-                    <span class="icon">⏱️</span>
-                    <span id="call-time">Только что</span>
-                </div>
-            </div>
-            
-            <div class="description-box">
-                <div class="info-label">Описание</div>
-                <div class="description-text" id="call-description">
-                    Тяжелый удар в заднюю часть. Один человек без сознания.
-                </div>
-            </div>
-            
-            <div class="units-section">
-                <div class="units-header">Прикреплённые юниты</div>
-                <div class="unit-list" id="call-units">
-                    <div class="unit-item">
-                        <div class="unit-status enroute"></div>
-                        <span class="unit-name">Officer Johnson - 10-97</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="panel-footer">
-            <button class="btn-accept-call" id="btn-accept-call" onclick="acceptCall()">
-                <span class="text">Принять вызов</span>
-                <span class="checkmark">✓</span>
-            </button>
-        </div>
+        <div class="toast-type" id="toast-type">ДТП</div>
+        <div class="toast-location" id="toast-location">Vinewood Blvd</div>
     </div>
     
     <script>
-        // =====================================================
-        // CAD 911 Call UI - JavaScript
-        // Thread-safe state management, localization
-        // =====================================================
-        
         const CallUI = {
             currentCall: null,
-            notificationTimeout: null,
-            
-            // Translations
-            translations: {
-                ru: {
-                    newCall: "НОВЫЙ ВЫЗОВ 911",
-                    accept: "Принять",
-                    decline: "Отклонить",
-                    priority: "Приоритет",
-                    location: "Местоположение",
-                    caller: "Заявитель",
-                    description: "Описание",
-                    units: "Прикреплённые юниты",
-                    type: "Тип",
-                    callId: "Вызов #",
-                    time: "Время",
-                    noUnits: "Нет прикреплённых",
-                    callAccepted: "Вызов принят",
-                    callDeclined: "Вызов отклонён"
-                },
-                en: {
-                    newCall: "NEW 911 CALL",
-                    accept: "Accept",
-                    decline: "Decline",
-                    priority: "Priority",
-                    location: "Location",
-                    caller: "Caller",
-                    description: "Description",
-                    units: "Assigned Units",
-                    type: "Type",
-                    callId: "Call #",
-                    time: "Time",
-                    noUnits: "No units assigned",
-                    callAccepted: "Call Accepted",
-                    callDeclined: "Call Declined"
-                }
-            },
-            
-            priorityColors: {
-                routine: { bg: "rgba(107, 114, 128, 0.3)", color: "#6b7280" },
-                low: { bg: "rgba(59, 130, 246, 0.3)", color: "#3b82f6" },
-                medium: { bg: "rgba(245, 158, 11, 0.3)", color: "#f59e0b" },
-                high: { bg: "rgba(239, 68, 68, 0.3)", color: "#ef4444" },
-                emergency: { bg: "rgba(220, 38, 38, 0.4)", color: "#dc2626" }
-            },
+            toastTimeout: null,
             
             typeTranslations: {
-                traffic_accident: "ДТП",
-                disturbance: "Нарушение порядка",
-                robbery: "Ограбление",
-                assault: "Нападение",
-                domestic: "Семейный конфликт",
-                welfare_check: "Проверка безопасности",
-                suspicious: "Подозрительная активность",
-                fire: "Пожар",
-                medical: "Медицинская помощь",
-                accident: "Авария",
-                other: "Другое"
+                traffic_accident: "ДТП", disturbance: "Нарушение порядка", robbery: "Ограбление",
+                assault: "Нападение", domestic: "Семейный конфликт", welfare_check: "Проверка безопасности",
+                suspicious: "Подозрительная активность", fire: "Пожар", medical: "Медицинская помощь",
+                accident: "Авария", other: "Другое"
             },
             
-            getTranslation(key) {
-                return this.translations['ru'][key] || key;
+            priorityLabels: { routine: 'Обычный', low: 'Низкий', medium: 'Средний', high: 'Высокий', emergency: 'Экстренный' },
+            priorityColors: { routine: '#6b7280', low: '#3b82f6', medium: '#f59e0b', high: '#ef4444', emergency: '#dc2626' },
+            
+            getTypeLabel(type) { return this.typeTranslations[type] || type || 'Другое'; },
+            
+            formatTime(ts) {
+                if (!ts) return 'Неизвестно';
+                const diff = Date.now() - ts;
+                const mins = Math.floor(diff / 60000);
+                const hours = Math.floor(mins / 60);
+                if (hours > 0) return `${hours}ч ${mins % 60}мин назад`;
+                return mins > 0 ? `${mins}мин назад` : 'Только что';
             },
             
-            getTypeLabel(type) {
-                return this.typeTranslations[type] || type;
-            },
-            
-            formatTime(timestamp) {
-                if (!timestamp) return 'Неизвестно';
-                const diff = Date.now() - timestamp;
-                const minutes = Math.floor(diff / 60000);
-                const hours = Math.floor(minutes / 60);
-                if (hours > 0) return `${hours}ч ${minutes % 60}мин назад`;
-                if (minutes > 0) return `${minutes}мин назад`;
-                return 'Только что';
-            },
-            
-            getPriorityLabel(priority) {
-                const labels = {
-                    routine: 'Обычный',
-                    low: 'Низкий',
-                    medium: 'Средний',
-                    high: 'Высокий',
-                    emergency: 'Экстренный'
-                };
-                return labels[priority] || priority;
-            },
-            
-            // Show notification popup
-            showNotification(call) {
+            showCall(call) {
                 this.currentCall = call;
-                
-                const notif = document.getElementById('call-notification');
                 const type = this.getTypeLabel(call.type);
-                const priority = this.getPriorityLabel(call.priority);
-                const priorityStyle = this.priorityColors[call.priority] || this.priorityColors.medium;
+                const priority = this.priorityLabels[call.priority] || 'Средний';
+                const priorityColor = this.priorityColors[call.priority] || '#f59e0b';
                 
-                document.getElementById('notif-title').textContent = this.getTranslation('newCall');
-                document.getElementById('notif-type').textContent = type;
-                document.getElementById('notif-location').textContent = call.location || 'Не указано';
-                document.getElementById('notif-priority').textContent = priority + ' приоритет';
-                document.getElementById('notif-priority').style.background = priorityStyle.bg;
-                document.getElementById('notif-priority').style.color = priorityStyle.color;
+                document.getElementById('card-id').textContent = '#' + call.id;
+                document.getElementById('card-type').textContent = type;
+                document.getElementById('card-location').textContent = call.location || 'Не указано';
+                document.getElementById('card-description').textContent = call.description || 'Нет описания';
+                document.getElementById('card-caller').textContent = call.callerName || 'Неизвестно';
+                document.getElementById('card-phone').textContent = call.callerPhone || 'Нет';
+                document.getElementById('card-time').textContent = this.formatTime(call.createdAt);
                 
-                notif.classList.remove('hidden');
-                notif.classList.add('show');
-                
-                // Auto-hide after 8 seconds
-                if (this.notificationTimeout) {
-                    clearTimeout(this.notificationTimeout);
-                }
-                
-                this.notificationTimeout = setTimeout(() => {
-                    this.hideNotification();
-                }, 8000);
-            },
-            
-            hideNotification() {
-                const notif = document.getElementById('call-notification');
-                notif.classList.remove('show');
-                notif.classList.add('hidden');
-            },
-            
-            // Show full call panel
-            showCallPanel(call) {
-                this.currentCall = call;
-                
-                const type = this.getTypeLabel(call.type);
-                const priority = this.getPriorityLabel(call.priority);
-                const priorityStyle = this.priorityColors[call.priority] || this.priorityColors.medium;
-                
-                // Header
-                document.getElementById('call-id').textContent = '#' + call.id;
-                document.getElementById('call-type-display').textContent = type;
-                
-                const badge = document.getElementById('call-priority-badge');
+                const badge = document.getElementById('card-priority');
                 badge.textContent = priority;
-                badge.style.background = priorityStyle.bg;
-                badge.style.color = priorityStyle.color;
+                badge.style.background = priorityColor + '30';
+                badge.style.color = priorityColor;
                 
-                // Body
-                document.getElementById('call-location').textContent = call.location || 'Не указано';
-                document.getElementById('call-caller').textContent = call.callerName || 'Неизвестно';
-                document.getElementById('call-phone').textContent = call.callerPhone || 'Нет';
-                document.getElementById('call-time').textContent = this.formatTime(call.createdAt);
-                document.getElementById('call-description').textContent = call.description || 'Нет описания';
-                
-                // Units
-                const unitsContainer = document.getElementById('call-units');
+                const unitsDiv = document.getElementById('card-units');
                 if (call.responders && call.responders.length > 0) {
-                    unitsContainer.innerHTML = call.responders.map(r => `
-                        <div class="unit-item">
-                            <div class="unit-status ${r.status || 'dispatched'}"></div>
-                            <span class="unit-name">${r.name || 'Юнит'}</span>
-                        </div>
-                    `).join('');
+                    unitsDiv.innerHTML = '<div class="label">На месте</div>' + 
+                        call.responders.map(r => `<div class="unit-item"><div class="unit-status ${r.status || 'dispatched'}"></div><span class="unit-name">${r.name}</span></div>`).join('');
+                    unitsDiv.style.display = 'block';
                 } else {
-                    unitsContainer.innerHTML = '<div class="unit-item"><span class="unit-name" style="color: #6b7280">' + this.getTranslation('noUnits') + '</span></div>';
+                    unitsDiv.style.display = 'none';
                 }
                 
-                // Show panel
-                const panel = document.getElementById('call-panel');
-                panel.classList.remove('hidden');
-                panel.classList.add('show');
+                document.getElementById('call-card').classList.remove('hide');
+                document.getElementById('call-card').classList.add('show');
+            },
+            
+            hideCall() {
+                document.getElementById('call-card').classList.remove('show');
+                document.getElementById('call-card').classList.add('hide');
+                this.currentCall = null;
+            },
+            
+            showToast(call) {
+                document.getElementById('toast-type').textContent = this.getTypeLabel(call.type);
+                document.getElementById('toast-location').textContent = call.location || 'Не указано';
                 
-                // Reset button state
-                const btn = document.getElementById('btn-accept-call');
-                btn.classList.remove('confirmed');
+                const toast = document.getElementById('toast-notification');
+                toast.classList.remove('show');
+                void toast.offsetWidth;
+                toast.classList.add('show');
+                
+                if (this.toastTimeout) clearTimeout(this.toastTimeout);
+                this.toastTimeout = setTimeout(() => toast.classList.remove('show'), 5000);
+                
+                // Also show the card
+                this.showCall(call);
             },
             
-            hideCallPanel() {
-                const panel = document.getElementById('call-panel');
-                panel.classList.remove('show');
-                panel.classList.add('hidden');
-            },
-            
-            updateCallPanel(call) {
-                this.showCallPanel(call);
-            }
+            updateCall(call) { this.showCall(call); }
         };
         
-        // =====================================================
-        // BUTTON HANDLERS
-        // =====================================================
-        
-        function acceptNotification() {
-            const call = CallUI.currentCall;
-            if (call) {
-                CallUI.hideNotification();
-                CallUI.showCallPanel(call);
-            }
-        }
-        
-        function declineNotification() {
-            CallUI.hideNotification();
-            CallUI.currentCall = null;
-        }
-        
-        function acceptCall() {
-            const call = CallUI.currentCall;
-            if (!call) return;
+        window.addEventListener('message', function(e) {
+            const d = e.data;
+            if (!d || !d.action) return;
             
-            // Visual confirmation
-            const btn = document.getElementById('btn-accept-call');
-            btn.classList.add('confirmed');
-            
-            // Send to server
-            fetch(`https://compass-accept-call`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ callId: call.id })
-            }).catch(() => {});
-            
-            // Close panel after animation
-            setTimeout(() => {
-                CallUI.hideCallPanel();
-            }, 1500);
-        }
-        
-        // =====================================================
-        // NUI MESSAGE HANDLER
-        // =====================================================
-        
-        window.addEventListener('message', function(event) {
-            const data = event.data;
-            
-            if (!data || !data.action) return;
-            
-            switch (data.action) {
-                case 'showNotification':
-                    CallUI.showNotification(data.call);
-                    break;
-                    
-                case 'hideNotification':
-                    CallUI.hideNotification();
-                    break;
-                    
-                case 'showCallPanel':
-                    CallUI.showCallPanel(data.call);
-                    break;
-                    
-                case 'hideCallPanel':
-                    CallUI.hideCallPanel();
-                    break;
-                    
-                case 'updateCallPanel':
-                    CallUI.updateCallPanel(data.call);
-                    break;
-            }
+            if (d.action === 'newCall') CallUI.showToast(d.call);
+            else if (d.action === 'showCall') CallUI.showCall(d.call);
+            else if (d.action === 'hideCall') CallUI.hideCall();
+            else if (d.action === 'updateCall') CallUI.updateCall(d.call);
         });
         
-        console.log('[CAD-911] UI initialized');
+        console.log('[CAD-911] UI ready');
     </script>
 </body>
 </html>
