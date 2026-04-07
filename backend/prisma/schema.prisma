@@ -1168,3 +1168,12 @@ enum TagCategory {
   surveillance
   system
 }
+
+enum RoleplayDocumentType {
+  ticket
+  warning
+  citation
+  court_summons
+  internal_warning
+  commendation
+}
