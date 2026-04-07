@@ -46,7 +46,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 const parts = hostname.split('.');
                 if (parts.length >= 2) {
                     const baseDomain = parts.slice(-2).join('.');
-                    domain = `; domain=${baseDomain}`;
+                    // Используем формат .domain.com (с точкой в начале)
+                    domain = `; domain=.${baseDomain}`;
                     console.log('🍪 [AUTH] Setting cookie domain to:', baseDomain);
                 }
             } else {
