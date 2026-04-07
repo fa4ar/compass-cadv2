@@ -93,18 +93,20 @@ function SelectorPageContent() {
     const banReason = searchParams.get('reason');
     
     useEffect(() => {
-        if (isBanned) {
-            console.log('🚫 [SELECTOR] User is banned, redirecting to /banned');
-            const target = banReason ? `/banned?reason=${encodeURIComponent(banReason)}` : '/banned';
-            window.location.href = target;
-            return;
+        if (!isLoading) {
+            if (isBanned) {
+                console.log('🚫 [SELECTOR] User is banned, redirecting to /banned');
+                if (window.location.pathname === '/banned') return;
+                
+                const target = banReason ? `/banned?reason=${encodeURIComponent(banReason)}` : '/banned';
+                router.replace(target);
+            } else if (!isAuthenticated) {
+                console.log('🔄 [SELECTOR] Not authenticated, redirecting to login');
+                if (window.location.pathname === '/auth/login') return;
+                router.replace('/auth/login');
+            }
         }
-
-        if (!isLoading && !isAuthenticated && !isBanned) {
-            console.log('🔄 [SELECTOR] Not authenticated, redirecting to login');
-            window.location.href = '/auth/login';
-        }
-    }, [isLoading, isAuthenticated, isBanned, banReason]);
+    }, [isLoading, isAuthenticated, isBanned, banReason, router]);
 
     if (isLoading) {
         return (

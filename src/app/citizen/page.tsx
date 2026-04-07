@@ -110,9 +110,9 @@ export default function CitizenPage() {
     useEffect(() => {
         if (!authLoading && !isAuthenticated) {
             console.log('🔄 [CITIZEN] Not authenticated, redirecting to login...');
-            window.location.href = '/auth/login';
+            router.replace('/auth/login');
         }
-    }, [authLoading, isAuthenticated]);
+    }, [authLoading, isAuthenticated, router]);
 
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showCallModal, setShowCallModal] = useState(false);
@@ -288,7 +288,7 @@ export default function CitizenPage() {
         if (!authLoading && isAuthenticated) {
             if (user?.isBanned) {
                 console.log('🚫 [CITIZEN] User is banned, redirecting...');
-                window.location.href = '/banned';
+                router.replace('/banned');
                 return;
             }
             console.log('✅ [CITIZEN] Authenticated, fetching data...');
@@ -298,7 +298,7 @@ export default function CitizenPage() {
             // Если не авторизован, выключаем локальную загрузку, чтобы не висел спиннер до редиректа
             setIsLoading(false);
         }
-    }, [authLoading, isAuthenticated, user?.isBanned]);
+    }, [authLoading, isAuthenticated, user?.isBanned, router]);
 
     const handleRefresh = () => {
         setIsRefreshing(true);

@@ -42,6 +42,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const redirectBannedUser = (reason?: string | null, clearSession = true) => {
         console.log('🚫 [AUTH] Redirecting banned user, clearSession:', clearSession);
+        
+        const currentUrl = new URL(window.location.href);
+        if (currentUrl.pathname === '/banned') {
+            console.log('ℹ️ [AUTH] Already on /banned, skipping redirect');
+            return;
+        }
+
         if (clearSession) {
             clearAuthState();
         }
@@ -52,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             bannedUrl.searchParams.set('reason', nextReason);
         }
 
-        window.location.href = bannedUrl.toString();
+        window.location.replace(bannedUrl.toString());
     };
 
     const fetchUser = async (skipRefresh = false) => {

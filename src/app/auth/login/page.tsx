@@ -48,9 +48,9 @@ function LoginContent() {
             document.cookie = `refreshToken=${refreshToken}; path=/; expires=${expires.toUTCString()}`;
             
             console.log('Tokens saved, redirecting to /citizen...');
-            window.location.href = '/citizen';
+            router.replace('/citizen');
         }
-    }, [searchParams]);
+    }, [searchParams, router]);
 
     const handleDiscordLogin = async () => {
         setIsLoading(true);
