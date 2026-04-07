@@ -224,8 +224,6 @@ export default function CitizenPage() {
             
             const apiUrl = getApiUrl();
             
-            console.log('📡 [CITIZEN] Fetching characters from:', `${apiUrl}/api/characters`);
-            
             const res = await fetchWithTimeout(`${apiUrl}/api/characters`, {
                 headers: { 'Authorization': `Bearer ${token}` },
                 timeout: 8000,
@@ -235,18 +233,14 @@ export default function CitizenPage() {
             
             if (res.ok) {
                 const data = await res.json();
-                console.log(`✅ [CITIZEN] Loaded ${data.length} characters`);
                 setCharacters(data);
             } else if (res.status === 401) {
-                console.error('❌ [CITIZEN] Unauthorized, clearing auth');
                 localStorage.removeItem('accessToken');
                 setIsLoading(false);
             } else {
-                console.error(`❌ [CITIZEN] Failed to fetch characters: ${res.status}`);
                 setError(`Ошибка загрузки персонажей (${res.status})`);
             }
         } catch (err: any) {
-            console.error("❌ [CITIZEN] Error loading characters:", err.message);
             setError(`Ошибка сети: ${err.message}`);
         } finally {
             setIsLoading(false);
@@ -275,28 +269,20 @@ export default function CitizenPage() {
     };
 
     useEffect(() => {
-        console.log('📊 [CITIZEN] Auth state:', { authLoading, isAuthenticated, hasUser: !!user });
-        console.log('📦 [CITIZEN] localStorage token:', !!localStorage.getItem('accessToken'));
-        
-        // Если есть токен в localStorage, но auth не загружен - подождем
         const token = localStorage.getItem('accessToken');
         if (token && authLoading) {
-            console.log('⏳ [CITIZEN] Token exists but auth still loading, waiting...');
             return;
         }
         
         if (!authLoading && !isAuthenticated) {
-            console.log('⚠️ [CITIZEN] Not authenticated, redirecting to login');
             return;
         }
         
         if (!authLoading && isAuthenticated) {
             if (user?.isBanned) {
-                console.log('🚫 [CITIZEN] User is banned, redirecting...');
                 window.location.replace('/banned');
                 return;
             }
-            console.log('✅ [CITIZEN] Authenticated, fetching data...');
             
             const timeoutId = setTimeout(() => {
                 if (isLoading) {

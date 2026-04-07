@@ -40,24 +40,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (typeof window !== 'undefined') {
             const hostname = window.location.hostname;
             const isIP = hostname.match(/^\d+\.\d+\.\d+\.\d+$/);
-            console.log('🍪 [AUTH] hostname:', hostname, 'isIP:', !!isIP);
-            // Не устанавливаем domain для localhost или IP
             if (!isIP && hostname !== 'localhost') {
                 const parts = hostname.split('.');
                 if (parts.length >= 2) {
                     const baseDomain = parts.slice(-2).join('.');
-                    // Используем формат .domain.com (с точкой в начале)
                     domain = `; domain=.${baseDomain}`;
-                    console.log('🍪 [AUTH] Setting cookie domain to:', baseDomain);
                 }
-            } else {
-                console.log('🍪 [AUTH] Skipping domain for IP/localhost');
             }
         }
         
-        const options = `; path=/; expires=${expires.toUTCString()}${domain}${isSecure ? '; Secure; SameSite=None' : ''}`;
-        console.log('🍪 [AUTH] Cookie options:', options);
-        return options;
+        return `; path=/; expires=${expires.toUTCString()}${domain}${isSecure ? '; Secure; SameSite=None' : ''}`;
     };
 
     const clearAuthState = () => {
@@ -105,21 +97,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         let token = localStorage.getItem('accessToken');
         let refreshToken = localStorage.getItem('refreshToken');
         
-        console.log('🔄 [AUTH] fetchUser called, token in localStorage:', !!token);
-        
-        // Детальный анализ куки
         const cookieString = document.cookie;
-        console.log('🔄 [AUTH] Full cookie string:', cookieString);
-        console.log('🔄 [AUTH] Cookie has accessToken:', cookieString.includes('accessToken'));
         
         // Если токена нет в localStorage, но есть в cookie - восстанавливаем
         if (!token && cookieString.includes('accessToken')) {
-            console.log('🔄 [AUTH] Token in cookie but not localStorage, restoring...');
-            // Извлекаем токен из куки (упрощенно)
             const cookieParts = cookieString.split('accessToken=');
             if (cookieParts[1]) {
                 token = cookieParts[1].split(';')[0].trim();
-                console.log('🔄 [AUTH] Restored accessToken from cookie');
             }
         }
         
@@ -127,37 +111,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const cookieParts = cookieString.split('refreshToken=');
             if (cookieParts[1]) {
                 refreshToken = cookieParts[1].split(';')[0].trim();
-                console.log('🔄 [AUTH] Restored refreshToken from cookie');
             }
         }
         
         // Сохраняем в localStorage для consistency
         if (token && !localStorage.getItem('accessToken')) {
             localStorage.setItem('accessToken', token);
-            console.log('🔄 [AUTH] Saved token to localStorage');
         }
         if (refreshToken && !localStorage.getItem('refreshToken')) {
             localStorage.setItem('refreshToken', refreshToken);
         }
         
         if (!token) {
-            console.log('ℹ️ [AUTH] No token found, setting isLoading to false');
             setIsLoading(false);
             return;
         }
 
         try {
             const apiUrl = getApiUrl();
-            console.log('📡 [AUTH] Fetching user from:', `${apiUrl}/api/auth/me`);
             
             const response = await fetch(`${apiUrl}/api/auth/me`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
-            console.log('📡 [AUTH] Response status:', response.status);
-
             if (response.status === 401 && !skipRefresh) {
-                console.log('🔄 [AUTH] Token expired, attempting refresh...');
                 const storedRefreshToken = localStorage.getItem('refreshToken');
                 if (storedRefreshToken) {
                     const refreshRes = await fetch(`${apiUrl}/api/auth/refresh`, {
@@ -168,7 +145,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
                     if (refreshRes.ok) {
                         const tokens = await refreshRes.json();
-                        console.log('✅ [AUTH] Token refreshed successfully');
                         localStorage.setItem('accessToken', tokens.accessToken);
                         localStorage.setItem('refreshToken', tokens.refreshToken);
                         
@@ -176,20 +152,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         document.cookie = `accessToken=${tokens.accessToken}${cookieOptions}`;
                         document.cookie = `refreshToken=${tokens.refreshToken}${cookieOptions}`;
                         
-                        // Рекурсивный вызов с skipRefresh=true чтобы не зациклиться
                         await fetchUser(true);
                         return;
-                    } else {
-                        console.error('❌ [AUTH] Token refresh failed');
-                        clearAuthState();
-                        setIsLoading(false);
-                        return;
                     }
-                } else {
-                    console.log('ℹ️ [AUTH] No refresh token, logging out');
-                    clearAuthState();
-                    setIsLoading(false);
-                    return;
                 }
             }
 
@@ -203,42 +168,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             if (response.ok) {
                 const data = await response.json();
-                console.log('✅ [AUTH] User loaded:', data.user.username, 'Banned:', data.user.isBanned);
                 setUser(data.user);
                 
-                // Проверка на бан после загрузки
                 if (data.user?.isBanned) {
                     redirectBannedUser(data.user.banReason || '', false);
                 }
-            } else {
-                // ВАЖНО: Не вызываем clearAuthState() при ошибках сервера (5xx), 
-                // только при явном 401 или если токена нет вообще.
-                console.warn('⚠️ [AUTH] Request failed but NOT clearing state to prevent loop. Status:', response.status);
-                if (response.status === 401) {
-                    clearAuthState();
-                }
             }
         } catch (err) {
-            console.error('❌ [AUTH] Network error or CORS issue fetching user:', err);
+            console.error('Network error fetching user:', err);
         } finally {
             setIsLoading(false);
         }
     };
 
     useEffect(() => {
-        console.log('🔔 [AUTH] useEffect triggered');
         fetchUser();
 
-        // Аварийный тайм-аут: если загрузка длится слишком долго, принудительно выключаем её
         const timeout = setTimeout(() => {
             setIsLoading(current => {
                 if (current) {
-                    console.warn('⚠️ [AUTH] Initial load timeout reached, forcing isLoading to false');
                     return false;
                 }
                 return current;
             });
-        }, 5000); // 5 секунд достаточно для инициализации
+        }, 5000);
 
         return () => clearTimeout(timeout);
     }, []);
