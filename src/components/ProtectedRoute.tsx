@@ -17,10 +17,12 @@ export function ProtectedRoute({ children, allowedRoles = [] }: ProtectedRoutePr
 
     // ✅ ПЕРЕНАПРАВЛЕНИЕ: Переносим логику редиректа в useEffect
     useEffect(() => {
+        // Редирект на логин теперь централизован в AuthContext.tsx
+        // Здесь мы только проверяем наличие доступа если пользователь уже загружен
         if (!isLoading && !isAuthenticated) {
-            router.replace('/auth/login');
+            console.log('🔄 [PROTECTED] Not authenticated, letting AuthContext handle redirect...');
         }
-    }, [isLoading, isAuthenticated, router]);
+    }, [isLoading, isAuthenticated]);
 
     if (isLoading) {
         return (

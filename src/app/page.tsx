@@ -100,13 +100,9 @@ function SelectorPageContent() {
                 
                 const target = banReason ? `/banned?reason=${encodeURIComponent(banReason)}` : '/banned';
                 window.location.replace(target);
-            } else if (!isAuthenticated && !isUserBanned) {
-                console.log('🔄 [SELECTOR] Not authenticated, redirecting to login');
-                if (window.location.pathname === '/auth/login') return;
-                window.location.replace('/auth/login');
             }
         }
-    }, [isLoading, isAuthenticated, isBanned, banReason, isUserBanned]);
+    }, [isLoading, isBanned, banReason]);
 
     if (isLoading) {
         return (

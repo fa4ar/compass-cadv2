@@ -108,13 +108,6 @@ export default function CitizenPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
-    useEffect(() => {
-        if (!authLoading && !isAuthenticated && !isUserBanned) {
-            console.log('🔄 [CITIZEN] Not authenticated, redirecting to login...');
-            window.location.replace('/auth/login');
-        }
-    }, [authLoading, isAuthenticated, isUserBanned]);
-
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showCallModal, setShowCallModal] = useState(false);
     const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
@@ -185,6 +178,13 @@ export default function CitizenPage() {
     const [showLicenseModal, setShowLicenseModal] = useState(false);
     const [vehicleForm, setVehicleForm] = useState({ plate: '', model: '', color: '', imageUrl: '' });
     const [weaponForm, setWeaponForm] = useState({ serial: '', model: '' });
+
+    const getImageUrl = (url?: string) => {
+        if (!url) return 'https://via.placeholder.com/150';
+        if (url.startsWith('http')) return url;
+        const apiUrl = getApiUrl();
+        return `${apiUrl}${url}`;
+    };
 
     const fetchCivilianData = async (charId: string) => {
         try {
@@ -271,9 +271,6 @@ export default function CitizenPage() {
             console.log('✅ [CITIZEN] Authenticated, fetching data...');
             fetchCharacters();
             fetchDepartments();
-        } else if (!authLoading && !isAuthenticated) {
-            // Если не авторизован, НЕ выключаем загрузку, пока не произойдет редирект (чтобы не было моргания)
-            // setIsLoading(false); // Убираем это
         }
     }, [authLoading, isAuthenticated, user?.isBanned]);
 
@@ -294,7 +291,7 @@ export default function CitizenPage() {
             const token = localStorage.getItem('accessToken');
             if (!token) return;
 
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const apiUrl = getApiUrl();
             
             const res = await fetch(`${apiUrl}/api/characters/create`, {
                 method: 'POST',
@@ -328,7 +325,7 @@ export default function CitizenPage() {
             const token = localStorage.getItem('accessToken');
             if (!token) return;
 
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const apiUrl = getApiUrl();
             
             const res = await fetch(`${apiUrl}/api/calls911/create`, {
                 method: 'POST',
