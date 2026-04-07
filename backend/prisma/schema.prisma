@@ -494,6 +494,16 @@ model Call911 {
   description String
   phoneNumber String?
   status      CallStatus @default(pending)
+  
+  // Additional fields for 911 calls
+  type        String?    @default("other") // traffic_accident, disturbance, robbery, assault, domestic, welfare_check, suspicious, fire, medical, accident, other
+  priority    String?    @default("routine") // routine, low, medium, high, emergency
+  isEmergency Boolean    @default(false)
+  
+  // Coordinates for game map
+  x           Float?
+  y           Float?
+  z           Float?
 
   // Поля для архива/админ-панели
   userUsername  String?

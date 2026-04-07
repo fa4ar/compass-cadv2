@@ -6,7 +6,7 @@ import { io } from '../../server';
 export class Calls911Controller {
     create = async (req: AuthRequest, res: Response) => {
         try {
-            const { callerName, location, description, phoneNumber } = req.body;
+            const { callerName, location, description, phoneNumber, type, priority, isEmergency, x, y, z } = req.body;
             
             if (!callerName || !location || !description) {
                 return res.status(400).json({ error: 'Missing required fields: callerName, location, description' });
@@ -24,32 +24,40 @@ export class Calls911Controller {
                 location,
                 description,
                 phoneNumber,
+                type: type || null,
+                priority: priority || null,
+                isEmergency: isEmergency || null,
+                x: x || null,
+                y: y || null,
+                z: z || null,
                 userUsername,
                 userDiscordId,
                 userAvatarUrl
             });
             
             if (io) {
-                // Add type and priority for frontend
+                // Use provided type/priority or detect from description
                 const descLower = description?.toLowerCase() || '';
-                let callType = 'other';
-                let callPriority = 'routine';
+                let callType = type || 'other';
+                let callPriority = priority || 'routine';
                 
-                if (descLower.includes('дтп') || descLower.includes('авари') || descLower.includes('accident')) {
-                    callType = 'traffic_accident';
-                } else if (descLower.includes('пожар') || descLower.includes('fire')) {
-                    callType = 'fire';
-                } else if (descLower.includes('медицин') || descLower.includes('medical')) {
-                    callType = 'medical';
-                } else if (descLower.includes('ограблен') || descLower.includes('robbery')) {
-                    callType = 'robbery';
-                } else if (descLower.includes('нападен') || descLower.includes('assault')) {
-                    callType = 'assault';
+                if (!type) {
+                    if (descLower.includes('дтп') || descLower.includes('авари') || descLower.includes('accident')) {
+                        callType = 'traffic_accident';
+                    } else if (descLower.includes('пожар') || descLower.includes('fire')) {
+                        callType = 'fire';
+                    } else if (descLower.includes('медицин') || descLower.includes('medical')) {
+                        callType = 'medical';
+                    } else if (descLower.includes('ограблен') || descLower.includes('robbery')) {
+                        callType = 'robbery';
+                    } else if (descLower.includes('нападен') || descLower.includes('assault')) {
+                        callType = 'assault';
+                    }
                 }
                 
-                if (descLower.includes('срочно') || descLower.includes('экстрен') || descLower.includes('emergency')) {
+                if (!priority && (isEmergency || descLower.includes('срочно') || descLower.includes('экстрен'))) {
                     callPriority = 'high';
-                } else if (descLower.includes('важно') || descLower.includes('средн')) {
+                } else if (!priority && (descLower.includes('важно') || descLower.includes('средн'))) {
                     callPriority = 'medium';
                 }
                 
@@ -57,8 +65,12 @@ export class Calls911Controller {
                     ...newCall,
                     type: callType,
                     priority: callPriority,
+                    isEmergency: newCall.isEmergency,
                     createdAt: newCall.createdAt.getTime(),
                     phoneNumber: newCall.phoneNumber,
+                    x: newCall.x,
+                    y: newCall.y,
+                    z: newCall.z,
                     units: [],
                     mainUnitId: null
                 });

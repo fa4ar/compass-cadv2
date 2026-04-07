@@ -114,6 +114,18 @@ function DispatcherPageContent() {
     const [showCreatePairModal, setShowCreatePairModal] = useState(false);
     const [createPairData, setCreatePairData] = useState<{ unit1: Unit; unit2: Unit; pairName: string } | null>(null);
 
+    // Create 911 call
+    const [showCreateCallModal, setShowCreateCallModal] = useState(false);
+    const [newCallData, setNewCallData] = useState({
+        callerName: '',
+        phoneNumber: '',
+        location: '',
+        description: '',
+        type: 'other',
+        priority: 'routine',
+        isEmergency: false
+    });
+
     // Sounds
     const { playSound } = useSound();
 
@@ -509,6 +521,46 @@ function DispatcherPageContent() {
         }
     };
 
+    const handleCreateCall = async () => {
+        if (!newCallData.callerName || !newCallData.location || !newCallData.description) {
+            toast({ title: 'Ошибка', description: 'Заполните обязательные поля', variant: 'destructive' });
+            return;
+        }
+        
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            
+            const res = await fetch(`${apiUrl}/api/calls911`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(newCallData)
+            });
+            
+            if (res.ok) {
+                const data = await res.json();
+                toast({ title: 'Вызов создан', description: `Вызов #${data.id} создан` });
+                setShowCreateCallModal(false);
+                setNewCallData({
+                    callerName: '',
+                    phoneNumber: '',
+                    location: '',
+                    description: '',
+                    type: 'other',
+                    priority: 'routine',
+                    isEmergency: false
+                });
+                fetchData();
+            } else {
+                const data = await res.json();
+                toast({ title: 'Ошибка', description: data.error || 'Не удалось создать вызов', variant: 'destructive' });
+            }
+        } catch (err) {
+            console.error('Failed to create call', err);
+            toast({ title: 'Ошибка', description: 'Не удалось создать вызов', variant: 'destructive' });
+        }
+    };
+
     const handleNoteSubmit = async (callId: number) => {
         if (!newNoteText.trim()) return;
 
@@ -754,6 +806,9 @@ function DispatcherPageContent() {
                                         <AlertTriangle className="w-4 h-4 text-amber-500" />
                                         <span className="text-sm font-medium text-zinc-300">Активные вызовы 911</span>
                                         <span className="ml-auto text-xs text-zinc-500">{calls.length} вызовов</span>
+                                        <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => setShowCreateCallModal(true)}>
+                                            + Создать
+                                        </Button>
                                     </div>
                                     <div className="overflow-auto flex-1">
                                         {calls.length === 0 ? (
@@ -1542,6 +1597,121 @@ function DispatcherPageContent() {
                                 </Button>
                                 <Button className="flex-1 bg-purple-600 hover:bg-purple-500" onClick={handleCreatePair}>
                                     Создать пару
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Create 911 Call Modal */}
+            {showCreateCallModal && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setShowCreateCallModal(false)}>
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl w-full max-w-lg p-6" onClick={e => e.stopPropagation()}>
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-xl font-bold text-white">Создать вызов 911</h2>
+                                <Button variant="ghost" size="icon" onClick={() => setShowCreateCallModal(false)}>
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="col-span-2">
+                                    <Label className="text-xs text-zinc-400">Заявитель *</Label>
+                                    <Input 
+                                        value={newCallData.callerName}
+                                        onChange={(e) => setNewCallData({ ...newCallData, callerName: e.target.value })}
+                                        placeholder="Имя заявителя"
+                                        className="mt-1 bg-zinc-800 border-zinc-700"
+                                    />
+                                </div>
+                                
+                                <div className="col-span-2">
+                                    <Label className="text-xs text-zinc-400">Телефон</Label>
+                                    <Input 
+                                        value={newCallData.phoneNumber}
+                                        onChange={(e) => setNewCallData({ ...newCallData, phoneNumber: e.target.value })}
+                                        placeholder="(555) 123-4567"
+                                        className="mt-1 bg-zinc-800 border-zinc-700"
+                                    />
+                                </div>
+                                
+                                <div className="col-span-2">
+                                    <Label className="text-xs text-zinc-400">Местоположение *</Label>
+                                    <Input 
+                                        value={newCallData.location}
+                                        onChange={(e) => setNewCallData({ ...newCallData, location: e.target.value })}
+                                        placeholder="Адрес или район"
+                                        className="mt-1 bg-zinc-800 border-zinc-700"
+                                    />
+                                </div>
+                                
+                                <div className="col-span-2">
+                                    <Label className="text-xs text-zinc-400">Тип инцидента</Label>
+                                    <select 
+                                        value={newCallData.type}
+                                        onChange={(e) => setNewCallData({ ...newCallData, type: e.target.value })}
+                                        className="mt-1 w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-zinc-200"
+                                    >
+                                        <option value="other">Другое</option>
+                                        <option value="traffic_accident">ДТП</option>
+                                        <option value="disturbance">Нарушение порядка</option>
+                                        <option value="robbery">Ограбление</option>
+                                        <option value="assault">Нападение</option>
+                                        <option value="domestic">Семейный конфликт</option>
+                                        <option value="welfare_check">Проверка безопасности</option>
+                                        <option value="suspicious">Подозрительная активность</option>
+                                        <option value="fire">Пожар</option>
+                                        <option value="medical">Медицинская помощь</option>
+                                        <option value="accident">Авария</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <Label className="text-xs text-zinc-400">Приоритет</Label>
+                                    <select 
+                                        value={newCallData.priority}
+                                        onChange={(e) => setNewCallData({ ...newCallData, priority: e.target.value })}
+                                        className="mt-1 w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-zinc-200"
+                                    >
+                                        <option value="routine">Обычный</option>
+                                        <option value="low">Низкий</option>
+                                        <option value="medium">Средний</option>
+                                        <option value="high">Высокий</option>
+                                        <option value="emergency">Экстренный</option>
+                                    </select>
+                                </div>
+                                
+                                <div className="flex items-center">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input 
+                                            type="checkbox"
+                                            checked={newCallData.isEmergency}
+                                            onChange={(e) => setNewCallData({ ...newCallData, isEmergency: e.target.checked })}
+                                            className="w-4 h-4 rounded bg-zinc-800 border-zinc-700"
+                                        />
+                                        <span className="text-sm text-zinc-300">Экстренный</span>
+                                    </label>
+                                </div>
+                                
+                                <div className="col-span-2">
+                                    <Label className="text-xs text-zinc-400">Описание *</Label>
+                                    <textarea 
+                                        value={newCallData.description}
+                                        onChange={(e) => setNewCallData({ ...newCallData, description: e.target.value })}
+                                        placeholder="Детали вызова..."
+                                        className="mt-1 w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-zinc-200 h-24 resize-none"
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div className="flex gap-3 pt-2">
+                                <Button variant="outline" className="flex-1" onClick={() => setShowCreateCallModal(false)}>
+                                    Отмена
+                                </Button>
+                                <Button className="flex-1 bg-red-600 hover:bg-red-500" onClick={handleCreateCall}>
+                                    Создать вызов
                                 </Button>
                             </div>
                         </div>

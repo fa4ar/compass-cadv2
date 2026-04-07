@@ -9,10 +9,18 @@ export class Calls911Service {
         location: string, 
         description: string,
         phoneNumber?: string,
+        type?: string,
+        priority?: string,
+        isEmergency?: boolean,
+        x?: number,
+        y?: number,
+        z?: number,
         userUsername?: string,
         userDiscordId?: string,
         userAvatarUrl?: string
     }) {
+        const emergency = data.isEmergency || data.priority === 'emergency' || data.priority === 'high';
+        
         return prisma.call911.create({
             data: {
                 callerId: data.callerId,
@@ -20,6 +28,12 @@ export class Calls911Service {
                 location: data.location,
                 description: data.description,
                 phoneNumber: data.phoneNumber,
+                type: data.type || 'other',
+                priority: data.priority || (emergency ? 'high' : 'routine'),
+                isEmergency: emergency,
+                x: data.x,
+                y: data.y,
+                z: data.z,
                 userUsername: data.userUsername,
                 userDiscordId: data.userDiscordId,
                 userAvatarUrl: data.userAvatarUrl,
