@@ -208,6 +208,20 @@ function DispatcherPageContent() {
             fetchData();
         });
 
+        socket.on('unit_status_changed', (data: { userId: number; status: string; unit?: string }) => {
+            setUnits(prev => prev.map(u => 
+                u.userId === data.userId ? { ...u, status: data.status } : u
+            ));
+        });
+
+        socket.on('unit_on_duty', () => {
+            fetchData();
+        });
+
+        socket.on('unit_off_duty', (data: { userId: number }) => {
+            setUnits(prev => prev.filter(u => u.userId !== data.userId));
+        });
+
         return () => {
             socket.off('new_911_call');
             socket.off('update_911_call');
@@ -219,6 +233,9 @@ function DispatcherPageContent() {
             socket.off('pair_formed');
             socket.off('pair_disbanded');
             socket.off('unit_pair_update');
+            socket.off('unit_status_changed');
+            socket.off('unit_on_duty');
+            socket.off('unit_off_duty');
             socket.disconnect();
         };
     }, [selectedCall?.id]);
