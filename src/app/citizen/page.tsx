@@ -284,19 +284,8 @@ export default function CitizenPage() {
                 return;
             }
             
-            const timeoutId = setTimeout(() => {
-                if (isLoading) {
-                    console.warn('⚠️ [CITIZEN] Data load timeout, forcing stop');
-                    setIsLoading(false);
-                    setDataLoadTimeout(true);
-                    setError('Превышен таймаут загрузки данных');
-                }
-            }, 15000);
-            
             fetchCharacters();
             fetchDepartments();
-            
-            return () => clearTimeout(timeoutId);
         }
     }, [authLoading, isAuthenticated, user?.isBanned]);
 

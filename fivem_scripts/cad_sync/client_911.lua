@@ -23,7 +23,7 @@ function CallUI:showNotification(call)
     PlaySoundFrontend(-1, "Event_Message_Purple", "GTAO_FM_Events_Soundset", 0.7)
     
     -- Send toast notification only (not the full card)
-    SendNUIMessage({ action = "toast", call = call })
+    SendNUIMessage({ action = "showToast", call = call })
     
     print("[CAD-911] New call notification: #" .. call.id)
 end
@@ -64,7 +64,7 @@ end
 function CallUI:updateCall(call)
     if self.state.activeCall and self.state.activeCall.id == call.id then
         self.state.activeCall = call
-        SendNUIMessage({ action = "updateCall", call = call })
+        SendNUIMessage({ action = "showCall", call = call })
     end
 end
 

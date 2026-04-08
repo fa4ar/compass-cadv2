@@ -8,6 +8,7 @@ import apiRoutes from './routes';
 import { jwtService } from './services/jwt.service';
 import { discordService } from './services/discord.service';
 import { initSocket } from './lib/socket';
+import prisma from './lib/prisma'; // Добавляем призму
 
 const app: Express = express();
 const server = http.createServer(app);
@@ -78,6 +79,51 @@ io.on('connection', (socket) => {
         
         // Транслируем всем подключенным диспетчерам и полиции
         io.emit('blips_updated', Array.from(liveBlips.values()));
+    });
+
+    // Пакетное обновление от FiveM (более эффективно)
+    socket.on('update_blip_batch', async (blips: any[]) => {
+        const enrichedBlips: any[] = [];
+
+        for (const blip of blips) {
+            if (!blip.discordId) continue;
+            
+            // Пытаемся обогатить данные из БД (кэшируем или ищем каждый раз?)
+            // Для начала ищем каждый раз, потом можно добавить кэширование
+            const unit = await prisma.unit.findFirst({
+                where: { user: { discordId: blip.discordId } },
+                include: {
+                    character: true,
+                    departmentMember: { include: { department: true } }
+                }
+            });
+
+            if (unit) {
+                const dept = unit.departmentMember?.department;
+                let type = 'police';
+                let color = '#3b82f6';
+                if (dept?.type === 'ems' || dept?.type === 'fire') { type = 'ems'; color = '#ef4444'; }
+                else if (dept?.type === 'dispatch') { type = 'dispatch'; color = '#8b5cf6'; }
+
+                const enriched = {
+                    identifier: blip.identifier,
+                    label: `[${unit.departmentMember?.badgeNumber || 'Unit'}] ${unit.character?.firstName || 'System'} ${unit.character?.lastName || 'Unit'}`,
+                    x: blip.x, y: blip.y, z: blip.z, heading: blip.heading,
+                    type, color, status: unit.status, location: blip.location, department: dept?.name || 'Patrol',
+                    inVehicle: blip.inVehicle,
+                    lastSeen: Date.now()
+                };
+
+                liveBlips.set(blip.identifier, enriched);
+                enrichedBlips.push(enriched);
+            }
+        }
+
+        // Транслируем всем веб-клиентам
+        io.emit('blips_updated', Array.from(liveBlips.values()));
+        
+        // Отправляем обратно FiveM клиенту только список всех активных юнитов
+        socket.emit('units_data', Array.from(liveBlips.values()));
     });
 
     // Ручное удаление блипа (например, юнит ушел со смены)

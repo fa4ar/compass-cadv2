@@ -33,6 +33,12 @@ AddEventHandler('playerJoining', function()
     end
 end)
 
+-- Инициализация сокетов в JS-мосте
+CreateThread(function()
+    Wait(1000)
+    TriggerEvent('cad_sync:init', Config.ApiUrl)
+end)
+
 -- Команда ручной привязки (если авто не сработало или новый юзер)
 RegisterCommand('cad-link', function(source, args, rawCommand)
     local apiId = args[1]
@@ -144,13 +150,14 @@ RegisterCommand('test911', function(source, args, rawCommand)
 end, true)
 
 -- =====================================================
--- MAP SYNC LOOP
+-- MAP SYNC LOOP (via Sockets)
 -- =====================================================
 
--- Цикл синхронизации
+-- Цикл синхронизации через сокеты
 CreateThread(function()
     while true do
-        Wait(1500)
+        Wait(2000) -- Синхронизация каждые 2 секунды (более плавно с сокетами)
+        
         local blips = {}
         for pid, data in pairs(linkedPlayers) do
             if data.x and data.x ~= 0 then
@@ -164,18 +171,9 @@ CreateThread(function()
             end
         end
 
-        PerformHttpRequest(Config.ApiUrl .. "/update-map", function(status, body, headers)
-            if status == 200 then
-                local res = json.decode(body)
-                if res and res.success then
-                    if res.units then TriggerClientEvent('cad_sync:updateMinimap', -1, res.units) end
-                    if res.newCalls then
-                        for _, call in ipairs(res.newCalls) do 
-                            StoreActiveCall(call)
-                        end
-                    end
-                end
-            end
-        end, 'POST', json.encode({ blips = blips }), { ['Content-Type'] = 'application/json' })
+        -- Отправляем в JS-скрипт для передачи через сокет
+        if #blips > 0 then
+            TriggerEvent('cad_sync:sendMapUpdate', blips)
+        end
     end
 end)

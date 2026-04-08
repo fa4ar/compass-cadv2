@@ -1,14 +1,21 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
-/.pnp
+node_modules/
+.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+
+# IDEs
+.idea/
+.vs/
+*.slnx
+*.sqlite
+*.iml
 
 # testing
 /coverage
@@ -23,6 +30,11 @@
 # misc
 .DS_Store
 *.pem
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
 
 # debug
 npm-debug.log*

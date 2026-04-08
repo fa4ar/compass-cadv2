@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { Shield, Users, FileSearch, Laptop, Map, AlertTriangle, Search, Navigation, MapPinned, ArrowRightLeft, CheckCircle, BarChart3, MessageCircle, PlusSquare, Ambulance, Clock, Car, Footprints, Siren, X, User, LogOut, MapPin, Send, Loader2, UserPlus, UserMinus, Receipt, AlertCircle, DollarSign } from 'lucide-react';
+import { Shield, Users, FileSearch, Laptop, Map, AlertTriangle, Search, Navigation, MapPinned, ArrowRightLeft, CheckCircle, BarChart3, MessageCircle, PlusSquare, Ambulance, Clock, Car, Footprints, Siren, X, User, LogOut, MapPin, Send, Loader2, UserPlus, UserMinus, Receipt, AlertCircle, DollarSign, RefreshCw } from 'lucide-react';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 const LiveMap = dynamic(() => import('@/components/Map/LiveMap'), { 
@@ -179,6 +179,21 @@ function PolicePageContent() {
         amount: "",
         reason: ""
     });
+
+    // Warrants State
+    const [warrants, setWarrants] = useState<any[]>([]);
+    const [showWarrantModal, setShowWarrantModal] = useState(false);
+    const [showWarrantCreateModal, setShowWarrantCreateModal] = useState(false);
+    const [warrantForm, setWarrantForm] = useState({
+        characterId: null as number | null,
+        type: 'arrest',
+        title: '',
+        description: '',
+        justification: '',
+        expiresInDays: 30
+    });
+    const [selectedWarrant, setSelectedWarrant] = useState<any | null>(null);
+    const [isLoadingWarrants, setIsLoadingWarrants] = useState(false);
 
     // Drag and drop for pair creation
     const [draggedUnit, setDraggedUnit] = useState<any | null>(null);
@@ -748,6 +763,127 @@ function PolicePageContent() {
         } catch (err) {
             console.error('Failed to issue fine', err);
             toast({ title: 'Ошибка', description: 'Не удалось выписать штраф', variant: 'destructive' });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const fetchWarrants = async (characterId?: number) => {
+        setIsLoadingWarrants(true);
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            
+            const url = characterId 
+                ? `${apiUrl}/api/roleplay/warrants/character/${characterId}`
+                : `${apiUrl}/api/roleplay/warrants`;
+            
+            const res = await fetch(url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (res.ok) {
+                const data = await res.json();
+                setWarrants(data);
+            }
+        } catch (err) {
+            console.error('Failed to fetch warrants:', err);
+        } finally {
+            setIsLoadingWarrants(false);
+        }
+    };
+
+    const handleCreateWarrant = async () => {
+        if (!warrantForm.characterId || !warrantForm.title || !warrantForm.description || !warrantForm.justification) {
+            toast({ title: 'Ошибка', description: 'Заполните все обязательные поля', variant: 'destructive' });
+            return;
+        }
+        
+        setIsSubmitting(true);
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+            const res = await fetch(`${apiUrl}/api/roleplay/warrants`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(warrantForm)
+            });
+
+            if (res.ok) {
+                toast({ title: 'Ордер создан', description: 'Ордер успешно добавлен в базу данных.' });
+                setShowWarrantCreateModal(false);
+                setWarrantForm({
+                    characterId: null,
+                    type: 'arrest',
+                    title: '',
+                    description: '',
+                    justification: '',
+                    expiresInDays: 30
+                });
+                fetchWarrants();
+            } else {
+                const data = await res.json();
+                toast({ title: 'Ошибка', description: data.error || 'Не удалось создать ордер', variant: 'destructive' });
+            }
+        } catch (err) {
+            console.error('Failed to create warrant:', err);
+            toast({ title: 'Ошибка', description: 'Не удалось создать ордер', variant: 'destructive' });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleExecuteWarrant = async (warrantId: number) => {
+        setIsSubmitting(true);
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+            const res = await fetch(`${apiUrl}/api/roleplay/warrants/${warrantId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ status: 'executed' })
+            });
+
+            if (res.ok) {
+                toast({ title: 'Ордер выполнен', description: 'Статус ордера обновлен.' });
+                fetchWarrants();
+            }
+        } catch (err) {
+            console.error('Failed to execute warrant:', err);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleCancelWarrant = async (warrantId: number, reason: string) => {
+        setIsSubmitting(true);
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+            const res = await fetch(`${apiUrl}/api/roleplay/warrants/${warrantId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ status: 'cancelled', reason })
+            });
+
+            if (res.ok) {
+                toast({ title: 'Ордер отменен', description: 'Ордер был отменен.' });
+                fetchWarrants();
+            }
+        } catch (err) {
+            console.error('Failed to cancel warrant:', err);
         } finally {
             setIsSubmitting(false);
         }
@@ -1457,7 +1593,133 @@ function PolicePageContent() {
                                 </div>
                             )}
 
-                            {activeTab !== "Статус юнитов" && activeTab !== "NCIC" && activeTab !== "Карта" && (
+                            {activeTab === "Ордера" && (
+                                <div className="flex-1 flex flex-col min-h-0">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <div>
+                                            <h3 className="text-lg font-bold text-white">Ордера</h3>
+                                            <p className="text-xs text-zinc-500">Активные ордера на арест и обыск</p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm"
+                                                onClick={() => fetchWarrants()}
+                                                className="bg-zinc-800/50 border-zinc-700"
+                                            >
+                                                <RefreshCw className={`w-3.5 h-3.5 mr-2 ${isLoadingWarrants ? 'animate-spin' : ''}`} />
+                                                Обновить
+                                            </Button>
+                                            <Button 
+                                                size="sm"
+                                                onClick={() => setShowWarrantCreateModal(true)}
+                                                className="bg-blue-600 hover:bg-blue-500"
+                                                disabled={!onDuty}
+                                            >
+                                                <PlusSquare className="w-3.5 h-3.5 mr-2" />
+                                                Создать ордер
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {warrants.length === 0 ? (
+                                        <div className="flex-1 flex items-center justify-center border border-dashed border-zinc-700 rounded-xl bg-zinc-900/20">
+                                            <div className="text-center">
+                                                <Shield className="w-12 h-12 text-zinc-800 mx-auto mb-4" />
+                                                <p className="text-zinc-500 font-medium">Ордеров не найдено</p>
+                                                <p className="text-xs text-zinc-600 mt-1">Активные ордера будут отображаться здесь</p>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex-1 overflow-auto space-y-3">
+                                            {warrants.map((warrant: any) => (
+                                                <div key={warrant.id} className="p-4 bg-zinc-900/60 border border-zinc-700/80 rounded-xl">
+                                                    <div className="flex items-start justify-between">
+                                                        <div className="flex items-start gap-3">
+                                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                                                                warrant.type === 'arrest' ? 'bg-red-500/10 border border-red-500/30' :
+                                                                warrant.type === 'search' ? 'bg-amber-500/10 border border-amber-500/30' :
+                                                                'bg-blue-500/10 border border-blue-500/30'
+                                                            }`}>
+                                                                <Shield className={`w-5 h-5 ${
+                                                                    warrant.type === 'arrest' ? 'text-red-400' :
+                                                                    warrant.type === 'search' ? 'text-amber-400' :
+                                                                    'text-blue-400'
+                                                                }`} />
+                                                            </div>
+                                                            <div>
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                                                        warrant.status === 'active' ? 'bg-red-900/30 border-red-700/50 text-red-400' :
+                                                                        warrant.status === 'executed' ? 'bg-emerald-900/30 border-emerald-700/50 text-emerald-400' :
+                                                                        warrant.status === 'cancelled' ? 'bg-zinc-700/50 border-zinc-600/50 text-zinc-400' :
+                                                                        'bg-yellow-900/30 border-yellow-700/50 text-yellow-400'
+                                                                    }`}>
+                                                                        {warrant.status === 'active' ? 'АКТИВЕН' :
+                                                                         warrant.status === 'executed' ? 'ВЫПОЛНЕН' :
+                                                                         warrant.status === 'cancelled' ? 'ОТМЕНЕН' :
+                                                                         'ОЖИДАНИЕ'}
+                                                                    </span>
+                                                                    <span className="text-[10px] text-zinc-600 uppercase">
+                                                                        {warrant.type === 'arrest' ? 'ОРДЕР НА АРЕСТ' :
+                                                                         warrant.type === 'search' ? 'ОРДЕР НА ОБЫСК' :
+                                                                         warrant.type === 'bench' ? 'СУДЕБНЫЙ ОРДЕР' :
+                                                                         'ПРОБАЦИЯ'}
+                                                                    </span>
+                                                                </div>
+                                                                <h4 className="text-base font-bold text-white">{warrant.title}</h4>
+                                                                <p className="text-xs text-zinc-400 mt-1">{warrant.description}</p>
+                                                                <div className="flex items-center gap-4 mt-2 text-[10px] text-zinc-500">
+                                                                    <span>ID персонажа: {warrant.characterId}</span>
+                                                                    <span>Выдан: {warrant.issuerName}</span>
+                                                                    {warrant.expiresAt && (
+                                                                        <span>Истекает: {new Date(warrant.expiresAt).toLocaleDateString('ru-RU')}</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            {warrant.status === 'active' && (
+                                                                <>
+                                                                    <Button 
+                                                                        size="sm" 
+                                                                        variant="outline"
+                                                                        onClick={() => handleExecuteWarrant(warrant.id)}
+                                                                        className="bg-emerald-900/20 border-emerald-700/50 text-emerald-400 hover:bg-emerald-900/30"
+                                                                    >
+                                                                        <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                                                                        Выполнить
+                                                                    </Button>
+                                                                    <Button 
+                                                                        size="sm" 
+                                                                        variant="outline"
+                                                                        onClick={() => {
+                                                                            const reason = prompt('Причина отмены ордера:');
+                                                                            if (reason) handleCancelWarrant(warrant.id, reason);
+                                                                        }}
+                                                                        className="bg-red-900/20 border-red-700/50 text-red-400 hover:bg-red-900/30"
+                                                                    >
+                                                                        <X className="w-3.5 h-3.5 mr-1" />
+                                                                        Отменить
+                                                                    </Button>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    {warrant.justification && (
+                                                        <div className="mt-3 pt-3 border-t border-zinc-800">
+                                                            <p className="text-[10px] text-zinc-500 uppercase font-bold mb-1">Обоснование:</p>
+                                                            <p className="text-xs text-zinc-400 italic">{warrant.justification}</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {activeTab !== "Статус юнитов" && activeTab !== "NCIC" && activeTab !== "Карта" && activeTab !== "Ордера" && (
                                 <div className="flex-1 flex items-center justify-center border border-dashed border-zinc-800 rounded-xl bg-zinc-900/10">
                                     <div className="text-center">
                                         <Laptop className="w-12 h-12 text-zinc-800 mx-auto mb-4" />
@@ -2031,6 +2293,113 @@ function PolicePageContent() {
                             </div>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Create Warrant Modal */}
+            {showWarrantCreateModal && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[110] p-4">
+                    <Card className="w-full max-w-lg bg-zinc-950 border-zinc-800 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <CardHeader className="border-b border-zinc-900 pb-4">
+                            <CardTitle className="text-xl font-bold text-white flex items-center gap-2">
+                                <Shield className="w-5 h-5 text-red-500" />
+                                Создать ордер
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-6 space-y-5">
+                            <div className="p-4 bg-red-500/5 border border-red-500/10 rounded-xl flex items-center gap-3">
+                                <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+                                <p className="text-xs text-red-500/80 leading-relaxed">
+                                    Внимание: Ордера создаются в системе NCIC и доступны всем правоохранительным органам.
+                                </p>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">ID персонажа *</Label>
+                                    <Input
+                                        type="number"
+                                        value={warrantForm.characterId || ''}
+                                        onChange={(e) => setWarrantForm({ ...warrantForm, characterId: e.target.value ? parseInt(e.target.value) : null })}
+                                        placeholder="ID персонажа из NCIC"
+                                        className="bg-zinc-900/50 border-zinc-800 h-10"
+                                    />
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Тип ордера</Label>
+                                    <select
+                                        value={warrantForm.type}
+                                        onChange={(e) => setWarrantForm({ ...warrantForm, type: e.target.value })}
+                                        className="w-full bg-zinc-900/50 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-200"
+                                    >
+                                        <option value="arrest">Ордер на арест (Arrest Warrant)</option>
+                                        <option value="search">Ордер на обыск (Search Warrant)</option>
+                                        <option value="bench">Судебный ордер (Bench Warrant)</option>
+                                        <option value="probation">Ордер на пробацию (Probation Warrant)</option>
+                                    </select>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Название *</Label>
+                                    <Input
+                                        value={warrantForm.title}
+                                        onChange={(e) => setWarrantForm({ ...warrantForm, title: e.target.value })}
+                                        placeholder="Например: Арест за кражу"
+                                        className="bg-zinc-900/50 border-zinc-800 h-10"
+                                    />
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Описание *</Label>
+                                    <textarea
+                                        value={warrantForm.description}
+                                        onChange={(e) => setWarrantForm({ ...warrantForm, description: e.target.value })}
+                                        placeholder="Описание преступления или основания для ордера..."
+                                        className="w-full bg-zinc-900/50 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-200 h-20 resize-none"
+                                    />
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Обоснование *</Label>
+                                    <textarea
+                                        value={warrantForm.justification}
+                                        onChange={(e) => setWarrantForm({ ...warrantForm, justification: e.target.value })}
+                                        placeholder="Почему этот ордер необходим (обязательно для суда)..."
+                                        className="w-full bg-zinc-900/50 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-200 h-20 resize-none"
+                                    />
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Срок действия (дней)</Label>
+                                    <Input
+                                        type="number"
+                                        value={warrantForm.expiresInDays}
+                                        onChange={(e) => setWarrantForm({ ...warrantForm, expiresInDays: parseInt(e.target.value) || 30 })}
+                                        className="bg-zinc-900/50 border-zinc-800 h-10 w-32"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3 pt-4 border-t border-zinc-900">
+                                <Button 
+                                    variant="ghost" 
+                                    onClick={() => setShowWarrantCreateModal(false)} 
+                                    className="flex-1 text-zinc-400 hover:text-white"
+                                >
+                                    Отмена
+                                </Button>
+                                <Button
+                                    onClick={handleCreateWarrant}
+                                    disabled={isSubmitting || !warrantForm.characterId || !warrantForm.title || !warrantForm.description || !warrantForm.justification}
+                                    className="flex-1 bg-red-600 hover:bg-red-500 shadow-lg shadow-red-900/20"
+                                >
+                                    {isSubmitting ? <Clock className="w-4 h-4 animate-spin mr-2" /> : <Shield className="w-4 h-4 mr-2" />}
+                                    Создать ордер
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
             )}
         </div>

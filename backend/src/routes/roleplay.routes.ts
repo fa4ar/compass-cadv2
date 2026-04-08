@@ -256,6 +256,38 @@ router.get('/warrants/character/:characterId', authMiddleware as any, async (req
     }
 });
 
+// Получить все активные ордера (для полиции)
+router.get('/warrants', authMiddleware as any, async (req: any, res: Response) => {
+    try {
+        const prisma = require('../lib/prisma').default;
+        
+        const userRoles = (req.user.roles || []).map((r: string) => r.toLowerCase());
+        const isLEO = ['admin', 'police', 'sheriff', 'trooper', 'dispatcher'].some(r => userRoles.includes(r));
+        
+        if (!isLEO) {
+            return res.status(403).json({ error: 'Только LEO могут просматривать все ордера' });
+        }
+        
+        const warrants = await prisma.warrant.findMany({
+            where: {
+                status: { in: ['active', 'pending'] }
+            },
+            include: {
+                character: {
+                    select: { firstName: true, lastName: true }
+                }
+            },
+            orderBy: { issuedAt: 'desc' },
+            take: 100
+        });
+        
+        res.json(warrants);
+    } catch (error) {
+        console.error('Error fetching all warrants:', error);
+        res.status(500).json({ error: 'Ошибка при получении ордеров' });
+    }
+});
+
 // Обновить статус ордера (исполнить, отменить)
 router.patch('/warrants/:id', authMiddleware as any, async (req: any, res: Response) => {
     try {
