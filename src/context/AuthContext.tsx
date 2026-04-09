@@ -10,6 +10,7 @@ interface User {
     email?: string;
     avatarUrl?: string;
     theme?: string;
+    uiProfiles?: Record<string, any>;
     isBanned?: boolean;
     banReason?: string;
     roles: string[];

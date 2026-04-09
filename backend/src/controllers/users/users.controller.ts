@@ -29,8 +29,8 @@ export class UsersController {
                 return res.status(401).json({ error: 'User not authenticated' });
             }
 
-            const { username, avatarUrl } = req.body;
-            const updated = await usersService.updateProfile(userId, { username, avatarUrl });
+            const { username, avatarUrl, theme, uiProfiles } = req.body;
+            const updated = await usersService.updateProfile(userId, { username, avatarUrl, theme, uiProfiles });
             res.json(updated);
         } catch (error: any) {
             console.error("UsersController updateProfile error:", error);

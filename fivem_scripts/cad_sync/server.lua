@@ -2,6 +2,9 @@
 local linkedPlayers = {}
 local activeCalls = {} -- Store active 911 calls for unit assignment
 
+-- Mapping CAD userId to FiveM source
+local userIdToSource = {}
+
 -- Функция для получения Discord ID
 function GetDiscordId(src)
     for _, id in ipairs(GetPlayerIdentifiers(src)) do

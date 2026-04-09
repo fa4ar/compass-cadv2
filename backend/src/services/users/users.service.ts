@@ -10,19 +10,21 @@ export class UsersService {
                 email: true,
                 avatarUrl: true,
                 theme: true,
+                uiProfiles: true,
                 isActive: true,
                 createdAt: true,
             }
         });
     }
 
-    async updateProfile(userId: number, data: { username?: string; avatarUrl?: string; theme?: string }) {
+    async updateProfile(userId: number, data: { username?: string; avatarUrl?: string; theme?: string; uiProfiles?: any }) {
         return (prisma as any).user.update({
             where: { id: userId },
             data: {
                 username: data.username,
                 avatarUrl: data.avatarUrl,
                 theme: data.theme,
+                uiProfiles: data.uiProfiles,
             },
             select: {
                 id: true,
@@ -30,6 +32,7 @@ export class UsersService {
                 email: true,
                 avatarUrl: true,
                 theme: true,
+                uiProfiles: true,
                 isActive: true,
                 createdAt: true,
             }

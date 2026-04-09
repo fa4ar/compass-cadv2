@@ -123,8 +123,8 @@ function SelectorPageContent() {
     if (!user) {
         return (
             <div className="min-h-screen bg-black flex items-center justify-center p-4">
-                <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 shadow-2xl rounded-2xl p-8 flex flex-col items-center text-center">
-                    <div className="w-20 h-20 bg-blue-500/10 rounded-full flex items-center justify-center mb-6 ring-4 ring-blue-500/5">
+                <div className="w-full max-w-md bg-zinc-950 border-2 border-zinc-800 shadow-[0_0_0_2px_rgba(39,39,42,0.5),0_25px_80px_rgba(0,0,0,0.7)] p-8 flex flex-col items-center text-center">
+                    <div className="w-20 h-20 bg-blue-500/10 border-2 border-blue-500/40 flex items-center justify-center mb-6">
                         <LogOut className="w-10 h-10 text-blue-500" />
                     </div>
                     
@@ -134,7 +134,7 @@ function SelectorPageContent() {
                     </p>
                     
                     <Button 
-                        className="w-full bg-blue-600 hover:bg-blue-700 py-6"
+                        className="w-full bg-blue-600 hover:bg-blue-700 py-6 border border-blue-400/40"
                         onClick={() => window.location.href = '/auth/login'}
                     >
                         Go to Login
@@ -147,11 +147,11 @@ function SelectorPageContent() {
     const isAdmin = hasRole(['admin', 'Admin']);
 
     return (
-        <div className="min-h-screen bg-black text-zinc-100 flex flex-col font-sans selection:bg-blue-500/30">
+        <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans selection:bg-blue-500/30">
             {/* Ambient Background */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-900/10 blur-[120px] rounded-full animate-pulse" />
-                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-900/10 blur-[120px] rounded-full animate-pulse delay-1000" />
+                <div className="absolute top-[-15%] left-[-10%] w-[45%] h-[45%] bg-blue-500/10 blur-[80px] rotate-12 animate-pulse" />
+                <div className="absolute bottom-[-15%] right-[-10%] w-[45%] h-[45%] bg-indigo-500/10 blur-[80px] -rotate-6 animate-pulse delay-1000" />
             </div>
 
             {/* Content */}
@@ -163,10 +163,10 @@ function SelectorPageContent() {
                         <motion.div 
                             initial={{ opacity: 0, y: -20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900/50 border border-zinc-800 backdrop-blur-sm"
+                            className="inline-flex items-center gap-2 px-3 py-1 border-2 border-zinc-800 bg-zinc-950/70"
                         >
-                            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
-                            <span className="text-[10px] uppercase font-black tracking-[0.2em] text-zinc-500">System Authorized</span>
+                            <span className="w-2 h-2 bg-blue-500 animate-pulse shadow-[0_0_12px_rgba(59,130,246,0.8)]" />
+                            <span className="text-[10px] uppercase font-black tracking-[0.3em] text-zinc-500">System Authorized</span>
                         </motion.div>
                         
                         <motion.h1 
@@ -203,8 +203,8 @@ function SelectorPageContent() {
                                     transition={{ delay: 0.1 + (idx * 0.05) }}
                                 >
                                     <Card 
-                                        className={`group relative overflow-hidden h-full border-zinc-800/50 bg-zinc-900/30 backdrop-blur-sm transition-all duration-300 
-                                            ${isLocked ? 'grayscale opacity-60' : 'hover:border-zinc-700/50 hover:bg-zinc-900/50 hover:translate-y-[-4px] cursor-pointer'}`}
+                                        className={`group relative overflow-hidden h-full border-2 border-zinc-800 bg-zinc-950/80 transition-all duration-300 
+                                            ${isLocked ? 'grayscale opacity-60' : 'hover:border-zinc-600 hover:bg-zinc-950 hover:translate-y-[-4px] cursor-pointer'}`}
                                         onClick={() => !isLocked && router.push(portal.path)}
                                     >
                                         <CardContent className="p-8">
@@ -214,8 +214,8 @@ function SelectorPageContent() {
                                             )}
 
                                             <div className="relative z-10 flex flex-col h-full">
-                                                <div className={`w-14 h-14 rounded-2xl bg-zinc-800 overflow-hidden flex items-center justify-center mb-6 transition-all duration-500 
-                                                    ${!isLocked ? 'group-hover:scale-110 group-hover:bg-zinc-700' : ''}`}
+                                                <div className={`w-14 h-14 bg-zinc-900 border border-zinc-700 overflow-hidden flex items-center justify-center mb-6 transition-all duration-500 
+                                                    ${!isLocked ? 'group-hover:scale-110 group-hover:bg-zinc-800' : ''}`}
                                                 >
                                                     <div className={`w-full h-full bg-gradient-to-br ${portal.color} opacity-80 flex items-center justify-center`}>
                                                         <Icon className={`w-7 h-7 ${portal.textColor || 'text-white'}`} />
@@ -256,11 +256,11 @@ function SelectorPageContent() {
                                 transition={{ delay: 0.4 }}
                             >
                                 <Card 
-                                    className="group relative overflow-hidden h-full border-red-900/20 bg-red-950/5 backdrop-blur-sm transition-all duration-300 hover:border-red-900/40 hover:bg-red-950/10 hover:translate-y-[-4px] cursor-pointer"
+                                    className="group relative overflow-hidden h-full border-2 border-red-900/40 bg-red-950/10 transition-all duration-300 hover:border-red-800/70 hover:bg-red-950/20 hover:translate-y-[-4px] cursor-pointer"
                                     onClick={() => router.push('/admin')}
                                 >
                                     <CardContent className="p-8">
-                                        <div className="w-14 h-14 rounded-2xl bg-zinc-800 overflow-hidden flex items-center justify-center mb-6">
+                                        <div className="w-14 h-14 bg-zinc-900 border border-zinc-700 overflow-hidden flex items-center justify-center mb-6">
                                             <div className="w-full h-full bg-gradient-to-br from-red-600 to-red-800 opacity-80 flex items-center justify-center">
                                                 <Settings className="w-7 h-7 text-white" />
                                             </div>

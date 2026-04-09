@@ -5,6 +5,7 @@ import "./globals.css";
 import { SocketProvider } from "../context/SocketContext";
 import { AuthProvider } from "../context/AuthContext";
 import { ThemeProvider } from "../context/ThemeContext";
+import { UISettingsProvider } from "../context/UISettingsContext";
 import Header from "@/components/Header";
 import FooterBar from "@/components/Footer";
 import { Toaster } from "@/components/ui/toaster";
@@ -30,21 +31,23 @@ export default function RootLayout({
     return (
         <html
             lang="ru"
-            className={`${dmSans.variable} h-full antialiased`}
+            className={`${dmSans.variable} h-full antialiased ui-hard`}
             suppressHydrationWarning
         >
             <body className="min-h-full flex flex-col bg-background text-foreground">
                 <SocketProvider>
                     <AuthProvider>
                         <ThemeProvider>
-                            <TooltipProvider>
-                                <Header />
-                                <main className="flex-1 pb-10">
-                                    {children}
-                                </main>
-                                <Toaster />
-                                <FooterBar />
-                            </TooltipProvider>
+                            <UISettingsProvider>
+                                <TooltipProvider>
+                                    <Header />
+                                    <main className="flex-1 pb-10">
+                                        {children}
+                                    </main>
+                                    <Toaster />
+                                    <FooterBar />
+                                </TooltipProvider>
+                            </UISettingsProvider>
                         </ThemeProvider>
                     </AuthProvider>
                 </SocketProvider>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut, User, Settings, ChevronDown, Loader2, LogIn, Shield, Sun, Moon, Palette } from 'lucide-react';
+import { LogOut, User, Settings, ChevronDown, Loader2, LogIn, Shield, Sun, Moon, Palette, SlidersHorizontal } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -20,12 +20,14 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import UIEditor from '@/components/UIEditor';
 
 export default function UserMenu() {
     const router = useRouter();
     const { user, isLoading: authLoading, logout, isAuthenticated, hasRole } = useAuth();
     const { theme, setTheme } = useTheme();
     const [localLoading, setLocalLoading] = useState(true);
+    const [isUIEditorOpen, setIsUIEditorOpen] = useState(false);
 
     useEffect(() => {
         if (!authLoading) {
@@ -106,6 +108,10 @@ export default function UserMenu() {
                     <Settings className="w-4 h-4 mr-2" />
                     Settings
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsUIEditorOpen(true)} className="cursor-pointer">
+                    <SlidersHorizontal className="w-4 h-4 mr-2" />
+                    UI Editor
+                </DropdownMenuItem>
 
                 <DropdownMenuSub>
                     <DropdownMenuSubTrigger className="cursor-pointer">
@@ -142,6 +148,7 @@ export default function UserMenu() {
                     Logout
                 </DropdownMenuItem>
             </DropdownMenuContent>
+            <UIEditor open={isUIEditorOpen} onClose={() => setIsUIEditorOpen(false)} />
         </DropdownMenu>
     );
 }

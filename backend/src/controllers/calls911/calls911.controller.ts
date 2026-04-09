@@ -65,12 +65,12 @@ export class Calls911Controller {
                     ...newCall,
                     type: callType,
                     priority: callPriority,
-                    isEmergency: newCall.isEmergency,
+                    isEmergency: (newCall as any).isEmergency,
                     createdAt: newCall.createdAt.getTime(),
                     phoneNumber: newCall.phoneNumber,
-                    x: newCall.x,
-                    y: newCall.y,
-                    z: newCall.z,
+                    x: (newCall as any).x,
+                    y: (newCall as any).y,
+                    z: (newCall as any).z,
                     units: [],
                     mainUnitId: null
                 });

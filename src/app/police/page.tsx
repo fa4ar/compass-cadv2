@@ -2,7 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { Shield, Users, FileSearch, Laptop, Map, AlertTriangle, Search, Navigation, MapPinned, ArrowRightLeft, CheckCircle, BarChart3, MessageCircle, PlusSquare, Ambulance, Clock, Car, Footprints, Siren, X, User, LogOut, MapPin, Send, Loader2, UserPlus, UserMinus, Receipt, AlertCircle, DollarSign, RefreshCw } from 'lucide-react';
+import { Shield, Users, FileSearch, Laptop, Map, AlertTriangle, Search, Navigation, MapPinned, ArrowRightLeft, CheckCircle, BarChart3, MessageCircle, PlusSquare, Ambulance, Clock, Car, Footprints, Siren, X, User, LogOut, MapPin, Send, Loader2, UserPlus, UserMinus, Receipt, AlertCircle, DollarSign, RefreshCw, Settings2, Maximize2, Move } from 'lucide-react';
+import Draggable from 'react-draggable';
+import { ResizableBox } from 'react-resizable';
+import 'react-resizable/css/styles.css';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 const LiveMap = dynamic(() => import('@/components/Map/LiveMap'), { 
@@ -200,6 +203,35 @@ function PolicePageContent() {
     const [dropTargetUnit, setDropTargetUnit] = useState<any | null>(null);
     const [showCreatePairModal, setShowCreatePairModal] = useState(false);
     const [createPairData, setCreatePairData] = useState<{ unit1: any; unit2: any; pairName: string } | null>(null);
+
+    // Layout customization state
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [layout, setLayout] = useState<any>({
+        unitsTable: { x: 0, y: 0, width: 800, height: 400 },
+        callsTable: { x: 0, y: 410, width: 800, height: 300 },
+        actionsPanel: { x: 810, y: 0, width: 224, height: 500 }
+    });
+
+    useEffect(() => {
+        const savedLayout = localStorage.getItem('policeLayout');
+        if (savedLayout) {
+            try {
+                setLayout(JSON.parse(savedLayout));
+            } catch (e) {
+                console.error('Failed to parse saved layout', e);
+            }
+        }
+    }, []);
+
+    const saveLayout = (newLayout: any) => {
+        setLayout(newLayout);
+        localStorage.setItem('policeLayout', JSON.stringify(newLayout));
+    };
+
+    const handleLayoutChange = (key: string, data: any) => {
+        const newLayout = { ...layout, [key]: { ...layout[key], ...data } };
+        saveLayout(newLayout);
+    };
 
     useEffect(() => {
         fetchData();
