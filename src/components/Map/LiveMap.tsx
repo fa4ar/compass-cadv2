@@ -156,7 +156,10 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
         const fetchInitialData = async () => {
             try {
                 const token = localStorage.getItem('accessToken');
-                const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+                const headers: Record<string, string> = {};
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
                 
                 const [blipsRes, callsRes] = await Promise.all([
                     fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/fivem/active-units`),
