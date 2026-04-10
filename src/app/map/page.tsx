@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import dynamic from 'next/dynamic';
-const LiveMap = dynamic(() => import('@/components/Map/LiveMap'), { 
+const LiveMap = dynamic(() => import('@/components/Map/LiveMap'), {
     ssr: false,
     loading: () => (
         <div className="w-full h-full bg-[#050505] flex items-center justify-center">
@@ -14,17 +14,64 @@ const LiveMap = dynamic(() => import('@/components/Map/LiveMap'), {
         </div>
     )
 });
-import { Map as MapIcon, Layers, Radio, Users, Phone, AlertTriangle, Clock, MapPin } from 'lucide-react';
+import { Map as MapIcon, Layers, Radio, Users, Phone, AlertTriangle, Clock, MapPin, Shield, Activity } from 'lucide-react';
 
 interface Call911 {
     id: number; type: string; location: string; description: string;
     priority: string; callerName: string; status: string;
     x: number; y: number; z: number; createdAt: number;
+    source?: string;
+}
+
+interface Blip {
+    identifier: string; x: number; y: number; z: number; heading: number;
+    type: string; label: string; color: string; location?: string;
+    status?: string; department?: string; inVehicle?: boolean;
 }
 
 export default function MapPage() {
     const [calls, setCalls] = useState<Call911[]>([]);
+    const [units, setUnits] = useState<Blip[]>([]);
     const [selectedCall, setSelectedCall] = useState<Call911 | null>(null);
+
+    // Fetch initial data
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const token = localStorage.getItem('accessToken');
+                const headers: Record<string, string> = {};
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+
+                const [blipsRes, callsRes] = await Promise.all([
+                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/fivem/active-units`),
+                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/calls911/active`, { headers })
+                ]);
+
+                if (blipsRes.ok) {
+                    const blipsData = await blipsRes.json();
+                    if (blipsData && blipsData.units) setUnits(blipsData.units);
+                }
+
+                if (callsRes.ok) {
+                    const callsData = await callsRes.json();
+                    if (callsData && callsData.calls) {
+                        // Filter to only show calls from the game
+                        const gameCalls = callsData.calls.filter((call: Call911) => !call.source || call.source === 'game');
+                        setCalls(gameCalls);
+                    }
+                }
+            } catch (error) {
+                console.error("Failed to fetch initial data:", error);
+            }
+        };
+
+        fetchData();
+    }, []);
+
+    // Filter calls to only show game calls
+    const gameCalls = calls.filter(call => !call.source || call.source === 'game');
 
     const priorityColors = {
         low: 'bg-green-600',
@@ -65,26 +112,76 @@ export default function MapPage() {
 
                 {/* Основное содержимое */}
                 <div className="flex-1 flex overflow-hidden">
-                    {/* Сайдбар с вызовами */}
+                    {/* Сайдбар с юнитами и вызовами */}
                     <div className="w-80 border-r border-zinc-800 bg-zinc-900/30 flex flex-col">
-                        <div className="p-4 border-b border-zinc-800">
-                            <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                                <Phone className="w-4 h-4" />
-                                Активные вызовы 911
-                                <span className="ml-auto px-2 py-0.5 bg-blue-600 text-white text-[10px] font-bold rounded-full">
-                                    {calls.length}
-                                </span>
-                            </h2>
+                        {/* Активные юниты */}
+                        <div className="border-b border-zinc-800">
+                            <div className="p-4">
+                                <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                                    <Shield className="w-4 h-4" />
+                                    Активные юниты
+                                    <span className="ml-auto px-2 py-0.5 bg-emerald-600 text-white text-[10px] font-bold rounded-full">
+                                        {units.length}
+                                    </span>
+                                </h2>
+                            </div>
+                            <div className="px-3 pb-3 space-y-1.5 max-h-48 overflow-auto">
+                                {units.length === 0 ? (
+                                    <div className="text-center py-4">
+                                        <Shield className="w-6 h-6 text-zinc-700 mx-auto mb-1" />
+                                        <p className="text-[10px] text-zinc-600">Нет активных юнитов</p>
+                                    </div>
+                                ) : (
+                                    units.map((unit) => (
+                                        <div
+                                            key={unit.identifier}
+                                            className="p-2 rounded bg-zinc-800/50 border border-zinc-700/50 hover:bg-zinc-800/80 transition-all"
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: unit.color }} />
+                                                <span className="text-xs font-bold text-zinc-200">{unit.label}</span>
+                                                {unit.status && (
+                                                    <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${
+                                                        unit.status === 'Available' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                                                        unit.status === 'Active' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
+                                                        'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                                                    }`}>
+                                                        {unit.status}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {unit.location && (
+                                                <div className="flex items-center gap-1.5 text-[9px] text-zinc-500 mt-1">
+                                                    <MapPin className="w-3 h-3" />
+                                                    <span className="truncate">{unit.location}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
                         </div>
 
-                        <div className="flex-1 overflow-auto p-3 space-y-2">
-                            {calls.length === 0 ? (
-                                <div className="text-center py-8">
-                                    <Phone className="w-8 h-8 text-zinc-700 mx-auto mb-2" />
-                                    <p className="text-xs text-zinc-600">Нет активных вызовов</p>
-                                </div>
-                            ) : (
-                                calls.map((call) => (
+                        {/* Активные вызовы 911 */}
+                        <div className="flex-1 flex flex-col">
+                            <div className="p-4 border-b border-zinc-800">
+                                <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                                    <Phone className="w-4 h-4" />
+                                    Активные вызовы 911
+                                    <span className="ml-auto px-2 py-0.5 bg-blue-600 text-white text-[10px] font-bold rounded-full">
+                                        {gameCalls.length}
+                                    </span>
+                                </h2>
+                            </div>
+
+                            <div className="flex-1 overflow-auto p-3 space-y-2">
+                                {gameCalls.length === 0 ? (
+                                    <div className="text-center py-8">
+                                        <Phone className="w-8 h-8 text-zinc-700 mx-auto mb-2" />
+                                        <p className="text-xs text-zinc-600">Нет активных вызовов</p>
+                                    </div>
+                                ) : (
+                                    gameCalls.map((call) => (
                                     <div
                                         key={call.id}
                                         onClick={() => setSelectedCall(call)}

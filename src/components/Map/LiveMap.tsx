@@ -25,6 +25,9 @@ const SAVE_DEBOUNCE_MS = 500;
 // Memoized icon cache to avoid recreating icons
 const iconCache = new Map<string, L.DivIcon>();
 
+// Photo cache to avoid reloading images
+const photoCache = new Map<string, string>();
+
 const createCustomIcon = (type: string, color: string, heading: number, inVehicle?: boolean): L.DivIcon => {
     const cacheKey = `${type}-${color}-${heading}-${inVehicle}`;
     if (iconCache.has(cacheKey)) {
@@ -114,6 +117,7 @@ interface Call911 {
     id: number; type: string; location: string; description: string;
     priority: string; callerName: string; status: string;
     x: number; y: number; z: number; createdAt: number;
+    source?: string;
 }
 
 // --- ФОН КАРТЫ (Фиксированная сетка) ---
@@ -175,7 +179,11 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
                 
                 if (callsRes.ok) {
                     const callsData = await callsRes.json();
-                    if (callsData && callsData.calls) setCalls(callsData.calls);
+                    if (callsData && callsData.calls) {
+                        // Filter to only show calls from the game
+                        const gameCalls = callsData.calls.filter((call: Call911) => !call.source || call.source === 'game');
+                        setCalls(gameCalls);
+                    }
                 } else {
                     console.error("Initial calls fetch error:", callsRes.status);
                 }
@@ -188,16 +196,18 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
         if (!socket) return;
         const blipHandler = (data: Blip[]) => setBlips(data);
         const callHandler = (data: Call911[]) => {
-            setCalls(data);
-            if (onCallsUpdate) onCallsUpdate(data);
+            // Filter to only show calls from the game
+            const gameCalls = data.filter(call => !call.source || call.source === 'game');
+            setCalls(gameCalls);
+            if (onCallsUpdate) onCallsUpdate(gameCalls);
         };
         socket.on('blips_updated', blipHandler);
         socket.on('calls_updated', callHandler);
-        return () => { 
+        return () => {
             socket.off('blips_updated', blipHandler);
             socket.off('calls_updated', callHandler);
         };
-    }, [socket]);
+    }, [socket, onCallsUpdate]);
 
     // ТУТ ПРОИСХОДИТ ПЕРЕСЧЕТ С УЧЕТОМ МАСШТАБА
     const convertToLatLng = useCallback((x: number, y: number): L.LatLngTuple => {
