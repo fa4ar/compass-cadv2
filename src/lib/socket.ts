@@ -1,8 +1,9 @@
-import { io } from 'socket.io-client';
+// @ts-ignore
+const io = require('socket.io-client');
 
 const getSocketUrl = () => {
     let url = process.env.NEXT_PUBLIC_SOCKET_URL || '';
-    
+
     if (typeof window !== 'undefined') {
         const isDomain = window.location.hostname !== 'localhost' && !window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/);
         if (isDomain && (!url || url.includes('localhost'))) {
@@ -21,7 +22,6 @@ const socketUrl = getSocketUrl();
 export const socket = io(socketUrl, {
     autoConnect: false,
     transports: ['websocket', 'polling'],
-    withCredentials: true,
     reconnection: true,
     reconnectionAttempts: 10,
     reconnectionDelay: 1000,

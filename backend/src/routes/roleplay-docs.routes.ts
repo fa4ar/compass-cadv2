@@ -213,13 +213,13 @@ router.post('/tags/definitions/seed', authMiddleware as any, async (req: any, re
             { key: 'debtor', label: 'Должник', description: 'Имеет неоплаченные задолженности', color: '#EF4444', icon: 'CreditCard', category: 'behavioral', priority: 4, canBeSelfApplied: false, maxInstances: 1 },
             { key: 'suspicious', label: 'Подозрительный', description: 'Находится под подозрением', color: '#F59E0B', icon: 'AlertCircle', category: 'surveillance', priority: 6, canBeSelfApplied: true, maxInstances: 1, requiresReason: true },
         ];
-        
-        const created = [];
+
+        const created: any[] = [];
         for (const tag of defaultTags) {
             const existing = await prisma.roleplayTagDefinition.findUnique({
                 where: { key: tag.key }
             });
-            
+
             if (!existing) {
                 const createdTag = await prisma.roleplayTagDefinition.create({
                     data: tag

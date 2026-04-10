@@ -82,9 +82,9 @@ router.get('/link/check', async (req, res) => {
         });
 
         const onDuty = !!activeUnit;
-        
+
         // Определяем роль на основе департамента
-        let job = null;
+        let job: string | null = null;
         if (activeUnit?.departmentMember?.department) {
             const deptType = activeUnit.departmentMember.department.type;
             if (deptType === 'police') {

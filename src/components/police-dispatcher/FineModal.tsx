@@ -76,12 +76,12 @@ export const FineModal: React.FC<FineModalProps> = ({
                         <Button variant="outline" className="flex-1" onClick={onClose}>
                             Отмена
                         </Button>
-                        <Button 
-                            className="flex-1 bg-rose-600 hover:bg-rose-500" 
+                        <Button
+                            className="flex-1 bg-rose-600 hover:bg-rose-500"
                             onClick={handleSubmit}
                             disabled={isLoading || !characterId || !amount || !reason}
                         >
-                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" : 'Выписать'}
+                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Выписать'}
                         </Button>
                     </div>
                 </div>
