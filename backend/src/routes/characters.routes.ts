@@ -177,7 +177,7 @@ router.post('/:id/tags', authMiddleware as RequestHandler, async (req, res) => {
         }
 
         // Calculate expiration
-        let expiresAt = null;
+        let expiresAt: Date | null = null;
         if (expiresInDays || tagDefinition.autoExpireDays) {
             const days = expiresInDays || tagDefinition.autoExpireDays;
             expiresAt = new Date();
