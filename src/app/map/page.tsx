@@ -58,7 +58,7 @@ export default function MapPage() {
                     const callsData = await callsRes.json();
                     if (callsData && callsData.calls) {
                         // Filter to only show calls from the game
-                        const gameCalls = callsData.calls.filter((call: Call911) => !call.source || call.source === 'game');
+                        const gameCalls = Array.isArray(callsData.calls) ? callsData.calls.filter((call: Call911) => !call.source || call.source === 'game') : [];
                         setCalls(gameCalls);
                     }
                 }
@@ -71,7 +71,7 @@ export default function MapPage() {
     }, []);
 
     // Filter calls to only show game calls
-    const gameCalls = calls.filter(call => !call.source || call.source === 'game');
+    const gameCalls = Array.isArray(calls) ? calls.filter(call => !call.source || call.source === 'game') : [];
 
     const priorityColors = {
         low: 'bg-green-600',
