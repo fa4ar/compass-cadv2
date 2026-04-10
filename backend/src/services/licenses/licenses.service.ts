@@ -26,7 +26,7 @@ export class LicensesService {
             data: {
                 characterId,
                 licenseId,
-                status: 'Valid'
+                isActive: true
             },
             include: { license: true }
         });

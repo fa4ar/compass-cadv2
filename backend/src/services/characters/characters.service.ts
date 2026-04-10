@@ -17,6 +17,7 @@ interface CreateCharacterInput {
     isAlive?: boolean;
     deathReason?: string | null;
     deathDate?: Date | null;
+    ssn?: string | null;
 }
 
 interface UpdateCharacterInput {
@@ -40,6 +41,13 @@ interface UpdateCharacterInput {
 }
 
 export class CharactersService {
+    private generateSSN(): string {
+        const area = Math.floor(Math.random() * 899) + 100;
+        const group = Math.floor(Math.random() * 99).toString().padStart(2, "0");
+        const serial = Math.floor(Math.random() * 9999).toString().padStart(4, "0");
+        return `${area}-${group}-${serial}`;
+    }
+
     async createcharacter(data: CreateCharacterInput) {
         const CreateChar = await prisma.character.create({
             data: {
@@ -59,6 +67,7 @@ export class CharactersService {
                 isAlive: typeof data.isAlive === 'boolean' ? data.isAlive : true,
                 deathReason: data.deathReason || null,
                 deathDate: data.deathDate || null,
+                ssn: data.ssn || this.generateSSN(),
                 bankBalance: 0,
                 experience: 0,
                 level: 1,

@@ -300,7 +300,7 @@ export class UnitsService {
         return { success: true, message: 'Unit unassigned from call', callId };
     }
 
-    static async inviteToPair(senderUserId: number, targetUserId: number) {
+    static async inviteToPair(senderUserId: number, targetUserId: number, customCallSign?: string) {
         const targetUnit = await (prisma as any).unit.findUnique({
             where: { userId: targetUserId }
         });
@@ -317,7 +317,7 @@ export class UnitsService {
         if (!(global as any).pendingPairInvites) {
             (global as any).pendingPairInvites = {};
         }
-        (global as any).pendingPairInvites[targetUserId] = { fromUserId: senderUserId, timestamp: Date.now() };
+        (global as any).pendingPairInvites[targetUserId] = { fromUserId: senderUserId, timestamp: Date.now(), customCallSign };
 
         const senderUnit = await (prisma as any).unit.findUnique({
             where: { userId: senderUserId }
@@ -368,10 +368,15 @@ export class UnitsService {
 
         console.log(`[acceptPairInvite] Linking user ${userId} with ${pendingInvite.fromUserId}`);
 
-        // Generate combined badge - add +2 to the main unit's badge
-        const badge1 = senderUnit?.callSign || senderUnit?.departmentMember?.badgeNumber || pendingInvite.fromUserId.toString();
-        const badge2 = "";
-        const combinedBadge = `${badge1}+2`;
+        // Use custom call sign if provided, otherwise generate combined badge
+        let combinedBadge: string;
+        if (pendingInvite.customCallSign && pendingInvite.customCallSign.trim()) {
+            combinedBadge = pendingInvite.customCallSign.trim();
+        } else {
+            const badge1 = senderUnit?.callSign || senderUnit?.departmentMember?.badgeNumber || pendingInvite.fromUserId.toString();
+            const badge2 = "";
+            combinedBadge = `${badge1}+2`;
+        }
         
         console.log(`[acceptPairInvite] Combined badge: ${combinedBadge}`);
 
@@ -443,7 +448,7 @@ export class UnitsService {
         return { success: true };
     }
 
-    static async createPairDirectly(userId1: number, userId2: number, pairName: string) {
+    static async createPairDirectly(userId1: number, userId2: number, pairName: string, customCallSign?: string) {
         const prisma = require('../../lib/prisma').default;
 
         console.log(`[createPairDirectly] Creating pair between userId1: ${userId1}, userId2: ${userId2}`);
@@ -474,10 +479,15 @@ export class UnitsService {
             throw new Error('One or both units are already in a pair');
         }
 
-        // Generate combined badge - add +2 to the main unit's badge
-        const badge1 = unit1.callSign || unit1.departmentMember?.badgeNumber || unit1.id.toString();
-        const badge2 = unit2.callSign || unit2.departmentMember?.badgeNumber || unit2.id.toString();
-        const combinedBadge = `${badge1}+2`;
+        // Use custom call sign if provided, otherwise generate combined badge
+        let combinedBadge: string;
+        if (customCallSign && customCallSign.trim()) {
+            combinedBadge = customCallSign.trim();
+        } else {
+            const badge1 = unit1.callSign || unit1.departmentMember?.badgeNumber || unit1.id.toString();
+            const badge2 = unit2.callSign || unit2.departmentMember?.badgeNumber || unit2.id.toString();
+            combinedBadge = `${badge1}+2`;
+        }
         
         console.log(`[createPairDirectly] Combined badge: ${combinedBadge}`);
 

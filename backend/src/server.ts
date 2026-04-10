@@ -20,7 +20,7 @@ export const io = initSocket(server);
 import { discordBotService } from './services/discord-bot.service';
 
 app.use(cors({
-    origin: true, // Разрешаем текущий источник
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
 }));

@@ -243,7 +243,7 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
                                         <span className="text-[9px] text-zinc-600 uppercase tracking-tighter">Duty Status</span>
                                         <span className="text-xs font-black text-emerald-400 uppercase tracking-tight italic">● {blip.status || 'Active'}</span>
                                     </div>
-                                    
+
                                     <div className="flex flex-wrap gap-1.5 border-t border-zinc-800/50 pt-2">
                                         <span className="px-1.5 py-0.5 rounded text-[10px] font-black text-white uppercase" style={{ backgroundColor: blip.color }}>{blip.type}</span>
                                         <span className="text-[10px] font-extrabold text-zinc-400 uppercase tracking-tight">{blip.department}</span>
@@ -271,7 +271,7 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
                             </div>
                         </Popup>
                     </Marker>
-                )), [blips])}
+                )), [blips, convertToLatLng])}
 
                 {useMemo(() => calls.map((call) => (
                     <Marker
@@ -351,7 +351,7 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
                             </div>
                         </Popup>
                     </Marker>
-                )), [calls, onCallSelect])}
+                )), [calls, convertToLatLng, onCallSelect])}
             </MapContainer>
 
             {lastClickedCoord && (

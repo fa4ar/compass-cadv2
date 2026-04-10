@@ -121,13 +121,13 @@ export class UnitsController {
     static async inviteToPair(req: Request, res: Response, next: NextFunction) {
         try {
             const senderUserId = (req as any).user?.userId;
-            const { targetUserId } = req.body;
+            const { targetUserId, customCallSign } = req.body;
 
             if (!targetUserId) {
                 return res.status(400).json({ error: 'Missing targetUserId' });
             }
 
-            const result = await UnitsService.inviteToPair(Number(senderUserId), Number(targetUserId));
+            const result = await UnitsService.inviteToPair(Number(senderUserId), Number(targetUserId), customCallSign);
             res.json(result);
         } catch (error) {
             next(error);
@@ -159,7 +159,7 @@ export class UnitsController {
     static async createPairDirectly(req: Request, res: Response, next: NextFunction) {
         try {
             const userId = (req as any).user?.userId;
-            const { userId1, userId2, pairName } = req.body;
+            const { userId1, userId2, pairName, customCallSign } = req.body;
 
             if (!userId1 || !userId2) {
                 return res.status(400).json({ error: 'Both user IDs are required' });
@@ -173,7 +173,7 @@ export class UnitsController {
                 return res.status(403).json({ error: 'Only supervisors/dispatchers can create pairs directly' });
             }
 
-            const result = await UnitsService.createPairDirectly(userId1, userId2, pairName || '');
+            const result = await UnitsService.createPairDirectly(userId1, userId2, pairName || '', customCallSign);
             res.json(result);
         } catch (error: any) {
             res.status(400).json({ error: error.message });

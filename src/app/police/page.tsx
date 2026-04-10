@@ -199,6 +199,7 @@ function PolicePageContent() {
     const [showFineModal, setShowFineModal] = useState(false);
     const [showPairInviteModal, setShowPairInviteModal] = useState(false);
     const [pairInviteData, setPairInviteData] = useState<{ fromUserId: number; fromCallSign: string } | null>(null);
+    const [pairInviteCallSign, setPairInviteCallSign] = useState('');
     const [fineForm, setFineForm] = useState({
         characterId: null,
         amount: "",
@@ -224,7 +225,7 @@ function PolicePageContent() {
     const [draggedUnit, setDraggedUnit] = useState<any | null>(null);
     const [dropTargetUnit, setDropTargetUnit] = useState<any | null>(null);
     const [showCreatePairModal, setShowCreatePairModal] = useState(false);
-    const [createPairData, setCreatePairData] = useState<{ unit1: any; unit2: any; pairName: string } | null>(null);
+    const [createPairData, setCreatePairData] = useState<{ unit1: any; unit2: any; pairName: string; customCallSign: string } | null>(null);
 
     // Layout customization state
     const [isEditMode, setIsEditMode] = useState(false);
@@ -1337,11 +1338,15 @@ function PolicePageContent() {
             const res = await fetch(`${apiUrl}/api/units/invite`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ targetUserId: selectedUnit.userId })
+                body: JSON.stringify({ 
+                    targetUserId: selectedUnit.userId,
+                    customCallSign: pairInviteCallSign || undefined
+                })
             });
             if (res.ok) {
                 toast({ title: 'Приглашение отправлено', description: `Приглашение для ${selectedUnit.unit} отправлено` });
                 setSelectedUnit(null);
+                setPairInviteCallSign('');
             }
         } catch (err) {
             console.error('Failed to invite to pair', err);
@@ -1392,7 +1397,8 @@ function PolicePageContent() {
                 body: JSON.stringify({
                     userId1: createPairData.unit1.userId,
                     userId2: createPairData.unit2.userId,
-                    pairName: createPairData.pairName || `${createPairData.unit1.unit}-${createPairData.unit2.unit}`
+                    pairName: createPairData.pairName || `${createPairData.unit1.unit}-${createPairData.unit2.unit}`,
+                    customCallSign: createPairData.customCallSign || undefined
                 })
             });
             
@@ -1440,7 +1446,8 @@ function PolicePageContent() {
         setCreatePairData({
             unit1: draggedUnit,
             unit2: targetUnit,
-            pairName: `${draggedUnit.unit}-${targetUnit.unit}`
+            pairName: `${draggedUnit.unit}-${targetUnit.unit}`,
+            customCallSign: ''
         });
         setShowCreatePairModal(true);
         setDraggedUnit(null);
@@ -2369,6 +2376,15 @@ function PolicePageContent() {
 
                             {!selectedUnit.partnerUserId && !isInPair && (
                                 <>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-zinc-400">Позывной пары (опционально)</Label>
+                                        <Input
+                                            value={pairInviteCallSign}
+                                            onChange={(e) => setPairInviteCallSign(e.target.value)}
+                                            placeholder="Например: 2A-12"
+                                            className="bg-zinc-800/50 border-zinc-700"
+                                        />
+                                    </div>
                                     <Button variant="outline" className="w-full border-blue-800 text-blue-400 hover:bg-blue-900/20" onClick={handleInviteToPair}>
                                         <UserPlus className="w-4 h-4 mr-2" />
                                         Пригласить в пару
@@ -2517,6 +2533,16 @@ function PolicePageContent() {
                                     value={createPairData.pairName}
                                     onChange={(e) => setCreatePairData({ ...createPairData, pairName: e.target.value })}
                                     placeholder="Например: Alpha-1"
+                                    className="mt-1 bg-zinc-800 border-zinc-700"
+                                />
+                            </div>
+                            
+                            <div className="text-left">
+                                <label className="text-xs text-zinc-400 uppercase tracking-wide">Позывной (опционально)</label>
+                                <Input 
+                                    value={createPairData.customCallSign}
+                                    onChange={(e) => setCreatePairData({ ...createPairData, customCallSign: e.target.value })}
+                                    placeholder="Например: 2A-12"
                                     className="mt-1 bg-zinc-800 border-zinc-700"
                                 />
                             </div>

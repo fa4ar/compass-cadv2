@@ -118,7 +118,7 @@ function DispatcherPageContent() {
     const [draggedUnit, setDraggedUnit] = useState<Unit | null>(null);
     const [dropTargetUnit, setDropTargetUnit] = useState<Unit | null>(null);
     const [showCreatePairModal, setShowCreatePairModal] = useState(false);
-    const [createPairData, setCreatePairData] = useState<{ unit1: Unit; unit2: Unit; pairName: string } | null>(null);
+    const [createPairData, setCreatePairData] = useState<{ unit1: Unit; unit2: Unit; pairName: string; customCallSign: string } | null>(null);
 
     // Status dropdown state
     const [showStatusMenu, setShowStatusMenu] = useState(false);
@@ -504,7 +504,8 @@ function DispatcherPageContent() {
         setCreatePairData({
             unit1: draggedUnit,
             unit2: targetUnit,
-            pairName: `${draggedUnit.unit}-${targetUnit.unit}`
+            pairName: `${draggedUnit.unit}-${targetUnit.unit}`,
+            customCallSign: ''
         });
         setShowCreatePairModal(true);
         setDraggedUnit(null);
@@ -529,7 +530,8 @@ function DispatcherPageContent() {
                 body: JSON.stringify({
                     userId1: createPairData.unit1.userId,
                     userId2: createPairData.unit2.userId,
-                    pairName: createPairData.pairName || `${createPairData.unit1.unit}-${createPairData.unit2.unit}`
+                    pairName: createPairData.pairName || `${createPairData.unit1.unit}-${createPairData.unit2.unit}`,
+                    customCallSign: createPairData.customCallSign || undefined
                 })
             });
             
@@ -1737,6 +1739,16 @@ function DispatcherPageContent() {
                                     value={createPairData.pairName}
                                     onChange={(e) => setCreatePairData({ ...createPairData, pairName: e.target.value })}
                                     placeholder="Например: Alpha-1"
+                                    className="mt-1 bg-zinc-800 border-zinc-700"
+                                />
+                            </div>
+                            
+                            <div>
+                                <Label className="text-xs text-zinc-400 uppercase tracking-wide">Позывной (опционально)</Label>
+                                <Input 
+                                    value={createPairData.customCallSign}
+                                    onChange={(e) => setCreatePairData({ ...createPairData, customCallSign: e.target.value })}
+                                    placeholder="Например: 2A-12"
                                     className="mt-1 bg-zinc-800 border-zinc-700"
                                 />
                             </div>
