@@ -132,7 +132,10 @@ function DispatcherPageContent() {
         description: '',
         type: 'other',
         priority: 'routine',
-        isEmergency: false
+        isEmergency: false,
+        x: 0,
+        y: 0,
+        z: 0
     });
 
     // Sounds
@@ -339,36 +342,40 @@ function DispatcherPageContent() {
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
             const [unitsRes, callsRes] = await Promise.all([
-                fetch(`${apiUrl}/api/units`, { 
-                    headers: { 
+                fetch(`${apiUrl}/api/units`, {
+                    headers: {
                         'Authorization': `Bearer ${token}`,
                         'Cache-Control': 'no-store, no-cache, must-revalidate',
                         'Pragma': 'no-cache'
-                    } 
+                    }
                 }),
-                fetch(`${apiUrl}/api/calls911/active`, { 
-                    headers: { 
+                fetch(`${apiUrl}/api/calls911/active`, {
+                    headers: {
                         'Authorization': `Bearer ${token}`,
                         'Cache-Control': 'no-store, no-cache, must-revalidate',
                         'Pragma': 'no-cache'
-                    } 
+                    }
                 })
             ]);
 
             if (unitsRes.ok) {
                 const data = await unitsRes.json();
-                setUnits(data);
+                setUnits(Array.isArray(data) ? data : []);
             } else {
                 console.error('[DISPATCHER] Units fetch failed:', unitsRes.status);
+                setUnits([]);
             }
             if (callsRes.ok) {
                 const data = await callsRes.json();
-                setCalls(data);
+                setCalls(Array.isArray(data) ? data : []);
             } else {
                 console.error('[DISPATCHER] Calls fetch failed:', callsRes.status);
+                setCalls([]);
             }
         } catch (err) {
             console.error('Failed to fetch dispatcher data', err);
+            setUnits([]);
+            setCalls([]);
         } finally {
             setIsLoading(false);
         }
@@ -578,7 +585,10 @@ function DispatcherPageContent() {
                     description: '',
                     type: 'other',
                     priority: 'routine',
-                    isEmergency: false
+                    isEmergency: false,
+                    x: 0,
+                    y: 0,
+                    z: 0
                 });
                 fetchData();
             } else {
@@ -1805,6 +1815,39 @@ function DispatcherPageContent() {
                                         value={newCallData.location}
                                         onChange={(e) => setNewCallData({ ...newCallData, location: e.target.value })}
                                         placeholder="Адрес или район"
+                                        className="mt-1 bg-zinc-800 border-zinc-700"
+                                    />
+                                </div>
+                                
+                                <div>
+                                    <Label className="text-xs text-zinc-400">Координата X</Label>
+                                    <Input
+                                        type="number"
+                                        value={newCallData.x}
+                                        onChange={(e) => setNewCallData({ ...newCallData, x: parseFloat(e.target.value) || 0 })}
+                                        placeholder="0"
+                                        className="mt-1 bg-zinc-800 border-zinc-700"
+                                    />
+                                </div>
+
+                                <div>
+                                    <Label className="text-xs text-zinc-400">Координата Y</Label>
+                                    <Input
+                                        type="number"
+                                        value={newCallData.y}
+                                        onChange={(e) => setNewCallData({ ...newCallData, y: parseFloat(e.target.value) || 0 })}
+                                        placeholder="0"
+                                        className="mt-1 bg-zinc-800 border-zinc-700"
+                                    />
+                                </div>
+
+                                <div>
+                                    <Label className="text-xs text-zinc-400">Координата Z</Label>
+                                    <Input
+                                        type="number"
+                                        value={newCallData.z}
+                                        onChange={(e) => setNewCallData({ ...newCallData, z: parseFloat(e.target.value) || 0 })}
+                                        placeholder="0"
                                         className="mt-1 bg-zinc-800 border-zinc-700"
                                     />
                                 </div>

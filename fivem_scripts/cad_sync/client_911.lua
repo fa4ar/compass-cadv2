@@ -137,7 +137,7 @@ RegisterCommand('test911', function(source, args, rawCommand)
         priority = args[2] or "high",
         callerName = "John Doe",
         callerPhone = "(555) 123-4567",
-        x = -234.5, y = -789.2,
+        x = -234.5, y = -789.2, z = 30.0,
         createdAt = os.time() * 1000,
         responders = {
             { name = "Officer Johnson", status = "enroute" },
@@ -158,7 +158,7 @@ RegisterCommand('testassigned', function(source, args, rawCommand)
         priority = args[2] or "high",
         callerName = "John Doe",
         callerPhone = "(555) 123-4567",
-        x = -234.5, y = -789.2,
+        x = -234.5, y = -789.2, z = 30.0,
         createdAt = os.time() * 1000,
         responders = {
             { name = "Officer Johnson", status = "enroute" }

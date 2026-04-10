@@ -220,7 +220,7 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
     useEffect(() => {
         if (selectedCall && mapRef.current) {
             const latLng = convertToLatLng(selectedCall.x, selectedCall.y);
-            mapRef.current.setView(latLng, -1, { animate: true, duration: 0.5 });
+            mapRef.current.setView(latLng, 1, { animate: true, duration: 0.5 });
         }
     }, [selectedCall, convertToLatLng]);
 
