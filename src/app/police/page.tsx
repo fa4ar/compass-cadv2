@@ -274,7 +274,7 @@ function PolicePageContent() {
             // Only add police calls (not EMS/Fire)
             const isPoliceCall = newCall.callType === 'police' || !newCall.callType;
             if (isPoliceCall) {
-                setCalls(prev => [newCall, ...prev]);
+                setCalls(prev => Array.isArray(prev) ? [newCall, ...prev] : [newCall]);
                 playSound('new_call_911').then(() => console.log('[Police] Sound played')).catch(e => console.error('[Police] Sound error:', e));
             }
         });
@@ -285,7 +285,7 @@ function PolicePageContent() {
             const isPoliceCall = updatedCall.callType === 'police' || !updatedCall.callType;
             if (!isPoliceCall) return;
             
-            setCalls(prev => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
+            setCalls(prev => Array.isArray(prev) ? prev.map(c => c.id === updatedCall.id ? updatedCall : c) : [updatedCall]);
             // Update selected call modal with units if present
             setSelectedCallForNotes((prev: any) => {
                 if (prev?.id === updatedCall.id) {
@@ -299,12 +299,12 @@ function PolicePageContent() {
         });
 
         socket.on('new_911_note', ({ callId, note }: { callId: number, note: any }) => {
-            setCalls(prev => prev.map(c => {
+            setCalls(prev => Array.isArray(prev) ? prev.map(c => {
                 if (c.id === callId) {
                     return { ...c, notes: [...(c.notes || []), note] };
                 }
                 return c;
-            }));
+            }) : []);
             setSelectedCallForNotes((prev: any) => {
                 if (prev?.id === callId) {
                     return { ...prev, notes: [...(prev.notes || []), note] };
@@ -314,7 +314,7 @@ function PolicePageContent() {
         });
 
         socket.on('delete_911_call', ({ id }: { id: number }) => {
-            setCalls(prev => prev.filter(c => c.id !== id));
+            setCalls(prev => Array.isArray(prev) ? prev.filter(c => c.id !== id) : []);
             setSelectedCallForNotes((prev: any) => (prev?.id === id ? null : prev));
         });
 
@@ -333,19 +333,33 @@ function PolicePageContent() {
         });
 
         const handleCallUpdate = (data: any) => {
-            setCalls(prev => prev.map(c => c.id === data.callId ? { ...c, ...data.call } : c));
+            if (!data || !data.callId) return;
+            setCalls(prev => Array.isArray(prev) ? prev.map(c => c.id === data.callId ? { ...c, ...data.call } : c) : []);
             if (selectedCallForNotes?.id === data.callId) {
                 setSelectedCallForNotes(prev => prev ? { ...prev, ...data.call } : null);
             }
         };
 
         socket.on('unit_attached_to_call', (data: { userId: number; callId: number; unitCallSign: string; isLeadUnit: boolean; call: any }) => {
+            if (!data || !data.callId) return;
             console.log('[SOCKET] unit_attached_to_call:', data);
             playSound('notification');
             toast({ title: data.isLeadUnit ? 'Новый главный юнит' : 'Юнит прикреплен', description: `${data.unitCallSign} прикреплен к вызову #${data.callId}${data.isLeadUnit ? ' (ГЛАВНЫЙ)' : ''}` });
             
-            handleCallUpdate({ callId: data.callId, call: { status: data.call.status, mainUnitId: data.call.mainUnitId, units: data.call.units } });
+            handleCallUpdate({ callId: data.callId, call: { status: data.call?.status, mainUnitId: data.call.mainUnitId, units: data.call.units } });
 
+            setCalls(prev => Array.isArray(prev) ? prev.map(c => {
+                if (c.id === data.callId) {
+                    return {
+                        ...c,
+                        status: data.call?.status || c.status,
+                        mainUnitId: data.call.mainUnitId,
+                        units: data.call.units || c.units
+                    };
+                }
+                return c;
+            }) : []);
+            
             // Update currentUnit.callId if the attached unit is the current user
             if (currentUnit?.userId === data.userId) {
                 setCurrentUnit(prev => prev ? { ...prev, callId: data.callId } : null);
@@ -356,13 +370,14 @@ function PolicePageContent() {
         });
 
         socket.on('unit_detached_from_call', (data: { userId: number; callId: number; unitCallSign: string; newMainUnitId: number | null; call: any }) => {
+            if (!data || !data.callId) return;
             console.log('[SOCKET] unit_detached_from_call:', data);
             playSound('notification');
             toast({ title: 'Юнит откреплен', description: `${data.unitCallSign} откреплен от вызова #${data.callId}` });
             
             handleCallUpdate({ callId: data.callId, call: { status: data.call?.status, mainUnitId: data.newMainUnitId, units: data.call?.units } });
 
-            setCalls(prev => prev.map(c => {
+            setCalls(prev => Array.isArray(prev) ? prev.map(c => {
                 if (c.id === data.callId) {
                     return {
                         ...c,
@@ -372,7 +387,7 @@ function PolicePageContent() {
                     };
                 }
                 return c;
-            }));
+            }) : []);
             
             // Update selected call modal if open
             if (selectedCallForNotes?.id === data.callId) {
@@ -393,24 +408,25 @@ function PolicePageContent() {
         });
 
         socket.on('lead_unit_changed', (data: { callId: number; newLeadUserId: number; previousLeadUserId: number | null; call: any }) => {
+            if (!data || !data.callId) return;
             console.log('[SOCKET] lead_unit_changed:', data);
             playSound('notification');
             toast({ title: 'Новый главный юнит', description: `Главный юнит на вызове #${data.callId} изменен` });
             
             // Update calls immediately
-            setCalls(prev => prev.map(c => {
+            setCalls(prev => Array.isArray(prev) ? prev.map(c => {
                 if (c.id === data.callId) {
                     return {
                         ...c,
                         mainUnitId: data.newLeadUserId,
-                        units: data.call.units.map((u: any) => ({
+                        units: Array.isArray(data.call.units) ? data.call.units.map((u: any) => ({
                             ...u,
                             isLead: u.userId === data.newLeadUserId
-                        }))
+                        })) : []
                     };
                 }
                 return c;
-            }));
+            }) : []);
             
             // Update selected call modal if open
             if (selectedCallForNotes?.id === data.callId) {
@@ -564,9 +580,9 @@ function PolicePageContent() {
             if (callsRes.ok) {
                 const data = await callsRes.json();
                 // Only show police calls (not EMS/Fire)
-                const policeCalls = data.filter((c: any) => 
+                const policeCalls = Array.isArray(data) ? data.filter((c: any) =>
                     c.callType === 'police' || c.callType === undefined || !c.callType
-                );
+                ) : [];
                 setCalls(policeCalls);
                 // Restore selected call from fresh data
                 if (currentSelectedId) {
@@ -675,12 +691,12 @@ function PolicePageContent() {
                     }
                     return prev;
                 });
-                setCalls(prev => prev.map(c => {
+                setCalls(prev => Array.isArray(prev) ? prev.map(c => {
                     if (c.id === callId) {
                         return { ...c, notes: [...(c.notes || []), newNote] };
                     }
                     return c;
-                }));
+                }) : []);
             }
         } catch (err) {
             console.error('Failed to add call note', err);
@@ -794,7 +810,7 @@ function PolicePageContent() {
                 const updatedCall = await res.json();
                 toast({ title: 'Прикреплено', description: `Вы прикреплены к вызову #${callId}` });
                 setSelectedCallForNotes(updatedCall);
-                setCalls(prev => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
+                setCalls(prev => Array.isArray(prev) ? prev.map(c => c.id === updatedCall.id ? updatedCall : c) : [updatedCall]);
                 // Update currentUnit with callId for real-time badge update
                 setCurrentUnit(prev => prev ? { ...prev, callId } : null);
                 addSystemNote(callId, `${callSign} прикрепился к вызову`);
@@ -823,7 +839,7 @@ function PolicePageContent() {
                 const updatedCall = await res.json();
                 toast({ title: 'Откреплено', description: 'Вы откреплены от вызова' });
                 if (updatedCall) {
-                    setCalls(prev => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
+                    setCalls(prev => Array.isArray(prev) ? prev.map(c => c.id === updatedCall.id ? updatedCall : c) : [updatedCall]);
                     if (selectedCallForNotes?.id === updatedCall.id) {
                         setSelectedCallForNotes(updatedCall);
                     }
@@ -855,7 +871,7 @@ function PolicePageContent() {
                 const updatedCall = await res.json();
                 toast({ title: 'Главный назначен', description: 'Новый главный юнит назначен' });
                 setSelectedCallForNotes(updatedCall);
-                setCalls(prev => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
+                setCalls(prev => Array.isArray(prev) ? prev.map(c => c.id === updatedCall.id ? updatedCall : c) : [updatedCall]);
                 addSystemNote(callId, `Главный юнит изменен на юнит #${targetUserId}`);
                 fetchData();
             }
@@ -883,7 +899,7 @@ function PolicePageContent() {
                 const priorityLabels = { low: 'Низкий', medium: 'Средний', high: 'Высокий', critical: 'Критический' };
                 toast({ title: 'Приоритет обновлен', description: `Приоритет изменен на ${priorityLabels[priority as keyof typeof priorityLabels]}` });
                 setSelectedCallForNotes(updatedCall);
-                setCalls(prev => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
+                setCalls(prev => Array.isArray(prev) ? prev.map(c => c.id === updatedCall.id ? updatedCall : c) : [updatedCall]);
                 addSystemNote(callId, `Приоритет изменен на ${priorityLabels[priority as keyof typeof priorityLabels]}`);
                 fetchData();
             }

@@ -223,14 +223,14 @@ function EMSPageContent() {
         socket.on('new_911_call', (newCall: any) => {
             console.log('[SOCKET] new_911_call received:', newCall);
             // Add all calls (EMS can see all calls)
-            setCalls(prev => [newCall, ...prev]);
+            setCalls(prev => Array.isArray(prev) ? [newCall, ...prev] : [newCall]);
             playSound('new_call_911').then(() => console.log('[EMS] Sound played')).catch(e => console.error('[EMS] Sound error:', e));
         });
 
         socket.on('update_911_call', (updatedCall: any) => {
             console.log('[SOCKET] update_911_call received:', updatedCall);
             // Update all calls (EMS can see all calls)
-            setCalls(prev => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
+            setCalls(prev => Array.isArray(prev) ? prev.map(c => c.id === updatedCall.id ? updatedCall : c) : [updatedCall]);
             setSelectedCall((prev) => {
                 if (prev?.id === updatedCall.id) {
                     return updatedCall;
@@ -240,7 +240,7 @@ function EMSPageContent() {
         });
 
         socket.on('delete_911_call', ({ id }: { id: number }) => {
-            setCalls(prev => prev.filter(c => c.id !== id));
+            setCalls(prev => Array.isArray(prev) ? prev.filter(c => c.id !== id) : []);
             setSelectedCall((prev: any) => (prev?.id === id ? null : prev));
         });
 
@@ -250,7 +250,7 @@ function EMSPageContent() {
             toast({ title: data.isLeadUnit ? 'Новый главный юнит' : 'Юнит прикреплен', description: `${data.unitCallSign} прикреплен к вызову #${data.callId}${data.isLeadUnit ? ' (ГЛАВНЫЙ)' : ''}` });
 
             // Update calls immediately without full refetch
-            setCalls(prev => prev.map(c => {
+            setCalls(prev => Array.isArray(prev) ? prev.map(c => {
                 if (c.id === data.callId) {
                     return {
                         ...c,
@@ -260,7 +260,7 @@ function EMSPageContent() {
                     };
                 }
                 return c;
-            }));
+            }) : []);
 
             // Update selected call if it's the one being modified
             setSelectedCall((prev: any) => {
@@ -282,17 +282,17 @@ function EMSPageContent() {
             toast({ title: 'Юнит откреплен', description: `${data.unitCallSign} откреплен от вызова #${data.callId}` });
 
             // Update calls immediately without full refetch
-            setCalls(prev => prev.map(c => {
+            setCalls(prev => Array.isArray(prev) ? prev.map(c => {
                 if (c.id === data.callId) {
                     return {
                         ...c,
                         status: data.call?.status || c.status,
-                        units: data.call?.units || c.units,
-                        mainUnitId: data.newMainUnitId || undefined
+                        mainUnitId: data.call?.mainUnitId,
+                        units: data.call?.units || c.units
                     };
                 }
                 return c;
-            }));
+            }) : []);
 
             // Update selected call if it's the one being modified
             setSelectedCall((prev: any) => {
@@ -445,7 +445,7 @@ function EMSPageContent() {
             if (callsRes.ok) {
                 const data = await callsRes.json();
                 // Show all calls (EMS can see all calls)
-                setCalls(data);
+                setCalls(Array.isArray(data) ? data : []);
             }
             if (charsRes.ok) {
                 const data = await charsRes.json();
@@ -780,12 +780,12 @@ function EMSPageContent() {
 
                     if (freshCall) {
                         setSelectedCall(freshCall);
-                        setCalls(prev => prev.map(c => c.id === callId ? freshCall : c));
+                        setCalls(prev => Array.isArray(prev) ? prev.map(c => c.id === callId ? freshCall : c) : [freshCall]);
                     }
                 } else {
                     // Fallback if fresh fetch fails
                     setSelectedCall(updatedCall);
-                    setCalls(prev => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
+                    setCalls(prev => Array.isArray(prev) ? prev.map(c => c.id === updatedCall.id ? updatedCall : c) : [updatedCall]);
                 }
 
                 // Update current unit with callId
