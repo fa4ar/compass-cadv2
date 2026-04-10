@@ -24,7 +24,7 @@ function BannedPageContent() {
     const isAdmin = useMemo(() => {
         const roles = (user?.roles || []).map((role) => role.toLowerCase());
         return roles.includes('admin') || roles.includes('supervisor');
-    }, [user?.roles]);
+    }, [user]);
 
     useEffect(() => {
         if (user && !user.isBanned) {

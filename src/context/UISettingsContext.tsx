@@ -273,7 +273,7 @@ export function UISettingsProvider({ children }: { children: React.ReactNode }) 
             reset,
             profileKey,
         }),
-        [activeProfile, profileKey]
+        [activeProfile, profileKey, setSettings, setEnabled, reset]
     );
 
     return <UISettingsContext.Provider value={value}>{children}</UISettingsContext.Provider>;
