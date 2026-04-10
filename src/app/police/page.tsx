@@ -579,14 +579,13 @@ function PolicePageContent() {
             }
             if (callsRes.ok) {
                 const data = await callsRes.json();
-                // Only show police calls (not EMS/Fire)
-                const policeCalls = Array.isArray(data) ? data.filter((c: any) =>
+                const callsArray = Array.isArray(data) ? data : (data.calls || []);
+                const policeCalls = callsArray.filter((c: any) =>
                     c.callType === 'police' || c.callType === undefined || !c.callType
-                ) : [];
+                );
                 setCalls(policeCalls);
-                // Restore selected call from fresh data
                 if (currentSelectedId) {
-                    const updatedCall = data.find((c: any) => c.id === currentSelectedId);
+                    const updatedCall = callsArray.find((c: any) => c.id === currentSelectedId);
                     if (updatedCall) {
                         setSelectedCallForNotes(updatedCall);
                     }

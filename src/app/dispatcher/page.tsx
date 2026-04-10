@@ -363,7 +363,8 @@ function DispatcherPageContent() {
             }
             if (callsRes.ok) {
                 const data = await callsRes.json();
-                setCalls(Array.isArray(data) ? data : []);
+                const callsArray = Array.isArray(data) ? data : (data.calls || []);
+                setCalls(callsArray);
             } else {
                 console.error('[DISPATCHER] Calls fetch failed:', callsRes.status);
                 setCalls([]);
@@ -671,12 +672,7 @@ function DispatcherPageContent() {
             
             console.log('[DISPATCHER SEARCH] endpoint:', endpoint);
             
-            // Добавляем timestamp для обхода кэширования на уровне прокси/CDN
-            const urlWithCacheBuster = new URL(endpoint);
-            urlWithCacheBuster.searchParams.append('_t', Date.now().toString());
-            urlWithCacheBuster.searchParams.append('requestId', searchId);
-            
-            const res = await fetch(urlWithCacheBuster.toString(), {
+            const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

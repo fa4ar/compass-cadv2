@@ -5,14 +5,24 @@ import { PatientService } from '../../services/patient/patient.service';
 export class PatientController {
     static search = async (req: AuthRequest, res: Response) => {
         try {
-            const { q, ssn } = req.query;
-            
-            if (!q && !ssn) {
-                return res.status(400).json({ error: 'Search query required (q or ssn)' });
+            const { q, ssn, firstName, lastName } = req.query;
+
+            let query = q as string || undefined;
+
+            // If firstName and lastName are provided, combine them into a query
+            if (firstName || lastName) {
+                const parts: string[] = [];
+                if (firstName) parts.push(firstName as string);
+                if (lastName) parts.push(lastName as string);
+                query = parts.join(' ');
+            }
+
+            if (!query && !ssn) {
+                return res.status(400).json({ error: 'Search query required (q, firstName/lastName, or ssn)' });
             }
 
             const patients = await PatientService.search(
-                q as string || undefined,
+                query,
                 ssn as string || undefined
             );
 

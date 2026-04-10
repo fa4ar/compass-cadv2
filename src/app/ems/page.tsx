@@ -445,7 +445,8 @@ function EMSPageContent() {
             if (callsRes.ok) {
                 const data = await callsRes.json();
                 // Show all calls (EMS can see all calls)
-                setCalls(Array.isArray(data) ? data : []);
+                const callsArray = Array.isArray(data) ? data : (data.calls || []);
+                setCalls(callsArray);
             }
             if (charsRes.ok) {
                 const data = await charsRes.json();
