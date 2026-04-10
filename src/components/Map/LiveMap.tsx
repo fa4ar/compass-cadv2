@@ -271,7 +271,7 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
                             </div>
                         </Popup>
                     </Marker>
-                )), [blips, convertToLatLng])}
+                )), [blips])}
 
                 {useMemo(() => calls.map((call) => (
                     <Marker
@@ -351,7 +351,7 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
                             </div>
                         </Popup>
                     </Marker>
-                )), [calls, convertToLatLng, onCallSelect])}
+                )), [calls])}
             </MapContainer>
 
             {lastClickedCoord && (
