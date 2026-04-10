@@ -58,7 +58,6 @@ router.get('/link/check', async (req, res) => {
             select: {
                 id: true,
                 username: true,
-                roles: true,
                 discordId: true
             }
         });
@@ -72,19 +71,37 @@ router.get('/link/check', async (req, res) => {
             where: { 
                 userId: user.id,
                 status: { in: ['active', 'busy', 'enroute', 'onscene'] }
+            },
+            include: {
+                departmentMember: {
+                    include: {
+                        department: true
+                    }
+                }
             }
         });
 
         const onDuty = !!activeUnit;
+        
+        // Определяем роль на основе департамента
+        let job = null;
+        if (activeUnit?.departmentMember?.department) {
+            const deptType = activeUnit.departmentMember.department.type;
+            if (deptType === 'police') {
+                job = 'police';
+            } else if (deptType === 'ems' || deptType === 'fire') {
+                job = 'ems';
+            }
+        }
 
         res.json({ 
             linked: true,
             user: {
                 id: user.id,
                 username: user.username,
-                roles: user.roles,
                 discordId: user.discordId,
-                onDuty: onDuty
+                onDuty: onDuty,
+                job: job
             }
         });
     } catch (error: any) {

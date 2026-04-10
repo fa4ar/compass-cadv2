@@ -28,27 +28,10 @@ local function CheckDutyStatus()
         if status == 200 then
             local data = json.decode(body)
             if data and data.linked and data.user then
-                -- Проверяем роли пользователя
-                local roles = data.user.roles or {}
-                local isCop = false
-                local isEms = false
-                
-                for _, role in ipairs(roles) do
-                    if role:lower() == "police" then
-                        isCop = true
-                    elseif role:lower() == "ems" then
-                        isEms = true
-                    end
-                end
-                
-                -- Проверяем, находится ли юнит на смене в CAD
-                if data.user.onDuty then
+                -- API теперь возвращает job напрямую
+                if data.user.onDuty and data.user.job then
                     isOnDuty = true
-                    if isCop then
-                        playerJob = "police"
-                    elseif isEms then
-                        playerJob = "ems"
-                    end
+                    playerJob = data.user.job
                 else
                     isOnDuty = false
                     playerJob = nil
