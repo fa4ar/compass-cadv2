@@ -125,4 +125,127 @@ router.delete('/:id', authMiddleware as RequestHandler, async (req, res) => {
     }
 });
 
+// Добавить тег персонажу
+router.post('/:id/tags', authMiddleware as RequestHandler, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { tagKey, label, description, expiresInDays, reason } = req.body;
+        const userId = (req as any).user?.userId;
+        const userRoles = (req as any).user?.roles || [];
+
+        const character = await (prisma as any).character.findUnique({
+            where: { id: parseInt(id) },
+            select: { userId: true }
+        });
+
+        if (!character) {
+            return res.status(404).json({ error: 'Character not found' });
+        }
+
+        const isAdmin = userRoles.includes('admin');
+        const isOwner = character.userId === userId;
+
+        if (!isOwner && !isAdmin) {
+            return res.status(403).json({ error: 'You can only add tags to your own characters' });
+        }
+
+        // Get tag definition
+        const tagDefinition = await (prisma as any).roleplayTagDefinition.findUnique({
+            where: { key: tagKey }
+        });
+
+        if (!tagDefinition) {
+            return res.status(404).json({ error: 'Tag definition not found' });
+        }
+
+        // Check if self-application is allowed
+        if (!tagDefinition.canBeSelfApplied && !isAdmin) {
+            return res.status(403).json({ error: 'This tag cannot be self-applied' });
+        }
+
+        // Check max instances
+        const existingTags = await (prisma as any).characterRoleplayTag.count({
+            where: {
+                characterId: parseInt(id),
+                tagKey,
+                isActive: true
+            }
+        });
+
+        if (tagDefinition.maxInstances && existingTags >= tagDefinition.maxInstances) {
+            return res.status(400).json({ error: 'Maximum number of this tag type reached' });
+        }
+
+        // Calculate expiration
+        let expiresAt = null;
+        if (expiresInDays || tagDefinition.autoExpireDays) {
+            const days = expiresInDays || tagDefinition.autoExpireDays;
+            expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + days);
+        }
+
+        const tag = await (prisma as any).characterRoleplayTag.create({
+            data: {
+                characterId: parseInt(id),
+                tagKey,
+                label: label || tagDefinition.label,
+                description: description || tagDefinition.description,
+                reason: reason || tagDefinition.requiresReason ? (reason || 'Self-applied') : null,
+                expiresAt,
+                addedBy: userId,
+                isActive: true
+            },
+            include: {
+                definition: true
+            }
+        });
+
+        res.json(tag);
+    } catch (error) {
+        console.error('Add character tag error:', error);
+        res.status(500).json({ error: 'Failed to add tag' });
+    }
+});
+
+// Получить теги персонажа
+router.get('/:id/tags', authMiddleware as RequestHandler, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = (req as any).user?.userId;
+        const userRoles = (req as any).user?.roles || [];
+
+        const character = await (prisma as any).character.findUnique({
+            where: { id: parseInt(id) },
+            select: { userId: true }
+        });
+
+        if (!character) {
+            return res.status(404).json({ error: 'Character not found' });
+        }
+
+        const isAdmin = userRoles.includes('admin');
+        const isOwner = character.userId === userId;
+
+        if (!isOwner && !isAdmin) {
+            return res.status(403).json({ error: 'You can only view tags for your own characters' });
+        }
+
+        const tags = await (prisma as any).characterRoleplayTag.findMany({
+            where: {
+                characterId: parseInt(id),
+                isActive: true
+            },
+            include: {
+                definition: true
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        res.json(tags);
+    } catch (error) {
+        console.error('Get character tags error:', error);
+        res.status(500).json({ error: 'Failed to fetch tags' });
+    }
+});
+
 export default router;

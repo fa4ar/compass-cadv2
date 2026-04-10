@@ -58,11 +58,11 @@ export default function Header() {
     const { user, hasRole, isAuthenticated, isLoading } = useAuth();
     const { isConnected } = useSocket();
     
-    const isAdmin = useMemo(() => hasRole(['admin', 'Admin']), [hasRole]);
+    const isAdmin = useMemo(() => hasRole(['admin', 'Admin']), []);
     
     const availablePages = useMemo(() => 
         ROLE_PAGES.filter(role => !role.disabled && (!role.requiredRoles?.length || hasRole(role.requiredRoles))),
-        [hasRole, user?.roles]
+        [user?.roles]
     );
     
     const adminPage = useMemo(() => 
