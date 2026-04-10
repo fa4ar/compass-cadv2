@@ -1,5 +1,6 @@
 // src/app/layout.tsx
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { SocketProvider } from "../context/SocketContext";
 import { AuthProvider } from "../context/AuthContext";
@@ -9,6 +10,12 @@ import Header from "@/components/Header";
 import FooterBar from "@/components/Footer";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+
+const inter = Inter({
+    subsets: ["latin", "cyrillic"],
+    variable: "--font-inter",
+    display: "swap",
+});
 
 export const metadata: Metadata = {
     title: "Compass CAD",
@@ -23,10 +30,10 @@ export default function RootLayout({
     return (
         <html
             lang="ru"
-            className="h-full antialiased ui-hard"
+            className={`${inter.variable} h-full antialiased ui-hard`}
             suppressHydrationWarning
         >
-            <body className="min-h-full flex flex-col bg-background text-foreground">
+            <body className="min-h-full flex flex-col bg-background text-foreground font-sans">
                 <SocketProvider>
                     <AuthProvider>
                         <ThemeProvider>
