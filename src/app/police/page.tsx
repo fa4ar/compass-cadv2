@@ -179,7 +179,7 @@ function PolicePageContent() {
         return result;
     };
 
-    const groupedUnits = React.useMemo(() => groupUnits(units), []);
+    const groupedUnits = React.useMemo(() => groupUnits(units), [units]);
 
     // Sounds
     const { playSound } = useSound();

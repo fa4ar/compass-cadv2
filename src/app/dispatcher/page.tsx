@@ -166,7 +166,7 @@ function DispatcherPageContent() {
         return result;
     };
 
-    const displayUnits = React.useMemo(() => groupUnits(units), []);
+    const displayUnits = React.useMemo(() => groupUnits(units), [units]);
 
     // PERSISTENCE: Load from localStorage on mount
     useEffect(() => {
