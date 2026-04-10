@@ -481,11 +481,11 @@ export class UnitsService {
 
         // Use custom call sign if provided, otherwise generate combined badge
         let combinedBadge: string;
+        const badge1 = unit1.callSign || unit1.departmentMember?.badgeNumber || unit1.id.toString();
+        const badge2 = unit2.callSign || unit2.departmentMember?.badgeNumber || unit2.id.toString();
         if (customCallSign && customCallSign.trim()) {
             combinedBadge = customCallSign.trim();
         } else {
-            const badge1 = unit1.callSign || unit1.departmentMember?.badgeNumber || unit1.id.toString();
-            const badge2 = unit2.callSign || unit2.departmentMember?.badgeNumber || unit2.id.toString();
             combinedBadge = `${badge1}+2`;
         }
         
