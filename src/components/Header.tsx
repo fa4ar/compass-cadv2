@@ -3,7 +3,8 @@
 import React, { useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { ChevronDown, IdCard, Shield, Radio, Heart, Settings, Compass } from 'lucide-react';
+import { useSocket } from '@/context/SocketContext';
+import { ChevronDown, IdCard, Shield, Radio, Heart, Settings, Compass, Wifi, WifiOff, Truck } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -12,6 +13,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import UserMenu from '@/components/UserMenu';
 
 type RolePage = {
@@ -24,11 +26,12 @@ type RolePage = {
 };
 
 const ROLE_PAGES: RolePage[] = [
-    { key: 'civilian', label: 'Civilian', path: '/citizen', icon: IdCard, requiredRoles: ['citizen'] },
-    { key: 'dispatcher', label: 'Dispatcher', path: '/dispatcher', icon: Radio, requiredRoles: ['dispatcher'] },
-    { key: 'officer', label: 'Police', path: '/police', icon: Shield, requiredRoles: ['police'] },
+    { key: 'civilian', label: 'Граджданские', path: '/citizen', icon: IdCard, requiredRoles: ['citizen'] },
+    { key: 'dispatcher', label: 'Диспетчер', path: '/dispatcher', icon: Radio, requiredRoles: ['dispatcher'] },
+    { key: 'officer', label: 'Полиция', path: '/police', icon: Shield, requiredRoles: ['police'] },
     { key: 'map', label: 'Live Map', path: '/map', icon: Compass, requiredRoles: ['police', 'dispatcher'] },
-    { key: 'ems', label: 'EMS / Fire', path: '/ems', icon: Heart, disabled: true },
+    { key: 'ems', label: 'Медики/Пожарные', path: '/ems', icon: Heart, requiredRoles: ['ems'] },
+    { key: 'dot', label: 'Общественные Службы', path: '/dot', icon: Truck, requiredRoles: ['dot', 'admin', 'Admin'] },
 ];
 
 function HeaderSkeleton() {
@@ -53,12 +56,13 @@ export default function Header() {
     const pathname = usePathname();
     const router = useRouter();
     const { user, hasRole, isAuthenticated, isLoading } = useAuth();
+    const { isConnected } = useSocket();
     
     const isAdmin = useMemo(() => hasRole(['admin', 'Admin']), [hasRole]);
     
     const availablePages = useMemo(() => 
         ROLE_PAGES.filter(role => !role.disabled && (!role.requiredRoles?.length || hasRole(role.requiredRoles))),
-        [hasRole]
+        [hasRole, user?.roles]
     );
     
     const adminPage = useMemo(() => 
@@ -173,6 +177,17 @@ export default function Header() {
             </div>
             
             <div className="flex-1 flex items-center gap-3 justify-end">
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                        </TooltipTrigger>
+                        <TooltipContent className="bg-zinc-900 border-zinc-800">
+                            <p className="text-xs text-zinc-400">
+                                {isConnected ? 'Socket подключен' : 'Socket отключен'}
+                            </p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
                 <UserMenu />
             </div>
         </div>

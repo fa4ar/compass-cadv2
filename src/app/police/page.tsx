@@ -27,8 +27,20 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/context/AuthContext';
-import { socket } from '@/lib/socket';
+import { useSocket } from '@/context/SocketContext';
 import { useSound } from '@/hooks/useSound';
+import { StatusBadge } from '@/components/police-dispatcher/StatusBadge';
+import { CallCard } from '@/components/police-dispatcher/CallCard';
+import { CallDetailsModal } from '@/components/police-dispatcher/CallDetailsModal';
+import { UnitTooltip } from '@/components/police-dispatcher/UnitTooltip';
+import { UnitDetailsPanel } from '@/components/police-dispatcher/UnitDetailsPanel';
+import { DutyModal } from '@/components/police-dispatcher/DutyModal';
+import { MessageModal } from '@/components/police-dispatcher/MessageModal';
+import { PairCreationModal } from '@/components/police-dispatcher/PairCreationModal';
+import { NCICSearchPanel } from '@/components/police-dispatcher/NCICSearchPanel';
+import { FineModal } from '@/components/police-dispatcher/FineModal';
+import { WarrantModal } from '@/components/police-dispatcher/WarrantModal';
+import { LayoutEditor } from '@/components/police-dispatcher/LayoutEditor';
 
 interface Character {
     id: string;
@@ -102,6 +114,7 @@ export default function PolicePage() {
 
 function PolicePageContent() {
     const { user } = useAuth();
+    const { socket, isConnected } = useSocket();
     const [units, setUnits] = useState<Unit[]>([]);
     const [calls, setCalls] = useState<any[]>([]);
     const [characters, setCharacters] = useState<Character[]>([]);
@@ -117,12 +130,24 @@ function PolicePageContent() {
     const [newCallNoteText, setNewCallNoteText] = useState("");
     const [callSign, setCallSign] = useState("");
     const [subdivision, setSubdivision] = useState("");
-    const [vehicleModel, setVehicleModel] = useState("");
-    const [vehiclePlate, setVehiclePlate] = useState("");
 
     const [currentMember, setCurrentMember] = useState<DepartmentMember | null>(null);
     const [selectedUnit, setSelectedUnit] = useState<any | null>(null);
     const [unitMessage, setUnitMessage] = useState("");
+
+    // Quick actions modals
+    const [showBoloModal, setShowBoloModal] = useState(false);
+    const [showPlateCheckModal, setShowPlateCheckModal] = useState(false);
+    const [showDotModal, setShowDotModal] = useState(false);
+    const [show2hrModal, setShow2hrModal] = useState(false);
+    const [showVehicleInfoModal, setShowVehicleInfoModal] = useState(false);
+
+    // Quick actions form states
+    const [boloForm, setBoloForm] = useState({ type: 'vehicle', description: '', plate: '', color: '', model: '' });
+    const [plateCheckForm, setPlateCheckForm] = useState({ plate: '' });
+    const [dotForm, setDotForm] = useState({ location: '', description: '' });
+    const [twoHrForm, setTwoHrForm] = useState({ location: '', description: '' });
+    const [vehicleInfo, setVehicleInfo] = useState<any>(null);
 
     const isSupervisor = currentMember?.rank?.isSupervisor || user?.roles?.some(r => r.toLowerCase() === 'admin' || r.toLowerCase() === 'supervisor') || false;
     const canManageUnits = isSupervisor || false;
@@ -244,20 +269,35 @@ function PolicePageContent() {
         const savedNotes = localStorage.getItem('policeNotes');
         if (savedNotes) setNotes(savedNotes);
 
-        socket.connect();
+        // Socket connection handled by SocketProvider
 
         socket.on('new_911_call', (newCall: any) => {
             console.log('[SOCKET] new_911_call received:', newCall);
-            setCalls(prev => [newCall, ...prev]);
-            playSound('new_call_911').then(() => console.log('[Police] Sound played')).catch(e => console.error('[Police] Sound error:', e));
-            // Only show toast for new calls, NOT the full card
-            // Full card shows ONLY when this specific unit is assigned to call (handled by call_assigned_to_unit)
+            // Only add police calls (not EMS/Fire)
+            const isPoliceCall = newCall.callType === 'police' || !newCall.callType;
+            if (isPoliceCall) {
+                setCalls(prev => [newCall, ...prev]);
+                playSound('new_call_911').then(() => console.log('[Police] Sound played')).catch(e => console.error('[Police] Sound error:', e));
+            }
         });
 
         socket.on('update_911_call', (updatedCall: any) => {
             console.log('[SOCKET] update_911_call received:', updatedCall);
+            // Only process police calls
+            const isPoliceCall = updatedCall.callType === 'police' || !updatedCall.callType;
+            if (!isPoliceCall) return;
+            
             setCalls(prev => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
-            setSelectedCallForNotes((prev: any) => (prev?.id === updatedCall.id ? updatedCall : prev));
+            // Update selected call modal with units if present
+            setSelectedCallForNotes((prev: any) => {
+                if (prev?.id === updatedCall.id) {
+                    return { 
+                        ...updatedCall, 
+                        units: updatedCall.units || prev.units 
+                    };
+                }
+                return prev;
+            });
         });
 
         socket.on('new_911_note', ({ callId, note }: { callId: number, note: any }) => {
@@ -294,6 +334,101 @@ function PolicePageContent() {
             fetchData();
         });
 
+        const handleCallUpdate = (data: any) => {
+            setCalls(prev => prev.map(c => c.id === data.callId ? { ...c, ...data.call } : c));
+            if (selectedCallForNotes?.id === data.callId) {
+                setSelectedCallForNotes(prev => prev ? { ...prev, ...data.call } : null);
+            }
+        };
+
+        socket.on('unit_attached_to_call', (data: { userId: number; callId: number; unitCallSign: string; isLeadUnit: boolean; call: any }) => {
+            console.log('[SOCKET] unit_attached_to_call:', data);
+            playSound('notification');
+            toast({ title: data.isLeadUnit ? 'Новый главный юнит' : 'Юнит прикреплен', description: `${data.unitCallSign} прикреплен к вызову #${data.callId}${data.isLeadUnit ? ' (ГЛАВНЫЙ)' : ''}` });
+            
+            handleCallUpdate({ callId: data.callId, call: { status: data.call.status, mainUnitId: data.call.mainUnitId, units: data.call.units } });
+
+            // Update currentUnit.callId if the attached unit is the current user
+            if (currentUnit?.userId === data.userId) {
+                setCurrentUnit(prev => prev ? { ...prev, callId: data.callId } : null);
+            }
+
+            // Also refresh full data in background
+            fetchData();
+        });
+
+        socket.on('unit_detached_from_call', (data: { userId: number; callId: number; unitCallSign: string; newMainUnitId: number | null; call: any }) => {
+            console.log('[SOCKET] unit_detached_from_call:', data);
+            playSound('notification');
+            toast({ title: 'Юнит откреплен', description: `${data.unitCallSign} откреплен от вызова #${data.callId}` });
+            
+            handleCallUpdate({ callId: data.callId, call: { status: data.call?.status, mainUnitId: data.newMainUnitId, units: data.call?.units } });
+
+            setCalls(prev => prev.map(c => {
+                if (c.id === data.callId) {
+                    return {
+                        ...c,
+                        status: data.call?.status || c.status,
+                        mainUnitId: data.newMainUnitId,
+                        units: data.call?.units || c.units
+                    };
+                }
+                return c;
+            }));
+            
+            // Update selected call modal if open
+            if (selectedCallForNotes?.id === data.callId) {
+                setSelectedCallForNotes((prev: typeof selectedCallForNotes) => prev ? { 
+                    ...prev, 
+                    status: data.call?.status || prev.status,
+                    mainUnitId: data.newMainUnitId,
+                    units: data.call?.units || []
+                } : null);
+            }
+            
+            // Update currentUnit.callId if the detached unit is the current user
+            if (currentUnit?.userId === data.userId) {
+                setCurrentUnit(prev => prev ? { ...prev, callId: undefined } : null);
+            }
+            
+            fetchData();
+        });
+
+        socket.on('lead_unit_changed', (data: { callId: number; newLeadUserId: number; previousLeadUserId: number | null; call: any }) => {
+            console.log('[SOCKET] lead_unit_changed:', data);
+            playSound('notification');
+            toast({ title: 'Новый главный юнит', description: `Главный юнит на вызове #${data.callId} изменен` });
+            
+            // Update calls immediately
+            setCalls(prev => prev.map(c => {
+                if (c.id === data.callId) {
+                    return {
+                        ...c,
+                        mainUnitId: data.newLeadUserId,
+                        units: data.call.units.map((u: any) => ({
+                            ...u,
+                            isLead: u.userId === data.newLeadUserId
+                        }))
+                    };
+                }
+                return c;
+            }));
+            
+            // Update selected call modal if open
+            if (selectedCallForNotes?.id === data.callId) {
+                setSelectedCallForNotes((prev: typeof selectedCallForNotes) => prev ? { 
+                    ...prev, 
+                    mainUnitId: data.newLeadUserId,
+                    units: data.call.units.map((u: any) => ({
+                        ...u,
+                        isLead: u.userId === data.newLeadUserId
+                    }))
+                } : null);
+            }
+            
+            fetchData();
+        });
+
         socket.on('unit_assigned', (data: { userId: number; callId: number; unitCallSign: string }) => {
             playSound('notification');
             toast({ title: 'Прикреплен к вызову', description: `Юнит ${data.unitCallSign} прикреплен к вызову #${data.callId}` });
@@ -301,15 +436,8 @@ function PolicePageContent() {
         });
 
         socket.on('call_assigned_to_unit', (data: { userId: number; call: any }) => {
-            console.log('[SOCKET] call_assigned_to_unit received:', data);
-            if (data.userId === user?.id) {
-                playSound('notification');
-                toast({ title: 'Прикреплены к вызову', description: `Вы прикреплены к вызову #${data.call.id}` });
-                fetchData();
-                
-                // Update currentUnit callId immediately without full refetch
-                setCurrentUnit(prev => prev ? { ...prev, callId: data.call.id, status: 'Dispatched' } : null);
-            }
+            // Deprecated - now using unit_attached_to_call
+            // Keeping for backwards compatibility but no action needed
         });
 
         socket.on('unit_status_changed', (data: { userId: number; status: string; unitCallSign: string }) => {
@@ -368,14 +496,16 @@ function PolicePageContent() {
             socket.off('supervisor_message');
             socket.off('unit_unassigned');
             socket.off('unit_assigned');
+            socket.off('unit_attached_to_call');
+            socket.off('unit_detached_from_call');
+            socket.off('lead_unit_changed');
             socket.off('unit_status_changed');
             socket.off('unit_pair_update');
             socket.off('pair_invite');
             socket.off('pair_formed');
             socket.off('pair_disbanded');
-            socket.disconnect();
         };
-    }, []);
+    }, [selectedCallForNotes?.id]);
 
     const handleTabChange = (tab: string) => {
         setActiveTab(tab);
@@ -406,8 +536,6 @@ function PolicePageContent() {
                     setCurrentMember(unitData.departmentMember);
                     setCallSign(unitData.callSign || "");
                     setSubdivision(unitData.subdivision || "");
-                    setVehicleModel(unitData.vehicleModel || "");
-                    setVehiclePlate(unitData.vehiclePlate || "");
                     setOnDuty(true);
                 }
             }
@@ -417,6 +545,7 @@ function PolicePageContent() {
     };
 
     const fetchData = async () => {
+        const currentSelectedId = selectedCallForNotes?.id;
         setIsLoading(true);
         try {
             const token = localStorage.getItem('accessToken');
@@ -436,7 +565,18 @@ function PolicePageContent() {
             }
             if (callsRes.ok) {
                 const data = await callsRes.json();
-                setCalls(data);
+                // Only show police calls (not EMS/Fire)
+                const policeCalls = data.filter((c: any) => 
+                    c.callType === 'police' || c.callType === undefined || !c.callType
+                );
+                setCalls(policeCalls);
+                // Restore selected call from fresh data
+                if (currentSelectedId) {
+                    const updatedCall = data.find((c: any) => c.id === currentSelectedId);
+                    if (updatedCall) {
+                        setSelectedCallForNotes(updatedCall);
+                    }
+                }
             }
             if (charsRes.ok) {
                 const data = await charsRes.json();
@@ -478,9 +618,7 @@ function PolicePageContent() {
                     characterId: selectedCharacter ? parseInt(selectedCharacter) : null,
                     departmentMemberId: member?.id || null,
                     callSign,
-                    subdivision,
-                    vehicleModel,
-                    vehiclePlate
+                    subdivision
                 })
             });
 
@@ -530,15 +668,21 @@ function PolicePageContent() {
             });
 
             if (res.ok) {
+                const newNote = await res.json();
                 setNewCallNoteText("");
-                fetchData();
-
-                const updatedRes = await fetch(`${apiUrl}/api/calls911/active`, { headers: { 'Authorization': `Bearer ${token}` } });
-                if (updatedRes.ok) {
-                    const data = await updatedRes.json();
-                    const current = data.find((c: any) => c.id === callId);
-                    if (current) setSelectedCallForNotes(current);
-                }
+                // Update local state immediately for instant feedback
+                setSelectedCallForNotes((prev: any) => {
+                    if (prev?.id === callId) {
+                        return { ...prev, notes: [...(prev.notes || []), newNote] };
+                    }
+                    return prev;
+                });
+                setCalls(prev => prev.map(c => {
+                    if (c.id === callId) {
+                        return { ...c, notes: [...(c.notes || []), newNote] };
+                    }
+                    return c;
+                }));
             }
         } catch (err) {
             console.error('Failed to add call note', err);
@@ -652,10 +796,11 @@ function PolicePageContent() {
                 const updatedCall = await res.json();
                 toast({ title: 'Прикреплено', description: `Вы прикреплены к вызову #${callId}` });
                 setSelectedCallForNotes(updatedCall);
+                setCalls(prev => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
+                // Update currentUnit with callId for real-time badge update
+                setCurrentUnit(prev => prev ? { ...prev, callId } : null);
+                addSystemNote(callId, `${callSign} прикрепился к вызову`);
                 fetchData();
-            } else {
-                const data = await res.json();
-                toast({ title: 'Ошибка', description: data.error || 'Не удалось прикрепиться', variant: 'destructive' });
             }
         } catch (err) {
             console.error('Failed to attach to call', err);
@@ -677,7 +822,16 @@ function PolicePageContent() {
             });
 
             if (res.ok) {
+                const updatedCall = await res.json();
                 toast({ title: 'Откреплено', description: 'Вы откреплены от вызова' });
+                if (updatedCall) {
+                    setCalls(prev => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
+                    if (selectedCallForNotes?.id === updatedCall.id) {
+                        setSelectedCallForNotes(updatedCall);
+                    }
+                }
+                // Clear callId from currentUnit for real-time badge update
+                setCurrentUnit(prev => prev ? { ...prev, callId: undefined } : null);
                 fetchData();
             }
         } catch (err) {
@@ -703,10 +857,61 @@ function PolicePageContent() {
                 const updatedCall = await res.json();
                 toast({ title: 'Главный назначен', description: 'Новый главный юнит назначен' });
                 setSelectedCallForNotes(updatedCall);
+                setCalls(prev => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
+                addSystemNote(callId, `Главный юнит изменен на юнит #${targetUserId}`);
                 fetchData();
             }
         } catch (err) {
             console.error('Failed to set main unit', err);
+        }
+    };
+
+    const handleUpdatePriority = async (callId: number, priority: string) => {
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+            const res = await fetch(`${apiUrl}/api/calls911/${callId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ priority })
+            });
+
+            if (res.ok) {
+                const updatedCall = await res.json();
+                const priorityLabels = { low: 'Низкий', medium: 'Средний', high: 'Высокий', critical: 'Критический' };
+                toast({ title: 'Приоритет обновлен', description: `Приоритет изменен на ${priorityLabels[priority as keyof typeof priorityLabels]}` });
+                setSelectedCallForNotes(updatedCall);
+                setCalls(prev => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
+                addSystemNote(callId, `Приоритет изменен на ${priorityLabels[priority as keyof typeof priorityLabels]}`);
+                fetchData();
+            }
+        } catch (err) {
+            console.error('Failed to update priority', err);
+        }
+    };
+
+    const addSystemNote = async (callId: number, message: string) => {
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+            await fetch(`${apiUrl}/api/calls911/${callId}/notes`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    text: message,
+                    author: 'SYSTEM'
+                })
+            });
+        } catch (err) {
+            console.error('Failed to add system note', err);
         }
     };
 
@@ -916,6 +1121,157 @@ function PolicePageContent() {
             }
         } catch (err) {
             console.error('Failed to cancel warrant:', err);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    // Quick action handlers
+    const handleBoloSubmit = async () => {
+        setIsSubmitting(true);
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+            const res = await fetch(`${apiUrl}/api/roleplay/bolos`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    ...boloForm,
+                    createdBy: currentUnit?.userId || user?.id,
+                    status: 'active'
+                })
+            });
+
+            if (res.ok) {
+                toast({ title: 'BOLO создан', description: 'BOLO был успешно создан.' });
+                setShowBoloModal(false);
+                setBoloForm({ type: 'vehicle', description: '', plate: '', color: '', model: '' });
+            }
+        } catch (err) {
+            console.error('Failed to create BOLO:', err);
+            toast({ title: 'Ошибка', description: 'Не удалось создать BOLO.' });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handlePlateCheck = async () => {
+        if (!plateCheckForm.plate.trim()) return;
+        
+        setIsSearching(true);
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+            const res = await fetch(`${apiUrl}/api/ncic/search?plate=${plateCheckForm.plate}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.length > 0) {
+                    // Find the result with vehicle info
+                    const vehicleResult = data.find((item: any) => item.vehicles && item.vehicles.length > 0);
+                    if (vehicleResult) {
+                        setVehicleInfo(vehicleResult);
+                        setShowVehicleInfoModal(true);
+                        setShowPlateCheckModal(false);
+                        setPlateCheckForm({ plate: '' });
+                    } else {
+                        toast({ title: 'Не найдено', description: 'Транспортное средство не найдено', variant: 'destructive' });
+                    }
+                } else {
+                    toast({ title: 'Не найдено', description: 'Транспортное средство не найдено', variant: 'destructive' });
+                }
+            }
+        } catch (err) {
+            console.error('Failed plate check:', err);
+            toast({ title: 'Ошибка', description: 'Не удалось выполнить поиск', variant: 'destructive' });
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    const handleSearchOwner = (firstName: string, lastName: string) => {
+        setNcicFields(prev => ({ ...prev, firstName, lastName, plate: '' }));
+        setActiveTab("NCIC");
+        setShowVehicleInfoModal(false);
+        setTimeout(() => handleNCICSearch(), 100);
+    };
+
+    const handleDotCall = async () => {
+        setIsSubmitting(true);
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+            const res = await fetch(`${apiUrl}/api/calls911`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    type: 'dot',
+                    location: dotForm.location || 'Не указано',
+                    description: dotForm.description,
+                    priority: 'medium',
+                    callerName: currentUnit?.unit || 'Police Unit',
+                    status: 'pending',
+                    createdAt: Date.now()
+                })
+            });
+
+            if (res.ok) {
+                toast({ title: 'Вызов DOT создан', description: 'Вызов был успешно отправлен.' });
+                setShowDotModal(false);
+                setDotForm({ location: '', description: '' });
+                fetchData();
+            }
+        } catch (err) {
+            console.error('Failed to create DOT call:', err);
+            toast({ title: 'Ошибка', description: 'Не удалось создать вызов DOT.' });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handle2hrCall = async () => {
+        setIsSubmitting(true);
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+            const res = await fetch(`${apiUrl}/api/calls911`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    type: '2hr',
+                    location: twoHrForm.location || 'Не указано',
+                    description: twoHrForm.description,
+                    priority: 'high',
+                    callerName: currentUnit?.unit || 'Police Unit',
+                    status: 'pending',
+                    createdAt: Date.now()
+                })
+            });
+
+            if (res.ok) {
+                toast({ title: 'Вызов 2HR создан', description: 'Вызов был успешно отправлен.' });
+                setShow2hrModal(false);
+                setTwoHrForm({ location: '', description: '' });
+                fetchData();
+            }
+        } catch (err) {
+            console.error('Failed to create 2HR call:', err);
+            toast({ title: 'Ошибка', description: 'Не удалось создать вызов 2HR.' });
         } finally {
             setIsSubmitting(false);
         }
@@ -1251,7 +1607,7 @@ function PolicePageContent() {
                                                                     <td className={`px-3 py-2 font-medium ${row.status === "Available" ? "text-green-400" : row.status === "Busy" ? "text-yellow-400" : row.status === "Enroute" ? "text-blue-400" : row.status === "On Scene" ? "text-emerald-400" : row.status === "Dispatched" ? "text-purple-400" : row.status === "Resolving" ? "text-indigo-400" : "text-red-400"}`}>
                                                                         <div className="flex items-center gap-2">
                                                                             <div className={`w-2 h-2 rounded-full ${row.status === "Available" ? "bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.8)]" : row.status === "Enroute" ? "bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.8)]" : row.status === "Busy" ? "bg-yellow-500 shadow-[0_0_6px_rgba(245,158,11,0.8)]" : row.status === "On Scene" ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]" : row.status === "Dispatched" ? "bg-purple-500 shadow-[0_0_6px_rgba(168,85,247,0.8)]" : row.status === "Resolving" ? "bg-indigo-500 shadow-[0_0_6px_rgba(99,102,241,0.8)]" : "bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]"}`} />
-                                                                            {row.status === "Available" ? "10-8 ДОСТУПЕН" : row.status === "Enroute" ? "10-97 В ПУТИ" : row.status === "Busy" ? "10-6 ЗАНЯТ" : row.status === "On Scene" ? "10-23 НА МЕСТЕ" : row.status === "Dispatched" ? "10-10 НАЗНАЧЕН" : row.status === "Resolving" ? "10-10 ОБРАБАТЫВАЕТСЯ" : row.status}
+                                                                            {row.status === "Available" ? "ДОСТУПЕН" : row.status === "Enroute" ? "В ПУТИ" : row.status === "Busy" ? "ЗАНЯТ" : row.status === "On Scene" ? "НА МЕСТЕ" : row.status === "Dispatched" ? "НАЗНАЧЕН" : row.status === "Resolving" ? "ОБРАБАТЫВАЕТСЯ" : row.status}
                                                                         </div>
                                                                     </td>
                                                                     <td className="px-3 py-2 text-zinc-300">{row.time}</td>
@@ -1285,6 +1641,7 @@ function PolicePageContent() {
                                                             <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Локация</th>
                                                             <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Описание</th>
                                                             <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Статус</th>
+                                                            <th className="px-3 py-2 text-right text-xs font-medium text-zinc-400">Действия</th>
                                                             <th className="px-3 py-2 text-right text-xs font-medium text-zinc-400">Инфо</th>
                                                         </tr>
                                                     </thead>
@@ -1307,6 +1664,25 @@ function PolicePageContent() {
                                                                         }`}>
                                                                         {row.status === 'pending' ? 'В Ожидании' : row.status === 'dispatched' ? 'Принят' : row.status}
                                                                     </span>
+                                                                </td>
+                                                                <td className="px-3 py-2 text-right">
+                                                                    {currentUnit?.callId === row.id && row.mainUnitId === currentUnit?.userId ? (
+                                                                        <div className="bg-red-600 px-2 py-1 rounded text-[10px] font-bold text-white">
+                                                                            Красный юнит
+                                                                        </div>
+                                                                    ) : onDuty && currentUnit?.callId !== row.id && (
+                                                                        <Button
+                                                                            size="sm"
+                                                                            variant="outline"
+                                                                            className="h-7 px-2 text-[10px] bg-blue-600 hover:bg-blue-500 border-blue-500"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleAttachToCall(row.id);
+                                                                            }}
+                                                                        >
+                                                                            Прикрепиться
+                                                                        </Button>
+                                                                    )}
                                                                 </td>
                                                                 <td className="px-3 py-2 text-right">
                                                                     <div className="relative inline-block">
@@ -1493,9 +1869,9 @@ function PolicePageContent() {
                                                         <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
                                                             {/* Licenses */}
                                                             <div className="space-y-2">
-                                                                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-zinc-800 pb-1.5">
+                                                                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-zinc-800 pb-1.5">
                                                                     <Laptop className="w-3 h-3 text-blue-500" /> Лицензии
-                                                                </p>
+                                                                </div>
                                                                 <div className="space-y-1.5">
                                                                     {result.licenses?.length > 0 ? (
                                                                         result.licenses.map((lic: any) => (
@@ -1509,15 +1885,15 @@ function PolicePageContent() {
                                                                                 </span>
                                                                             </div>
                                                                         ))
-                                                                    ) : <p className="text-xs text-zinc-600 italic py-2">Нет лицензий</p>}
+                                                                    ) : <div className="text-xs text-zinc-600 italic py-2">Нет лицензий</div>}
                                                                 </div>
                                                             </div>
 
                                                             {/* Vehicles */}
                                                             <div className="space-y-2">
-                                                                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-zinc-800 pb-1.5">
+                                                                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-zinc-800 pb-1.5">
                                                                     <Car className="w-3 h-3 text-blue-500" /> Транспорт
-                                                                </p>
+                                                                </div>
                                                                 <div className="space-y-2">
                                                                     {result.vehicles?.length > 0 ? (
                                                                         result.vehicles.map((veh: any) => (
@@ -1540,15 +1916,15 @@ function PolicePageContent() {
                                                                                 </div>
                                                                             </div>
                                                                         ))
-                                                                    ) : <p className="text-xs text-zinc-600 italic py-2">Нет транспорта</p>}
+                                                                    ) : <div className="text-xs text-zinc-600 italic py-2">Нет транспорта</div>}
                                                                 </div>
                                                             </div>
 
                                                             {/* Weapons */}
                                                             <div className="space-y-2">
-                                                                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-zinc-800 pb-1.5">
+                                                                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5 border-b border-zinc-800 pb-1.5">
                                                                     <AlertTriangle className="w-3 h-3 text-amber-500" /> Оружие
-                                                                </p>
+                                                                </div>
                                                                 <div className="space-y-1.5">
                                                                     {result.weapons?.length > 0 ? (
                                                                         result.weapons.map((wep: any) => (
@@ -1562,13 +1938,13 @@ function PolicePageContent() {
                                                                                 </span>
                                                                             </div>
                                                                         ))
-                                                                    ) : <p className="text-xs text-zinc-600 italic py-2">Нет оружия</p>}
+                                                                    ) : <div className="text-xs text-zinc-600 italic py-2">Нет оружия</div>}
                                                                 </div>
                                                             </div>
 
                                                             {/* Fines */}
                                                             <div className="space-y-2 col-span-1 md:col-span-3">
-                                                                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center justify-between border-b border-zinc-800 pb-1.5">
+                                                                <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center justify-between border-b border-zinc-800 pb-1.5">
                                                                     <div className="flex items-center gap-1.5">
                                                                         <Receipt className="w-3 h-3 text-rose-500" /> Судимости / Штрафы
                                                                     </div>
@@ -1583,7 +1959,7 @@ function PolicePageContent() {
                                                                     >
                                                                         <PlusSquare className="w-2.5 h-2.5 mr-1" /> ВЫПИСАТЬ ШТРАФ
                                                                     </Button>
-                                                                </p>
+                                                                </div>
                                                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                                                                     {result.fines?.length > 0 ? (
                                                                         result.fines.map((fine: any) => (
@@ -1605,7 +1981,7 @@ function PolicePageContent() {
                                                                                 </div>
                                                                             </div>
                                                                         ))
-                                                                    ) : <p className="text-xs text-zinc-600 italic py-2">Чистая история</p>}
+                                                                    ) : <div className="text-xs text-zinc-600 italic py-2">Чистая история</div>}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -1774,17 +2150,42 @@ function PolicePageContent() {
                             <div className="w-56 space-y-3 shrink-0">
                                 <div className="rounded-lg border border-zinc-700 p-3 space-y-2">
                                     <span className="text-xs font-medium text-zinc-400">Быстрые действия</span>
-                                    {["2HR", "Номер", "DOT", "BOLO"].map((label) => (
-                                        <Button
-                                            key={label}
-                                            variant="outline"
-                                            size="sm"
-                                            disabled={!onDuty}
-                                            className="w-full justify-start bg-zinc-800/50 border-zinc-700 disabled:opacity-50"
-                                        >
-                                            {label}
-                                        </Button>
-                                    ))}
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={!onDuty}
+                                        className="w-full justify-start bg-zinc-800/50 border-zinc-700 disabled:opacity-50"
+                                        onClick={() => setShow2hrModal(true)}
+                                    >
+                                        2HR
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={!onDuty}
+                                        className="w-full justify-start bg-zinc-800/50 border-zinc-700 disabled:opacity-50"
+                                        onClick={() => setShowPlateCheckModal(true)}
+                                    >
+                                        Номер
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={!onDuty}
+                                        className="w-full justify-start bg-zinc-800/50 border-zinc-700 disabled:opacity-50"
+                                        onClick={() => setShowDotModal(true)}
+                                    >
+                                        DOT
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={!onDuty}
+                                        className="w-full justify-start bg-zinc-800/50 border-zinc-700 disabled:opacity-50"
+                                        onClick={() => setShowBoloModal(true)}
+                                    >
+                                        BOLO
+                                    </Button>
                                 </div>
 
                                 <div className="rounded-lg border border-zinc-700 p-3">
@@ -1797,10 +2198,10 @@ function PolicePageContent() {
                                                 currentUnit?.status === 'Enroute' ? 'bg-blue-900/30 text-blue-400 border border-blue-700/50' :
                                                 'bg-zinc-800/50 text-zinc-400 border border-zinc-700'
                                             }`}>
-                                                {currentUnit?.status === 'Available' ? '10-8 ДОСТУПЕН' :
-                                                 currentUnit?.status === 'Busy' ? '10-6 ЗАНЯТ' :
-                                                 currentUnit?.status === 'Enroute' ? '10-97 В ПУТИ' :
-                                                 currentUnit?.status === 'On Scene' ? '10-23 НА ВЫЗОВЕ' :
+                                                {currentUnit?.status === 'Available' ? 'ДОСТУПЕН' :
+                                                 currentUnit?.status === 'Busy' ? 'ЗАНЯТ' :
+                                                 currentUnit?.status === 'Enroute' ? 'В ПУТИ' :
+                                                 currentUnit?.status === 'On Scene' ? 'НА ВЫЗОВЕ' :
                                                  'НЕИЗВЕСТНО'}
                                             </div>
                                             <div className="space-y-1">
@@ -1811,7 +2212,7 @@ function PolicePageContent() {
                                                     className={`w-full bg-green-900/30 border-green-700/50 hover:bg-green-900/50 ${currentUnit?.status === 'Available' ? 'ring-2 ring-green-500 text-green-300' : 'text-green-400'}`}
                                                 >
                                                     <Car className="w-4 h-4 mr-2" />
-                                                    10-8 (Доступен)
+                                                    Доступен
                                                 </Button>
                                                 <Button
                                                     variant="outline"
@@ -1820,7 +2221,7 @@ function PolicePageContent() {
                                                     className={`w-full bg-yellow-900/30 border-yellow-700/50 hover:bg-yellow-900/50 ${currentUnit?.status === 'Busy' ? 'ring-2 ring-yellow-500 text-yellow-300' : 'text-yellow-400'}`}
                                                 >
                                                     <Siren className="w-4 h-4 mr-2" />
-                                                    10-6 (Занят)
+                                                    Занят
                                                 </Button>
                                                 <Button
                                                     variant="outline"
@@ -1829,7 +2230,7 @@ function PolicePageContent() {
                                                     className={`w-full bg-blue-900/30 border-blue-700/50 hover:bg-blue-900/50 ${currentUnit?.status === 'Enroute' ? 'ring-2 ring-blue-500 text-blue-300' : 'text-blue-400'}`}
                                                 >
                                                     <Footprints className="w-4 h-4 mr-2" />
-                                                    10-97 (В пути)
+                                                    В пути
                                                 </Button>
                                                 <Button
                                                     variant="outline"
@@ -1838,7 +2239,7 @@ function PolicePageContent() {
                                                     className="w-full bg-zinc-900/30 border-zinc-700/50 text-zinc-400 hover:bg-zinc-800/50"
                                                 >
                                                     <LogOut className="w-4 h-4 mr-2" />
-                                                    10-7 (Вне смены)
+                                                    Вне смены
                                                 </Button>
                                             </div>
                                         </div>
@@ -1871,229 +2272,37 @@ function PolicePageContent() {
                 </Card>
             </div>
 
-            {/* Duty Selection Modal - Simplified */}
-            {showDutyModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-                    <Card className="w-full max-w-sm bg-zinc-950 border-zinc-800">
-                        <CardHeader className="pb-3">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-lg font-bold text-white flex items-center gap-2">
-                                    <Shield className="w-5 h-5 text-blue-500" />
-                                    10-8 Выход на смену
-                                </CardTitle>
-                                <Button variant="ghost" size="icon" onClick={() => setShowDutyModal(false)} className="text-zinc-500 hover:text-white">
-                                    <X className="w-4 h-4" />
-                                </Button>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="p-4 space-y-4">
-                            <div className="space-y-3">
-                                <div className="space-y-1">
-                                    <Label className="text-[10px] uppercase text-zinc-500">Позывной</Label>
-                                    <Input placeholder="1A-12" value={callSign} onChange={(e) => setCallSign(e.target.value.toUpperCase())} className="bg-zinc-900 border-zinc-800" />
-                                </div>
-                                <div className="space-y-1">
-                                    <Label className="text-[10px] uppercase text-zinc-500">Отдел / Дивизион</Label>
-                                    <Input placeholder="Traffic" value={subdivision} onChange={(e) => setSubdivision(e.target.value)} className="bg-zinc-900 border-zinc-800" />
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div className="space-y-1">
-                                        <Label className="text-[10px] uppercase text-zinc-500">Транспорт</Label>
-                                        <Input placeholder="Ford Explorer" value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)} className="bg-zinc-900 border-zinc-800" />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label className="text-[10px] uppercase text-zinc-500">Номер</Label>
-                                        <Input placeholder="89ABC123" value={vehiclePlate} onChange={(e) => setVehiclePlate(e.target.value.toUpperCase())} className="bg-zinc-900 border-zinc-800 font-mono" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {characters.length > 0 && (
-                                <div className="space-y-2 pt-2">
-                                    <Label className="text-[10px] uppercase text-zinc-500">Выберите персонажа</Label>
-                                    <div className="flex gap-2 overflow-x-auto pb-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => setSelectedCharacter('')}
-                                            className={`shrink-0 px-3 py-2 rounded-lg border text-xs ${!selectedCharacter ? 'bg-blue-600 border-blue-500 text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-500'}`}
-                                        >
-                                            Нет
-                                        </button>
-                                        {characters.map((char) => (
-                                            <button
-                                                key={char.id}
-                                                type="button"
-                                                onClick={() => {
-                                                    setSelectedCharacter(String(char.id));
-                                                    const policeMember = char.departmentMembers?.find(m => m.isActive && m.department?.type === 'police');
-                                                    if (policeMember?.callSign) setCallSign(policeMember.callSign);
-                                                    if (policeMember?.division) setSubdivision(policeMember.division);
-                                                }}
-                                                className={`shrink-0 px-3 py-2 rounded-lg border text-xs ${String(selectedCharacter) === String(char.id) ? 'bg-blue-600 border-blue-500 text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-500'}`}
-                                            >
-                                                {char.firstName} {char.lastName}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            <Button className="w-full bg-blue-600" onClick={handleDutyStart} disabled={isSubmitting || !callSign}>
-                                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Начать смену'}
-                            </Button>
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
-            {/* Call Notes Modal */}
-            {selectedCallForNotes && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-                    <Card className="bg-zinc-900 border-zinc-800 w-full max-w-md shadow-2xl flex flex-col max-h-[80vh]">
-                        <div className="flex justify-between items-center p-4 border-b border-zinc-800 shrink-0">
-                            <div className="flex items-center gap-2 text-blue-400">
-                                <MessageCircle className="w-5 h-5" />
-                                <h2 className="text-lg font-bold text-zinc-100">Детали вызова #{selectedCallForNotes.id}</h2>
-                            </div>
-                            <Button variant="ghost" size="sm" onClick={() => setSelectedCallForNotes(null)}>
-                                <X className="w-5 h-5 text-zinc-500" />
-                            </Button>
-                        </div>
-                        <div className="p-4 space-y-4 overflow-hidden flex flex-col">
-                            <div className="bg-zinc-800/40 p-3 rounded-lg border border-zinc-800 text-sm space-y-1">
-                                <p className="text-zinc-500 text-[10px] uppercase">Суть вызова</p>
-                                <p className="text-zinc-200">{selectedCallForNotes.description}</p>
-                                <p className="text-zinc-500 text-[10px] uppercase pt-2">Местоположение</p>
-                                <p className="text-zinc-200 flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-red-500" /> {selectedCallForNotes.location}</p>
-                            </div>
-
-                            {selectedCallForNotes.units && selectedCallForNotes.units.length > 0 && (
-                                <div className="bg-zinc-800/40 p-3 rounded-lg border border-zinc-800">
-                                    <p className="text-zinc-500 text-[10px] uppercase mb-2">Прикрепленные юниты</p>
-                                    <div className="space-y-2">
-                                        {groupUnits(selectedCallForNotes.units).map((unit: any) => {
-                                            const isPaired = unit.partnerUserId || (unit.pairedWith && unit.pairedWith.length > 0);
-                                            const partner = isPaired ? (unit.pairedWith?.[0] || selectedCallForNotes.units.find((p: any) => p.userId === (unit.partnerUserId || unit.pairedWith?.[0]?.userId))) : null;
-
-                                            return (
-                                                <div 
-                                                    key={unit.userId} 
-                                                    className={`flex items-center justify-between p-2 rounded border ${
-                                                        selectedCallForNotes.mainUnitId === unit.userId 
-                                                            ? 'bg-red-900/30 border-red-700' 
-                                                            : 'bg-zinc-800/50 border-zinc-700'
-                                                    }`}
-                                                >
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="flex -space-x-2">
-                                                            <div className="w-6 h-6 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700">
-                                                                {unit.user?.avatarUrl ? (
-                                                                    <img src={getImageUrl(unit.user.avatarUrl)!} alt="" className="w-full h-full object-cover" />
-                                                                ) : (
-                                                                    <div className="w-full h-full flex items-center justify-center text-zinc-600"><User className="w-3 h-3" /></div>
-                                                                )}
-                                                            </div>
-                                                            {partner && (
-                                                                <div className="w-6 h-6 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700 ring-2 ring-zinc-900">
-                                                                    {partner.user?.avatarUrl ? (
-                                                                        <img src={getImageUrl(partner.user.avatarUrl)!} alt="" className="w-full h-full object-cover" />
-                                                                    ) : (
-                                                                        <div className="w-full h-full flex items-center justify-center text-zinc-600"><User className="w-3 h-3" /></div>
-                                                                    )}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-zinc-200 text-[11px] font-medium leading-tight">
-                                                                {unit.callSign || unit.character?.firstName + ' ' + unit.character?.lastName || unit.user?.username}
-                                                                {partner && ` & ${partner.callSign || partner.character?.firstName + ' ' + partner.character?.lastName || partner.user?.username}`}
-                                                            </p>
-                                                            {selectedCallForNotes.mainUnitId === unit.userId && (
-                                                                <span className="text-[9px] text-red-400 font-bold uppercase tracking-tighter">ГЛАВНЫЙ</span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    {canManageUnits && selectedCallForNotes.mainUnitId !== unit.userId && (
-                                                        <Button 
-                                                            size="sm" 
-                                                            variant="ghost"
-                                                            className="h-6 px-2 text-[10px] text-red-400 hover:bg-red-900/20"
-                                                            onClick={() => handleSetMainUnit(selectedCallForNotes.id, unit.userId)}
-                                                        >
-                                                            Назначить
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                    {currentUnit?.callId !== selectedCallForNotes.id && onDuty && (
-                                        <Button 
-                                            size="sm" 
-                                            className="w-full mt-2 bg-blue-600 hover:bg-blue-500"
-                                            onClick={() => handleAttachToCall(selectedCallForNotes.id)}
-                                        >
-                                            <PlusSquare className="w-3.5 h-3.5 mr-2" />
-                                            Прикрепиться к вызову
-                                        </Button>
-                                    )}
-                                    {currentUnit?.callId === selectedCallForNotes.id && (
-                                        <Button 
-                                            size="sm" 
-                                            variant="outline"
-                                            className="w-full mt-2 border-red-800 text-red-400 hover:bg-red-900/20"
-                                            onClick={handleDetachFromCall}
-                                        >
-                                            <X className="w-3.5 h-3.5 mr-2" />
-                                            Открепиться
-                                        </Button>
-                                    )}
-                                </div>
-                            )}
-
-                            {(!selectedCallForNotes.units || selectedCallForNotes.units.length === 0) && onDuty && (
-                                <Button 
-                                    size="sm" 
-                                    className="w-full bg-blue-600 hover:bg-blue-500"
-                                    onClick={() => handleAttachToCall(selectedCallForNotes.id)}
-                                >
-                                    <PlusSquare className="w-3.5 h-3.5 mr-2" />
-                                    Прикрепиться к вызову
-                                </Button>
-                            )}
-
-                            <div className="flex-1 overflow-auto space-y-3 pr-1">
-                                <Label className="text-[10px] uppercase text-zinc-500">Дополнения (Чат)</Label>
-                                {selectedCallForNotes.notes?.length > 0 ? (
-                                    selectedCallForNotes.notes.map((note: any) => (
-                                        <div key={note.id} className="bg-zinc-800/20 p-2 rounded border-l-2 border-blue-500/50">
-                                            <div className="flex justify-between items-center mb-1">
-                                                <span className="text-blue-400 font-bold text-xs">{note.author}</span>
-                                                <span className="text-[9px] text-zinc-600 italic">{new Date(note.createdAt).toLocaleTimeString()}</span>
-                                            </div>
-                                            <p className="text-zinc-300 text-xs leading-relaxed">{note.text}</p>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="text-center py-8 text-zinc-600 italic text-xs">Нет дополнений. Введите инфо ниже.</div>
-                                )}
-                            </div>
-
-                            <div className="flex gap-2 pt-2 border-t border-zinc-800 shrink-0">
-                                <Input
-                                    placeholder="Добавить информацию для всех..."
-                                    className="h-9 text-sm bg-zinc-800/50 border-zinc-700"
-                                    value={newCallNoteText}
-                                    onChange={(e) => setNewCallNoteText(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleCallNoteSubmit(selectedCallForNotes.id)}
-                                />
-                                <Button size="sm" onClick={() => handleCallNoteSubmit(selectedCallForNotes.id)}>
-                                    <Send className="w-4 h-4" />
-                                </Button>
-                            </div>
-                        </div>
-                    </Card>
-                </div>
-            )}
+            {/* Duty Selection Modal */}
+            <DutyModal
+                isOpen={showDutyModal}
+                onClose={() => setShowDutyModal(false)}
+                onStart={handleDutyStart}
+                characters={characters}
+                isLoading={isSubmitting}
+                callSign={callSign}
+                setCallSign={setCallSign}
+                subdivision={subdivision}
+                setSubdivision={setSubdivision}
+                selectedCharacter={selectedCharacter}
+                setSelectedCharacter={setSelectedCharacter}
+                type="police"
+            />
+            {/* Call Details Modal */}
+            <CallDetailsModal
+                call={selectedCallForNotes}
+                isOpen={!!selectedCallForNotes}
+                onClose={() => setSelectedCallForNotes(null)}
+                onAddNote={handleCallNoteSubmit}
+                onAttachUnit={handleAttachToCall}
+                onDetachUnit={handleDetachFromCall}
+                onSetMainUnit={handleSetMainUnit}
+                onCloseCall={handleCloseCall}
+                currentUnit={currentUnit ? { callId: currentUnit.callId } : undefined}
+                onDuty={onDuty}
+                canManageUnits={canManageUnits}
+                groupUnits={groupUnits}
+                getImageUrl={getImageUrl}
+            />
 
             {/* Supervisor Unit Actions Modal */}
             {selectedUnit && (
@@ -2117,7 +2326,7 @@ function PolicePageContent() {
                                 <div className="bg-zinc-800/50 p-2 rounded">
                                     <p className="text-[10px] text-zinc-500 uppercase">Статус</p>
                                     <p className={`font-medium ${selectedUnit.status === "Available" ? "text-green-400" : selectedUnit.status === "Busy" ? "text-yellow-400" : selectedUnit.status === "Enroute" ? "text-blue-400" : selectedUnit.status === "On Scene" ? "text-emerald-400" : selectedUnit.status === "Dispatched" ? "text-purple-400" : selectedUnit.status === "Resolving" ? "text-indigo-400" : "text-zinc-400"}`}>
-                                        {selectedUnit.status === "Available" ? "10-8 ДОСТУПЕН" : selectedUnit.status === "Busy" ? "10-6 ЗАНЯТ" : selectedUnit.status === "Enroute" ? "10-97 В ПУТИ" : selectedUnit.status === "On Scene" ? "10-23 НА МЕСТЕ" : selectedUnit.status === "Dispatched" ? "10-10 НАЗНАЧЕН" : selectedUnit.status === "Resolving" ? "10-10 ОБРАБАТЫВАЕТСЯ" : selectedUnit.status}
+                                        {selectedUnit.status === "Available" ? "ДОСТУПЕН" : selectedUnit.status === "Busy" ? "ЗАНЯТ" : selectedUnit.status === "Enroute" ? "В ПУТИ" : selectedUnit.status === "On Scene" ? "НА МЕСТЕ" : selectedUnit.status === "Dispatched" ? "НАЗНАЧЕН" : selectedUnit.status === "Resolving" ? "ОБРАБАТЫВАЕТСЯ" : selectedUnit.status}
                                     </p>
                                 </div>
                                 <div className="bg-zinc-800/50 p-2 rounded">
@@ -2428,6 +2637,336 @@ function PolicePageContent() {
                                 >
                                     {isSubmitting ? <Clock className="w-4 h-4 animate-spin mr-2" /> : <Shield className="w-4 h-4 mr-2" />}
                                     Создать ордер
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {/* BOLO Modal */}
+            {showBoloModal && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[110] p-4">
+                    <Card className="w-full max-w-md bg-zinc-950 border-zinc-800 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <CardHeader className="border-b border-zinc-900 pb-4">
+                            <CardTitle className="text-xl font-bold text-white flex items-center gap-2">
+                                <AlertTriangle className="w-5 h-5 text-amber-500" />
+                                Создать BOLO
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-6 space-y-4">
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Тип</Label>
+                                <select
+                                    value={boloForm.type}
+                                    onChange={(e) => setBoloForm({ ...boloForm, type: e.target.value })}
+                                    className="w-full bg-zinc-900/50 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-200"
+                                >
+                                    <option value="vehicle">Транспортное средство</option>
+                                    <option value="person">Личность</option>
+                                    <option value="other">Другое</option>
+                                </select>
+                            </div>
+
+                            {boloForm.type === 'vehicle' && (
+                                <>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Номерной знак</Label>
+                                        <Input
+                                            value={boloForm.plate}
+                                            onChange={(e) => setBoloForm({ ...boloForm, plate: e.target.value })}
+                                            placeholder="89ABC123"
+                                            className="bg-zinc-900/50 border-zinc-800 h-10"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Цвет</Label>
+                                        <Input
+                                            value={boloForm.color}
+                                            onChange={(e) => setBoloForm({ ...boloForm, color: e.target.value })}
+                                            placeholder="Черный"
+                                            className="bg-zinc-900/50 border-zinc-800 h-10"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Модель</Label>
+                                        <Input
+                                            value={boloForm.model}
+                                            onChange={(e) => setBoloForm({ ...boloForm, model: e.target.value })}
+                                            placeholder="Toyota Camry"
+                                            className="bg-zinc-900/50 border-zinc-800 h-10"
+                                        />
+                                    </div>
+                                </>
+                            )}
+
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Описание *</Label>
+                                <textarea
+                                    value={boloForm.description}
+                                    onChange={(e) => setBoloForm({ ...boloForm, description: e.target.value })}
+                                    placeholder="Описание объекта или причины розыска..."
+                                    className="w-full bg-zinc-900/50 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-200 h-24 resize-none"
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-4 border-t border-zinc-900">
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => setShowBoloModal(false)}
+                                    className="flex-1 text-zinc-400 hover:text-white"
+                                >
+                                    Отмена
+                                </Button>
+                                <Button
+                                    onClick={handleBoloSubmit}
+                                    disabled={isSubmitting || !boloForm.description}
+                                    className="flex-1 bg-amber-600 hover:bg-amber-500 shadow-lg shadow-amber-900/20"
+                                >
+                                    {isSubmitting ? <Clock className="w-4 h-4 animate-spin mr-2" /> : <AlertTriangle className="w-4 h-4 mr-2" />}
+                                    Создать BOLO
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {/* Plate Check Modal */}
+            {showPlateCheckModal && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[110] p-4">
+                    <Card className="w-full max-w-sm bg-zinc-950 border-zinc-800 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <CardHeader className="border-b border-zinc-900 pb-4">
+                            <CardTitle className="text-xl font-bold text-white flex items-center gap-2">
+                                <Car className="w-5 h-5 text-blue-500" />
+                                Проверка номера
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-6 space-y-4">
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Номерной знак *</Label>
+                                <Input
+                                    value={plateCheckForm.plate}
+                                    onChange={(e) => setPlateCheckForm({ ...plateCheckForm, plate: e.target.value })}
+                                    placeholder="89ABC123"
+                                    className="bg-zinc-900/50 border-zinc-800 h-10 uppercase"
+                                    onKeyDown={(e) => e.key === 'Enter' && handlePlateCheck()}
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-4 border-t border-zinc-900">
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => setShowPlateCheckModal(false)}
+                                    className="flex-1 text-zinc-400 hover:text-white"
+                                >
+                                    Отмена
+                                </Button>
+                                <Button
+                                    onClick={handlePlateCheck}
+                                    disabled={!plateCheckForm.plate}
+                                    className="flex-1 bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-900/20"
+                                >
+                                    <Search className="w-4 h-4 mr-2" />
+                                    Найти
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {/* DOT Call Modal */}
+            {showDotModal && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[110] p-4">
+                    <Card className="w-full max-w-md bg-zinc-950 border-zinc-800 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <CardHeader className="border-b border-zinc-900 pb-4">
+                            <CardTitle className="text-xl font-bold text-white flex items-center gap-2">
+                                <Ambulance className="w-5 h-5 text-orange-500" />
+                                Вызов DOT
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-6 space-y-4">
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Локация</Label>
+                                <Input
+                                    value={dotForm.location}
+                                    onChange={(e) => setDotForm({ ...dotForm, location: e.target.value })}
+                                    placeholder="Место происшествия"
+                                    className="bg-zinc-900/50 border-zinc-800 h-10"
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Описание</Label>
+                                <textarea
+                                    value={dotForm.description}
+                                    onChange={(e) => setDotForm({ ...dotForm, description: e.target.value })}
+                                    placeholder="Описание ситуации..."
+                                    className="w-full bg-zinc-900/50 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-200 h-24 resize-none"
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-4 border-t border-zinc-900">
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => setShowDotModal(false)}
+                                    className="flex-1 text-zinc-400 hover:text-white"
+                                >
+                                    Отмена
+                                </Button>
+                                <Button
+                                    onClick={handleDotCall}
+                                    disabled={isSubmitting}
+                                    className="flex-1 bg-orange-600 hover:bg-orange-500 shadow-lg shadow-orange-900/20"
+                                >
+                                    {isSubmitting ? <Clock className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                                    Отправить
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {/* 2HR Call Modal */}
+            {show2hrModal && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[110] p-4">
+                    <Card className="w-full max-w-md bg-zinc-950 border-zinc-800 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <CardHeader className="border-b border-zinc-900 pb-4">
+                            <CardTitle className="text-xl font-bold text-white flex items-center gap-2">
+                                <Clock className="w-5 h-5 text-red-500" />
+                                Вызов 2HR
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-6 space-y-4">
+                            <div className="p-4 bg-red-500/5 border border-red-500/10 rounded-xl flex items-center gap-3">
+                                <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+                                <p className="text-xs text-red-500/80 leading-relaxed">
+                                    Внимание: 2HR - это вызов с высоким приоритетом для экстренных ситуаций.
+                                </p>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Локация</Label>
+                                <Input
+                                    value={twoHrForm.location}
+                                    onChange={(e) => setTwoHrForm({ ...twoHrForm, location: e.target.value })}
+                                    placeholder="Место происшествия"
+                                    className="bg-zinc-900/50 border-zinc-800 h-10"
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Описание</Label>
+                                <textarea
+                                    value={twoHrForm.description}
+                                    onChange={(e) => setTwoHrForm({ ...twoHrForm, description: e.target.value })}
+                                    placeholder="Описание ситуации..."
+                                    className="w-full bg-zinc-900/50 border border-zinc-800 rounded-lg px-3 py-2 text-zinc-200 h-24 resize-none"
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-4 border-t border-zinc-900">
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => setShow2hrModal(false)}
+                                    className="flex-1 text-zinc-400 hover:text-white"
+                                >
+                                    Отмена
+                                </Button>
+                                <Button
+                                    onClick={handle2hrCall}
+                                    disabled={isSubmitting}
+                                    className="flex-1 bg-red-600 hover:bg-red-500 shadow-lg shadow-red-900/20"
+                                >
+                                    {isSubmitting ? <Clock className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                                    Отправить
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {/* Vehicle Info Modal */}
+            {showVehicleInfoModal && vehicleInfo && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[110] p-4">
+                    <Card className="w-full max-w-lg bg-zinc-950 border-zinc-800 shadow-2xl animate-in zoom-in-95 duration-200">
+                        <CardHeader className="border-b border-zinc-900 pb-4">
+                            <CardTitle className="text-xl font-bold text-white flex items-center gap-2">
+                                <Car className="w-5 h-5 text-blue-500" />
+                                Информация о транспортном средстве
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-6 space-y-4">
+                            {vehicleInfo.vehicles && vehicleInfo.vehicles.length > 0 && (
+                                <div className="space-y-3">
+                                    <div className="p-4 bg-blue-500/5 border border-blue-500/10 rounded-xl">
+                                        <h3 className="text-sm font-semibold text-blue-400 mb-3">Транспортное средство</h3>
+                                        <div className="space-y-2 text-sm">
+                                            <div className="flex justify-between">
+                                                <span className="text-zinc-500">Номер:</span>
+                                                <span className="text-zinc-200 font-mono">{vehicleInfo.vehicles[0].plate}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-zinc-500">Модель:</span>
+                                                <span className="text-zinc-200">{vehicleInfo.vehicles[0].model || 'Не указано'}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-zinc-500">Цвет:</span>
+                                                <span className="text-zinc-200">{vehicleInfo.vehicles[0].color || 'Не указано'}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-zinc-500">Статус:</span>
+                                                <span className={`font-medium ${vehicleInfo.vehicles[0].status === 'stolen' ? 'text-red-400' : 'text-green-400'}`}>
+                                                    {vehicleInfo.vehicles[0].status === 'stolen' ? 'УГОНАНО' : 'АКТИВНО'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="p-4 bg-zinc-800/50 border border-zinc-700 rounded-xl">
+                                <h3 className="text-sm font-semibold text-zinc-300 mb-3">Владелец</h3>
+                                <div className="space-y-2 text-sm">
+                                    <div className="flex justify-between">
+                                        <span className="text-zinc-500">Имя:</span>
+                                        <span className="text-zinc-200">{vehicleInfo.firstName || 'Не указано'}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-zinc-500">Фамилия:</span>
+                                        <span className="text-zinc-200">{vehicleInfo.lastName || 'Не указано'}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-zinc-500">SSN:</span>
+                                        <span className="text-zinc-200 font-mono">{vehicleInfo.ssn || 'Не указано'}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-zinc-500">Дата рождения:</span>
+                                        <span className="text-zinc-200">{vehicleInfo.dateOfBirth ? new Date(vehicleInfo.dateOfBirth).toLocaleDateString('ru-RU') : 'Не указано'}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {vehicleInfo.firstName && vehicleInfo.lastName && (
+                                <Button
+                                    onClick={() => handleSearchOwner(vehicleInfo.firstName, vehicleInfo.lastName)}
+                                    className="w-full bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-900/20"
+                                >
+                                    <Search className="w-4 h-4 mr-2" />
+                                    Поиск владельца в NCIC
+                                </Button>
+                            )}
+
+                            <div className="flex gap-3 pt-4 border-t border-zinc-900">
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => setShowVehicleInfoModal(false)}
+                                    className="flex-1 text-zinc-400 hover:text-white"
+                                >
+                                    Закрыть
                                 </Button>
                             </div>
                         </CardContent>

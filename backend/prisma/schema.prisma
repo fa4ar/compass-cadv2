@@ -6,7 +6,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = "postgresql://postgres:cadadministratorpassword@localhost:5433/cadnew"
 }
 
 // ==================== ОСНОВНЫЕ ПОЛЬЗОВАТЕЛИ ====================
@@ -500,6 +500,9 @@ model Call911 {
   type        String?    @default("other") // traffic_accident, disturbance, robbery, assault, domestic, welfare_check, suspicious, fire, medical, accident, other
   priority    String?    @default("routine") // routine, low, medium, high, emergency
   isEmergency Boolean    @default(false)
+  
+  // Call type for routing (police, fire, ems)
+  callType    String?    @default("police") 
   
   // Coordinates for game map
   x           Float?
@@ -1191,4 +1194,97 @@ enum RoleplayDocumentType {
   court_summons
   internal_warning
   commendation
+}
+
+// ==================== ПАЦИЕНТЫ И МЕДИЦИНА ====================
+
+model Patient {
+  id            Int          @id @default(autoincrement())
+  characterId   Int?         // Связанный персонаж (опционально)
+  ssn           String?      @unique // Social Security Number
+  
+  firstName     String
+  lastName      String
+  middleName    String?
+  dateOfBirth   DateTime?
+  gender        String?      // male, female, other
+  
+  // Медицинская информация
+  bloodType     String?      // A+, A-, B+, B-, AB+, AB-, O+, O-
+  allergies     String?      // JSON массив аллергий
+  chronicDiseases String?   // JSON массив хронических заболеваний
+  medications   String?      // JSON массив текущих препаратов
+  
+  // Контактная информация
+  phoneNumber   String?
+  emergencyContact String?  // Имя и телефон экстренного контакта
+  
+  isActive      Boolean      @default(true)
+  notes         String?      // Заметки
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  hospitalizations Hospitalization[]
+  medicalRecords    MedicalRecord[]
+
+  @@index([characterId])
+  @@index([ssn])
+  @@index([firstName, lastName])
+}
+
+model Hospitalization {
+  id              Int           @id @default(autoincrement())
+  patientId       Int
+  callId          Int?          // Связанный вызов 911
+  
+  // Информация о госпитализации
+  admissionDate   DateTime      @default(now())
+  dischargeDate   DateTime?
+  department      String?       // Отделение (ER, Surgery, ICU, etc.)
+  ward            String?       // Палата
+  bed             String?       // Кровать
+  
+  // Состояние
+  status          String        @default("admitted") // admitted, treating, discharged, transferred
+  diagnosis       String?
+  treatment       String?
+  notes           String?
+  
+  // Персонал
+  admittedBy     Int?          // ID пользователя (врач)
+  dischargedBy   Int?
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  patient         Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([callId])
+  @@index([status])
+}
+
+model MedicalRecord {
+  id            Int           @id @default(autoincrement())
+  patientId     Int
+  hospitalizationId Int?      // Связана с госпитализацией
+  
+  // Запись
+  recordType    String        // examination, procedure, note, lab_result, imaging
+  title         String
+  content       String
+  
+  // Автор
+  authorId      Int?          // Пользователь (врач)
+  authorName    String?       // Имя врача
+  
+  attachments   String?       // JSON с URL вложений
+  
+  createdAt     DateTime      @default(now())
+
+  patient       Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([hospitalizationId])
 }

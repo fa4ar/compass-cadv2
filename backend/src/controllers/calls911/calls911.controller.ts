@@ -6,7 +6,7 @@ import { io } from '../../server';
 export class Calls911Controller {
     create = async (req: AuthRequest, res: Response) => {
         try {
-            const { callerName, location, description, phoneNumber, type, priority, isEmergency, x, y, z } = req.body;
+            const { callerName, location, description, phoneNumber, type, priority, isEmergency, x, y, z, callType } = req.body;
             
             if (!callerName || !location || !description) {
                 return res.status(400).json({ error: 'Missing required fields: callerName, location, description' });
@@ -32,7 +32,8 @@ export class Calls911Controller {
                 z: z || null,
                 userUsername,
                 userDiscordId,
-                userAvatarUrl
+                userAvatarUrl,
+                callType: callType || 'police'
             });
             
             if (io) {
@@ -63,7 +64,7 @@ export class Calls911Controller {
                 
                 io.emit('new_911_call', {
                     ...newCall,
-                    type: callType,
+                    type: callType || type || 'other',
                     priority: callPriority,
                     isEmergency: (newCall as any).isEmergency,
                     createdAt: newCall.createdAt.getTime(),
@@ -192,11 +193,7 @@ export class Calls911Controller {
             
             const result = await Calls911Service.detachUnit(userId);
             
-            if (result) {
-                io.emit('update_911_call', result[1]);
-            }
-            
-            res.json(result ? result[1] : null);
+            res.json(result);
         } catch (error: any) {
             console.error("Calls911Controller detachUnit error:", error);
             res.status(500).json({ error: error.message || "Failed to detach unit" });

@@ -3,13 +3,13 @@
 import React, { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { 
-    IdCard, 
+import {
+    IdCard,
     Shield,
-    Radio, 
-    Heart, 
-    Settings, 
-    Loader2, 
+    Radio,
+    Heart,
+    Settings,
+    Loader2,
     ArrowRight,
     Compass,
     Activity,
@@ -23,56 +23,56 @@ import { Card, CardContent } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const ROLE_PAGES = [
-    { 
-        key: 'civilian', 
-        label: 'Civilian Portal', 
-        desc: 'Manage your characters, licenses, and vehicles.',
-        path: '/citizen', 
-        icon: IdCard, 
+    {
+        key: 'civilian',
+        label: 'Civilian Portal',
+        desc: 'Управление своими персонажами',
+        path: '/citizen',
+        icon: IdCard,
         color: 'from-blue-600 to-blue-700',
         borderColor: 'border-blue-500/20',
-        requiredRoles: ['citizen'] 
+        requiredRoles: ['citizen']
     },
-    { 
-        key: 'officer', 
-        label: 'Police Portal', 
-        desc: 'Access NCIC, BOLO, and unit management.',
-        path: '/police', 
-        icon: Shield, 
+    {
+        key: 'officer',
+        label: 'Police Portal',
+        desc: 'Странца Полиции',
+        path: '/police',
+        icon: Shield,
         color: 'from-zinc-100 to-zinc-300',
         textColor: 'text-zinc-900',
         borderColor: 'border-white/20',
-        requiredRoles: ['police'] 
+        requiredRoles: ['police']
     },
-    { 
-        key: 'dispatcher', 
-        label: 'Dispatch Center', 
+    {
+        key: 'dispatcher',
+        label: 'Центр диспетчеров',
         desc: 'Monitor calls and manage tactical assets.',
-        path: '/dispatcher', 
-        icon: Radio, 
+        path: '/dispatcher',
+        icon: Radio,
         color: 'from-red-600 to-red-700',
         borderColor: 'border-red-500/20',
-        requiredRoles: ['dispatcher'] 
+        requiredRoles: ['dispatcher']
     },
-    { 
-        key: 'map', 
-        label: 'Live Map', 
-        desc: 'Real-time tactical unit tracking system.',
-        path: '/map', 
-        icon: Compass, 
+    {
+        key: 'map',
+        label: 'Live Map',
+        desc: 'Игровая карта',
+        path: '/map',
+        icon: Compass,
         color: 'from-emerald-600 to-emerald-700',
         borderColor: 'border-emerald-500/20',
-        requiredRoles: ['police', 'dispatcher'] 
+        requiredRoles: ['police', 'dispatcher']
     },
-    { 
-        key: 'ems', 
-        label: 'EMS / Fire', 
-        desc: 'First responder and medical records.',
-        path: '/ems', 
-        icon: Heart, 
+    {
+        key: 'ems',
+        label: 'EMS / Fire',
+        desc: 'Страница EMS и FD',
+        path: '/ems',
+        icon: Heart,
         color: 'from-amber-600 to-amber-700',
         borderColor: 'border-amber-500/20',
-        disabled: true 
+        requiredRoles: ['ems']
     },
 ];
 
@@ -88,16 +88,16 @@ function SelectorPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { user, hasRole, isAuthenticated, isBanned: isUserBanned, isLoading, logout } = useAuth();
-    
+
     const isBanned = searchParams.get('banned') === 'true' || isUserBanned;
     const banReason = searchParams.get('reason') || user?.banReason;
-    
+
     useEffect(() => {
         if (!isLoading) {
             if (isBanned) {
                 console.log('🚫 [SELECTOR] User is banned, redirecting to /banned');
                 if (window.location.pathname === '/banned') return;
-                
+
                 const target = banReason ? `/banned?reason=${encodeURIComponent(banReason)}` : '/banned';
                 window.location.replace(target);
             }
@@ -127,13 +127,13 @@ function SelectorPageContent() {
                     <div className="w-20 h-20 bg-blue-500/10 border-2 border-blue-500/40 flex items-center justify-center mb-6">
                         <LogOut className="w-10 h-10 text-blue-500" />
                     </div>
-                    
+
                     <h1 className="text-2xl font-bold text-white mb-2">Session Expired</h1>
                     <p className="text-zinc-400 text-sm leading-relaxed mb-8">
                         Your session has ended or you are not logged in. Please sign in to access this area.
                     </p>
-                    
-                    <Button 
+
+                    <Button
                         className="w-full bg-blue-600 hover:bg-blue-700 py-6 border border-blue-400/40"
                         onClick={() => window.location.href = '/auth/login'}
                     >
@@ -157,10 +157,10 @@ function SelectorPageContent() {
             {/* Content */}
             <div className="relative z-10 flex-1 flex flex-col items-center justify-center p-6 sm:p-12">
                 <div className="max-w-6xl w-full">
-                    
+
                     {/* Header Section */}
                     <div className="text-center mb-16 space-y-4">
-                        <motion.div 
+                        <motion.div
                             initial={{ opacity: 0, y: -20 }}
                             animate={{ opacity: 1, y: 0 }}
                             className="inline-flex items-center gap-2 px-3 py-1 border-2 border-zinc-800 bg-zinc-950/70"
@@ -168,8 +168,8 @@ function SelectorPageContent() {
                             <span className="w-2 h-2 bg-blue-500 animate-pulse shadow-[0_0_12px_rgba(59,130,246,0.8)]" />
                             <span className="text-[10px] uppercase font-black tracking-[0.3em] text-zinc-500">System Authorized</span>
                         </motion.div>
-                        
-                        <motion.h1 
+
+                        <motion.h1
                             initial={{ opacity: 0, y: -10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.1 }}
@@ -177,8 +177,8 @@ function SelectorPageContent() {
                         >
                             Select <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">Department</span>
                         </motion.h1>
-                        
-                        <motion.p 
+
+                        <motion.p
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: 0.2 }}
@@ -191,8 +191,8 @@ function SelectorPageContent() {
                     {/* Portal Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {ROLE_PAGES.map((portal, idx) => {
-                            const hasAccess = portal.requiredRoles ? hasRole(portal.requiredRoles) : !portal.disabled;
-                            const isLocked = !hasAccess || portal.disabled;
+                            const hasAccess = portal.requiredRoles ? hasRole(portal.requiredRoles) : true;
+                            const isLocked = !hasAccess;
                             const Icon = portal.icon;
 
                             return (
@@ -202,7 +202,7 @@ function SelectorPageContent() {
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: 0.1 + (idx * 0.05) }}
                                 >
-                                    <Card 
+                                    <Card
                                         className={`group relative overflow-hidden h-full border-2 border-zinc-800 bg-zinc-950/80 transition-all duration-300 
                                             ${isLocked ? 'grayscale opacity-60' : 'hover:border-zinc-600 hover:bg-zinc-950 hover:translate-y-[-4px] cursor-pointer'}`}
                                         onClick={() => !isLocked && router.push(portal.path)}
@@ -255,7 +255,7 @@ function SelectorPageContent() {
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.4 }}
                             >
-                                <Card 
+                                <Card
                                     className="group relative overflow-hidden h-full border-2 border-red-900/40 bg-red-950/10 transition-all duration-300 hover:border-red-800/70 hover:bg-red-950/20 hover:translate-y-[-4px] cursor-pointer"
                                     onClick={() => router.push('/admin')}
                                 >
@@ -281,7 +281,7 @@ function SelectorPageContent() {
                     </div>
 
                     {/* Quick Stats or Footer Actions */}
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0.6 }}
@@ -294,9 +294,9 @@ function SelectorPageContent() {
                             </div>
                             <div className="w-px h-8 bg-zinc-800 hidden sm:block" />
                             <div className="flex items-center gap-3">
-                                <Button 
-                                    variant="ghost" 
-                                    size="sm" 
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
                                     onClick={() => router.push('/profile')}
                                     className="text-xs text-zinc-500 hover:text-white"
                                 >
@@ -305,9 +305,9 @@ function SelectorPageContent() {
                             </div>
                         </div>
 
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
+                        <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={logout}
                             className="text-xs text-red-500 hover:text-red-400 hover:bg-red-500/10"
                         >

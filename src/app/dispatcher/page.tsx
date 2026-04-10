@@ -9,8 +9,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
-import { socket } from '@/lib/socket';
+import { useSocket } from '@/context/SocketContext';
 import { useSound } from '@/hooks/useSound';
+import { StatusBadge } from '@/components/police-dispatcher/StatusBadge';
+import { CallCard } from '@/components/police-dispatcher/CallCard';
+import { DutyModal } from '@/components/police-dispatcher/DutyModal';
+import { MessageModal } from '@/components/police-dispatcher/MessageModal';
+import { PairCreationModal } from '@/components/police-dispatcher/PairCreationModal';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -85,6 +90,7 @@ export default function DispatcherPage() {
 
 function DispatcherPageContent() {
     const { user } = useAuth();
+    const { socket, isConnected } = useSocket();
     const [units, setUnits] = useState<Unit[]>([]);
     const [calls, setCalls] = useState<Call911[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -113,6 +119,9 @@ function DispatcherPageContent() {
     const [dropTargetUnit, setDropTargetUnit] = useState<Unit | null>(null);
     const [showCreatePairModal, setShowCreatePairModal] = useState(false);
     const [createPairData, setCreatePairData] = useState<{ unit1: Unit; unit2: Unit; pairName: string } | null>(null);
+
+    // Status dropdown state
+    const [showStatusMenu, setShowStatusMenu] = useState(false);
 
     // Create 911 call
     const [showCreateCallModal, setShowCreateCallModal] = useState(false);
@@ -184,7 +193,7 @@ function DispatcherPageContent() {
     useEffect(() => {
         fetchData();
 
-        socket.connect();
+        // Socket connection handled by SocketProvider
 
         socket.on('new_911_call', (newCall: Call911) => {
             setCalls(prev => [newCall, ...prev]);
@@ -257,23 +266,43 @@ function DispatcherPageContent() {
         });
 
         socket.on('call_assigned_to_unit', (data: { userId: number; call: any }) => {
-            console.log('[SOCKET] call_assigned_to_unit:', data);
+            // Deprecated - now using unit_attached_to_call
+            // Keeping for backwards compatibility but no action needed
+        });
+
+        socket.on('unit_attached_to_call', (data: any) => {
+            console.log('[SOCKET] unit_attached_to_call:', data);
+            playSound('notification');
+            toast({ title: data.isLeadUnit ? 'Новый главный юнит' : 'Юнит прикреплен', description: `${data.unitCallSign} прикреплен к вызову #${data.callId}${data.isLeadUnit ? ' (ГЛАВНЫЙ)' : ''}` });
             fetchData();
-            if (data.call) {
-                // Update selected call if it's the same
-                if (selectedCall && selectedCall.id === data.call.id) {
-                    setSelectedCall(prev => prev ? { 
-                        ...prev, 
-                        units: data.call.responders ? data.call.responders.map((r: any) => ({
-                            userId: data.userId,
-                            callSign: r.callSign,
-                            character: { firstName: r.name?.split(' ')[0], lastName: r.name?.split(' ')[1] },
-                            status: r.status
-                        })) : [],
-                        mainUnitId: data.call.mainUnitId
-                    } : null);
-                }
-                toast({ title: 'Юнит прикреплен', description: `Юнит прикреплен к вызову #${data.call.id}` });
+            if (selectedCall?.id === data.callId && data.call) {
+                setSelectedCall(prev => prev ? { 
+                    ...prev, status: data.call.status, mainUnitId: data.call.mainUnitId, units: data.call.units || prev.units 
+                } : null);
+            }
+        });
+
+        socket.on('unit_detached_from_call', (data: any) => {
+            console.log('[SOCKET] unit_detached_from_call:', data);
+            playSound('notification');
+            toast({ title: 'Юнит откреплен', description: `${data.unitCallSign} откреплен от вызова #${data.callId}` });
+            fetchData();
+            if (selectedCall?.id === data.callId && data.call) {
+                setSelectedCall(prev => prev ? { 
+                    ...prev, status: data.call.status, mainUnitId: data.newMainUnitId, units: data.call.units || [] 
+                } : null);
+            }
+        });
+
+        socket.on('lead_unit_changed', (data: any) => {
+            console.log('[SOCKET] lead_unit_changed:', data);
+            playSound('notification');
+            toast({ title: 'Новый главный юнит', description: `Главный юнит на вызове #${data.callId} изменен` });
+            fetchData();
+            if (selectedCall?.id === data.callId && data.call) {
+                setSelectedCall(prev => prev ? { 
+                    ...prev, mainUnitId: data.newLeadUserId, units: data.call.units.map((u: any) => ({ ...u, isLead: u.userId === data.newLeadUserId })) 
+                } : null);
             }
         });
 
@@ -300,7 +329,6 @@ function DispatcherPageContent() {
             socket.off('unit_unassigned');
             socket.off('unit_on_duty');
             socket.off('unit_off_duty');
-            socket.disconnect();
         };
     }, [selectedCall?.id]);
 
@@ -367,7 +395,7 @@ function DispatcherPageContent() {
             });
 
             if (res.ok) {
-                toast({ title: 'Unit Status Updated', description: `Unit is now ${status}` });
+                toast({ title: 'Статус юнита обновлен', description: `Юнит теперь ${status}` });
                 fetchData();
             } else {
                 const data = await res.json();
@@ -395,7 +423,7 @@ function DispatcherPageContent() {
             });
 
             if (res.ok) {
-                toast({ title: 'Call Updated', description: `Call #${callId} moved to ${status}` });
+                toast({ title: 'Вызов обновлен', description: `Вызов #${callId} переведен в статус ${status}` });
                 setSelectedCall(null);
                 fetchData();
             }
@@ -405,7 +433,7 @@ function DispatcherPageContent() {
     };
 
     const handleDeleteCall = async (callId: number) => {
-        if (!confirm('Are you sure you want to delete this call?')) return;
+        if (!confirm('Вы уверены, что хотите удалить этот вызов?')) return;
 
         try {
             const token = localStorage.getItem('accessToken');
@@ -421,7 +449,7 @@ function DispatcherPageContent() {
             });
 
             if (res.ok) {
-                toast({ title: 'Call Deleted', description: 'Emergency call has been removed.' });
+                toast({ title: 'Вызов удален', description: 'Экстренный вызов был удален.' });
                 setSelectedCall(null);
                 fetchData();
             }
@@ -432,7 +460,7 @@ function DispatcherPageContent() {
 
     const handleDutyStart = () => {
         if (!callSign.trim()) {
-            toast({ title: 'Error', description: 'Please enter a callsign', variant: 'destructive' });
+            toast({ title: 'Ошибка', description: 'Введите позывной', variant: 'destructive' });
             return;
         }
         setOnDuty(true);
@@ -445,7 +473,7 @@ function DispatcherPageContent() {
         setOnDuty(false);
         setShowDutyModal(true);
         localStorage.setItem('dispatcherOnDuty', 'false');
-        toast({ title: 'Dispatcher Status', description: 'You are now off duty.' });
+        toast({ title: 'Статус диспетчера', description: 'Вы вышли со смены.' });
     };
 
     // Drag and drop handlers for pair creation - use original units array
@@ -710,30 +738,35 @@ function DispatcherPageContent() {
             });
             
             if (res.ok) {
-                toast({ title: 'Message Sent', description: 'Message sent to ' + messageUnit.unit });
+                toast({ title: 'Сообщение отправлено', description: 'Сообщение отправлено юниту ' + messageUnit.unit });
                 playSound('notification');
                 setMessageText("");
                 setShowMessageModal(false);
                 setMessageUnit(null);
             } else {
                 const data = await res.json();
-                toast({ title: 'Error', description: data.error || 'Failed to send message', variant: 'destructive' });
+                toast({ title: 'Ошибка', description: data.error || 'Не удалось отправить сообщение', variant: 'destructive' });
             }
         } catch (err) {
             console.error('Failed to send message', err);
-            toast({ title: 'Error', description: 'Failed to send message', variant: 'destructive' });
+            toast({ title: 'Ошибка', description: 'Не удалось отправить сообщение', variant: 'destructive' });
         }
     };
 
     // Helper function to render status badge
     const renderStatusBadge = (status: string) => {
-        if (status === 'pending') {
-            return <span className="px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-amber-500/20 text-amber-500">ОЖИДАЕТ</span>;
-        } else if (status === 'dispatched') {
-            return <span className="px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-blue-500/20 text-blue-500">ОТПРАВЛЕН</span>;
-        } else {
-            return <span className="px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-zinc-500/20 text-zinc-500">{status}</span>;
+        const statusConfig: Record<string, { label: string; color: string }> = {
+            'pending': { label: 'ОЖИДАЕТ', color: 'bg-amber-500/20 text-amber-500' },
+            'resolved': { label: 'РЕШЕН', color: 'bg-green-500/20 text-green-500' },
+            'closed': { label: 'ЗАКРЫТ', color: 'bg-zinc-500/20 text-zinc-500' },
+            'cancelled': { label: 'ОТМЕНЕН', color: 'bg-red-500/20 text-red-500' }
+        };
+        
+        const config = statusConfig[status];
+        if (config) {
+            return <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase font-bold ${config.color}`}>{config.label}</span>;
         }
+        return <span className="px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-zinc-500/20 text-zinc-500">{status}</span>;
     };
 
     // Helper function to render unit status badge
@@ -747,12 +780,12 @@ function DispatcherPageContent() {
             'Resolving': 'bg-indigo-500/20 text-indigo-400'
         };
         const statusText: Record<string, string> = {
-            'Available': '10-8 ДОСТУПЕН',
-            'Busy': '10-6 ЗАНЯТ',
-            'Enroute': '10-97 В ПУТИ',
-            'On Scene': '10-23 НА МЕСТЕ',
-            'Dispatched': '10-10 НАЗНАЧЕН',
-            'Resolving': '10-10 ОБРАБАТЫВАЕТСЯ'
+            'Available': 'ДОСТУПЕН',
+            'Busy': 'ЗАНЯТ',
+            'Enroute': 'В ПУТИ',
+            'On Scene': 'НА МЕСТЕ',
+            'Dispatched': 'НАЗНАЧЕН',
+            'Resolving': 'ОБРАБАТЫВАЕТСЯ'
         };
         const className = statusClasses[status] || 'bg-zinc-500/20 text-zinc-400';
         const text = statusText[status] || status;
@@ -778,7 +811,7 @@ function DispatcherPageContent() {
                                 </Button>
                                 <Button variant="outline" size="sm" onClick={handleGoOffDuty} className="h-8 bg-zinc-800/50 border-red-900/50 text-red-400 hover:bg-red-950/30">
                                     <LogOut className="w-4 h-4 mr-2" />
-                                    Off Duty
+                                    Выход со смены
                                 </Button>
                             </div>
                         </CardTitle>
@@ -1047,9 +1080,6 @@ function DispatcherPageContent() {
                                                                                 <p className="text-zinc-200 text-[11px] font-medium">
                                                                                     {unit.callSign || unit.character?.firstName + ' ' + unit.character?.lastName || unit.user?.username}
                                                                                 </p>
-                                                                                {isMainUnit && (
-                                                                                    <span className="text-[9px] text-red-400 font-bold uppercase tracking-tighter">ГЛАВНЫЙ</span>
-                                                                                )}
                                                                             </div>
                                                                         </div>
                                                                     </div>
@@ -1058,26 +1088,44 @@ function DispatcherPageContent() {
                                                         </div>
                                                     </div>
                                                 )}
-
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <Button
-                                                        size="sm"
-                                                        className="bg-blue-600 hover:bg-blue-500"
-                                                        onClick={() => handleUpdateCallStatus(selectedCall.id, 'dispatched')}
-                                                        disabled={selectedCall.status === 'dispatched'}
-                                                    >
-                                                        <Send className="w-3.5 h-3.5 mr-1.5" />
-                                                        Отправить
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        className="border-zinc-700 bg-zinc-800/50"
-                                                        onClick={() => handleUpdateCallStatus(selectedCall.id, 'closed')}
-                                                    >
-                                                        <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
-                                                        Закрыть
-                                                    </Button>
+                                                {/* Status Selector */}
+                                                <div className="pt-2 relative">
+                                                    <Label className="text-[10px] uppercase text-zinc-500">Статус</Label>
+                                                    <div className="relative">
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="w-full h-8 text-xs bg-zinc-800 border-zinc-700 justify-between"
+                                                            onClick={() => setShowStatusMenu(!showStatusMenu)}
+                                                        >
+                                                            <span className={`flex items-center gap-2`}>
+                                                                {renderStatusBadge(selectedCall.status)}
+                                                            </span>
+                                                            <ChevronDown className="w-3 h-3" />
+                                                        </Button>
+                                                        {showStatusMenu && (
+                                                            <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded shadow-xl z-10">
+                                                                {[
+                                                                    { value: 'pending', label: 'Ожидает' },
+                                                                    { value: 'resolved', label: 'Решен' },
+                                                                    { value: 'closed', label: 'Закрыт' },
+                                                                    { value: 'cancelled', label: 'Отменен' }
+                                                                ].map((status) => (
+                                                                    <button
+                                                                        key={status.value}
+                                                                        className={`w-full px-3 py-2 text-xs text-left hover:bg-zinc-700 flex items-center gap-2 first:rounded-t last:rounded-b ${selectedCall.status === status.value ? 'bg-zinc-700' : ''}`}
+                                                                        onClick={() => {
+                                                                            handleUpdateCallStatus(selectedCall.id, status.value);
+                                                                            setShowStatusMenu(false);
+                                                                        }}
+                                                                    >
+                                                                        {renderStatusBadge(status.value)}
+                                                                        {status.label}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
 
                                                 <div className="pt-2 border-t border-zinc-800 space-y-3 flex-1 flex flex-col min-h-0">
@@ -1146,10 +1194,10 @@ function DispatcherPageContent() {
                                                 </div>
                                             </div>
                                             <div className="grid grid-cols-2 gap-1.5">
-                                                <Button size="sm" variant="outline" className="h-7 text-[10px] bg-green-900/20 border-green-700/50 text-green-400" onClick={() => handleUpdateUnitStatus(selectedUnit.characterId, selectedUnit.userId, 'Available')}>10-8</Button>
-                                                <Button size="sm" variant="outline" className="h-7 text-[10px] bg-amber-900/20 border-amber-700/50 text-amber-400" onClick={() => handleUpdateUnitStatus(selectedUnit.characterId, selectedUnit.userId, 'Busy')}>10-6</Button>
-                                                <Button size="sm" variant="outline" className="h-7 text-[10px] bg-blue-900/20 border-blue-700/50 text-blue-400" onClick={() => handleUpdateUnitStatus(selectedUnit.characterId, selectedUnit.userId, 'Enroute')}>10-97</Button>
-                                                <Button size="sm" variant="outline" className="h-7 text-[10px] bg-red-900/20 border-red-700/50 text-red-400" onClick={() => handleUpdateUnitStatus(selectedUnit.characterId, selectedUnit.userId, 'On Scene')}>10-23</Button>
+                                                <Button size="sm" variant="outline" className="h-7 text-[10px] bg-green-900/20 border-green-700/50 text-green-400" onClick={() => handleUpdateUnitStatus(selectedUnit.characterId, selectedUnit.userId, 'Available')}>Доступен</Button>
+                                                <Button size="sm" variant="outline" className="h-7 text-[10px] bg-amber-900/20 border-amber-700/50 text-amber-400" onClick={() => handleUpdateUnitStatus(selectedUnit.characterId, selectedUnit.userId, 'Busy')}>Занят</Button>
+                                                <Button size="sm" variant="outline" className="h-7 text-[10px] bg-blue-900/20 border-blue-700/50 text-blue-400" onClick={() => handleUpdateUnitStatus(selectedUnit.characterId, selectedUnit.userId, 'Enroute')}>В пути</Button>
+                                                <Button size="sm" variant="outline" className="h-7 text-[10px] bg-red-900/20 border-red-700/50 text-red-400" onClick={() => handleUpdateUnitStatus(selectedUnit.characterId, selectedUnit.userId, 'On Scene')}>На месте</Button>
                                             </div>
                                             <Button 
                                                 size="sm" 
@@ -1231,8 +1279,153 @@ function DispatcherPageContent() {
                                                     >
                                                         {result.type === 'person' && (
                                                             <div>
-                                                                <span className="text-blue-400 font-bold">{result.data.firstName} {result.data.lastName}</span>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-blue-400 font-bold">{result.data.firstName} {result.data.lastName}</span>
+                                                                    {result.data.tags && result.data.tags.length > 0 && (
+                                                                        <div className="flex gap-1 flex-wrap">
+                                                                            {result.data.tags.slice(0, 3).map((tag: any) => (
+                                                                                <span 
+                                                                                    key={tag.id}
+                                                                                    className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${tag.tagType === 'dangerous' ? 'animate-pulse' : ''}`}
+                                                                                    style={{ 
+                                                                                        backgroundColor: tag.color + '20', 
+                                                                                        color: tag.color,
+                                                                                        border: `1px solid ${tag.color}40`
+                                                                                    }}
+                                                                                >
+                                                                                    {tag.tagName}
+                                                                                </span>
+                                                                            ))}
+                                                                            {result.data.tags.length > 3 && (
+                                                                                <span className="text-zinc-500 text-[8px]">+{result.data.tags.length - 3}</span>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
                                                                 {result.data.ssn && <span className="text-zinc-500 ml-1">SSN: {result.data.ssn}</span>}
+                                                                {result.data.warrants && result.data.warrants.filter((w: any) => w.status === 'active').length > 0 && (
+                                                                    <div className="mt-1 flex items-center gap-1">
+                                                                        <FileText className="w-2.5 h-2.5 text-red-500" />
+                                                                        <span className="text-red-400 text-[9px] font-bold">
+                                                                            {result.data.warrants.filter((w: any) => w.status === 'active').length} активный ордер
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                        {result.type === 'vehicle' && (
+                                                            <div>
+                                                                <span className="text-green-400 font-bold">{result.data.make} {result.data.model}</span>
+                                                                <span className="text-zinc-500 ml-1">({result.data.plate})</span>
+                                                            </div>
+                                                        )}
+                                                        {result.type === 'weapon' && (
+                                                            <div>
+                                                                <span className="text-red-400 font-bold">{result.data.weaponType}</span>
+                                                                <span className="text-zinc-500 ml-1">SN: {result.data.serialNumber}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="rounded-lg border border-zinc-700 p-3 bg-zinc-900/40">
+                                    <span className="text-xs font-medium text-zinc-400 block mb-2">Быстрый поиск NCIC</span>
+                                    <div className="space-y-2">
+                                        <div className="flex gap-2">
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="outline" size="sm" className="h-8 text-xs bg-zinc-800/50 border-zinc-700 flex-shrink-0">
+                                                        {searchType === 'person' ? 'Личность' : searchType === 'vehicle' ? 'Авто' : 'Оружие'}
+                                                        <ChevronDown className="w-3 h-3 ml-1" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent className="bg-zinc-800 border-zinc-700">
+                                                    <DropdownMenuItem onClick={() => setSearchType('person')} className="text-zinc-200">Личность</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => setSearchType('vehicle')} className="text-zinc-200">Авто</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => setSearchType('weapon')} className="text-zinc-200">Оружие</DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                            {searchType === 'person' ? (
+                                                <div className="flex gap-1 flex-1">
+                                                    <Input 
+                                                        placeholder="Имя" 
+                                                        className="bg-zinc-800/50 border-zinc-700 h-8 text-xs flex-1"
+                                                        value={searchQuery.split(' ')[0] || ''}
+                                                        onChange={(e) => setSearchQuery(e.target.value + (searchQuery.split(' ')[1] ? ' ' + searchQuery.split(' ')[1] : ''))}
+                                                    />
+                                                    <Input 
+                                                        placeholder="Фамилия" 
+                                                        className="bg-zinc-800/50 border-zinc-700 h-8 text-xs flex-1"
+                                                        value={searchQuery.split(' ')[1] || ''}
+                                                        onChange={(e) => setSearchQuery((searchQuery.split(' ')[0] || '') + ' ' + e.target.value)}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <Input 
+                                                    placeholder={searchType === 'vehicle' ? 'Гос. номер' : 'Серийный номер'} 
+                                                    className="bg-zinc-800/50 border-zinc-700 h-8 text-xs flex-1"
+                                                    value={searchQuery}
+                                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                                />
+                                            )}
+                                        </div>
+                                        <Button variant="outline" size="sm" className="w-full h-7 text-[10px] bg-zinc-800/50 border-zinc-700" onClick={handleSearch} disabled={isSearching}>
+                                            <Search className="w-3 h-3 mr-1" />
+                                            {isSearching ? 'Поиск...' : 'Поиск'}
+                                        </Button>
+                                        
+                                        {searchError && (
+                                            <div className="mt-2 p-2 bg-red-500/10 border border-red-500/30 rounded text-[10px] text-red-400 text-center">
+                                                {searchError}
+                                            </div>
+                                        )}
+                                        
+                                        {searchResults.length > 0 && (
+                                            <div className="mt-2 space-y-1 max-h-32 overflow-auto">
+                                                {searchResults.map((result, idx) => (
+                                                    <div 
+                                                        key={idx} 
+                                                        className="text-[10px] p-1.5 bg-zinc-800/50 rounded border border-zinc-700 cursor-pointer hover:bg-zinc-700"
+                                                        onClick={() => result.type === 'person' && setSelectedCharacter(result.data)}
+                                                    >
+                                                        {result.type === 'person' && (
+                                                            <div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-blue-400 font-bold">{result.data.firstName} {result.data.lastName}</span>
+                                                                    {result.data.tags && result.data.tags.length > 0 && (
+                                                                        <div className="flex gap-1 flex-wrap">
+                                                                            {result.data.tags.slice(0, 3).map((tag: any) => (
+                                                                                <span 
+                                                                                    key={tag.id}
+                                                                                    className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${tag.tagType === 'dangerous' ? 'animate-pulse' : ''}`}
+                                                                                    style={{ 
+                                                                                        backgroundColor: tag.color + '20', 
+                                                                                        color: tag.color,
+                                                                                        border: `1px solid ${tag.color}40`
+                                                                                    }}
+                                                                                >
+                                                                                    {tag.tagName}
+                                                                                </span>
+                                                                            ))}
+                                                                            {result.data.tags.length > 3 && (
+                                                                                <span className="text-zinc-500 text-[8px]">+{result.data.tags.length - 3}</span>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                {result.data.ssn && <span className="text-zinc-500 ml-1">SSN: {result.data.ssn}</span>}
+                                                                {result.data.warrants && result.data.warrants.filter((w: any) => w.status === 'active').length > 0 && (
+                                                                    <div className="mt-1 flex items-center gap-1">
+                                                                        <FileText className="w-2.5 h-2.5 text-red-500" />
+                                                                        <span className="text-red-400 text-[9px] font-bold">
+                                                                            {result.data.warrants.filter((w: any) => w.status === 'active').length} активный ордер
+                                                                        </span>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         )}
                                                         {result.type === 'vehicle' && (
@@ -1274,67 +1467,27 @@ function DispatcherPageContent() {
                 </Card>
             </div>
 
-            {/* Duty Selection Modal - Simplified */}
-            {showDutyModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
-                    <Card className="w-full max-w-xs bg-zinc-950 border-zinc-800">
-                        <CardHeader className="pb-3 text-center">
-                            <Radio className="w-6 h-6 text-blue-500 mx-auto mb-2" />
-                            <CardTitle className="text-lg font-bold text-white">Dispatcher</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <Input 
-                                placeholder="DISP-1"
-                                value={callSign}
-                                onChange={(e) => setCallSign(e.target.value.toUpperCase())}
-                                onKeyDown={(e) => e.key === 'Enter' && handleDutyStart()}
-                                className="bg-zinc-900 border-zinc-800 text-center"
-                                autoFocus
-                            />
-                            <Button className="w-full bg-blue-600" onClick={handleDutyStart}>
-                                Start Duty
-                            </Button>
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
+            <DutyModal
+                isOpen={showDutyModal}
+                onClose={() => setShowDutyModal(false)}
+                onStart={handleDutyStart}
+                characters={[]}
+                isLoading={false}
+                callSign={callSign}
+                setCallSign={setCallSign}
+                subdivision={""}
+                setSubdivision={() => {}}
+                selectedCharacter={""}
+                setSelectedCharacter={() => {}}
+                type="dispatcher"
+            />
 
-            {showMessageModal && messageUnit && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-                    <Card className="w-full max-w-md bg-zinc-900 border-zinc-800">
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-lg text-zinc-100">
-                                    Отправить сообщение юниту {messageUnit.unit}
-                                </CardTitle>
-                                <Button variant="ghost" size="sm" onClick={() => setShowMessageModal(false)}>
-                                    <X className="w-4 h-4" />
-                                </Button>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                                <Label className="text-zinc-400 text-xs uppercase">Сообщение</Label>
-                                <textarea 
-                                    className="w-full h-32 bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-zinc-200 resize-none"
-                                    placeholder="Введите сообщение для юнита..."
-                                    value={messageText}
-                                    onChange={(e) => setMessageText(e.target.value)}
-                                />
-                            </div>
-                            <div className="flex gap-2">
-                                <Button variant="outline" className="flex-1" onClick={() => setShowMessageModal(false)}>
-                                    Отмена
-                                </Button>
-                                <Button className="flex-1 bg-blue-600 hover:bg-blue-500" onClick={handleSendMessageToUnit}>
-                                    <Send className="w-4 h-4 mr-2" />
-                                    Отправить
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
+            <MessageModal
+                isOpen={showMessageModal}
+                onClose={() => setShowMessageModal(false)}
+                unit={messageUnit}
+                onSend={handleSendMessageToUnit}
+            />
 
             {/* Character Details Modal */}
             {selectedCharacter && (

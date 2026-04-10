@@ -17,7 +17,8 @@ export class Calls911Service {
         z?: number,
         userUsername?: string,
         userDiscordId?: string,
-        userAvatarUrl?: string
+        userAvatarUrl?: string,
+        callType?: string
     }) {
         const emergency = data.isEmergency || data.priority === 'emergency' || data.priority === 'high';
         
@@ -28,7 +29,7 @@ export class Calls911Service {
                 location: data.location,
                 description: data.description,
                 phoneNumber: data.phoneNumber,
-                type: data.type || 'other',
+                type: data.callType || data.type || 'other',
                 priority: data.priority || (emergency ? 'high' : 'routine'),
                 isEmergency: emergency,
                 x: data.x,
@@ -177,6 +178,7 @@ export class Calls911Service {
         }
 
         const isMainUnitSet = call?.mainUnitId !== null && call?.mainUnitId !== undefined;
+        const isFirstUnit = !isMainUnitSet;
 
         const result = await prisma.$transaction([
             prisma.unit.update({
@@ -193,12 +195,6 @@ export class Calls911Service {
         ]);
 
         if (io) {
-            io.emit('unit_assigned', {
-                userId,
-                callId,
-                unitCallSign: existingUnit.callSign
-            });
-            
             const updatedCall = await prisma.call911.findUnique({
                 where: { id: callId },
                 include: {
@@ -213,6 +209,40 @@ export class Calls911Service {
             });
             
             if (updatedCall) {
+                // Emit to all clients - unit attached to call
+                io.emit('unit_attached_to_call', {
+                    userId,
+                    callId,
+                    unitCallSign: existingUnit.callSign,
+                    isLeadUnit: isFirstUnit,
+                    call: {
+                        id: updatedCall.id,
+                        location: updatedCall.location,
+                        description: updatedCall.description,
+                        callerName: updatedCall.callerName,
+                        callerPhone: updatedCall.phoneNumber,
+                        createdAt: updatedCall.createdAt.getTime(),
+                        status: updatedCall.status,
+                        mainUnitId: updatedCall.mainUnitId,
+                        units: updatedCall.units.map(u => ({
+                            userId: u.userId,
+                            characterId: u.characterId,
+                            name: u.character ? `${u.character.firstName} ${u.character.lastName}` : u.callSign,
+                            status: u.status,
+                            callSign: u.callSign,
+                            isLead: u.userId === updatedCall.mainUnitId
+                        }))
+                    }
+                });
+                
+                // Also emit legacy event for compatibility
+                io.emit('unit_assigned', {
+                    userId,
+                    callId,
+                    unitCallSign: existingUnit.callSign,
+                    isLeadUnit: isFirstUnit
+                });
+                
                 io.emit('call_assigned_to_unit', {
                     userId,
                     call: {
@@ -240,7 +270,7 @@ export class Calls911Service {
     static async detachUnit(userId: number) {
         const unit = await prisma.unit.findUnique({
             where: { userId },
-            select: { callId: true }
+            select: { callId: true, callSign: true }
         });
 
         if (!unit?.callId) {
@@ -258,7 +288,7 @@ export class Calls911Service {
 
         const newMainUnitId = remainingUnits.length > 0 ? remainingUnits[0].userId : null;
 
-        return prisma.$transaction([
+        await prisma.$transaction([
             prisma.unit.update({
                 where: { userId },
                 data: { callId: null }
@@ -267,20 +297,93 @@ export class Calls911Service {
                 where: { id: callId },
                 data: { mainUnitId: newMainUnitId }
             })
-        ]).then(() => {
-            if (io) {
-                io.emit('unit_unassigned', {
-                    userId,
-                    callId
-                });
-            }
-        });
+        ]);
+
+        if (io) {
+            const updatedCall = await prisma.call911.findUnique({
+                where: { id: callId },
+                include: {
+                    units: {
+                        include: {
+                            character: true,
+                            user: { select: { username: true, avatarUrl: true } }
+                        }
+                    }
+                }
+            });
+            
+            // Emit unit detached from call
+            io.emit('unit_detached_from_call', {
+                userId,
+                callId,
+                unitCallSign: unit.callSign,
+                newMainUnitId,
+                call: updatedCall ? {
+                    id: updatedCall.id,
+                    status: updatedCall.status,
+                    mainUnitId: updatedCall.mainUnitId,
+                    units: updatedCall.units.map(u => ({
+                        userId: u.userId,
+                        characterId: u.characterId,
+                        name: u.character ? `${u.character.firstName} ${u.character.lastName}` : u.callSign,
+                        status: u.status,
+                        callSign: u.callSign,
+                        isLead: u.userId === updatedCall.mainUnitId
+                    }))
+                } : null
+            });
+            
+            // Legacy event
+            io.emit('unit_unassigned', {
+                userId,
+                callId
+            });
+        }
+
+        return unit;
     }
 
     static async setMainUnit(callId: number, userId: number) {
-        return prisma.call911.update({
+        const updatedCall = await prisma.call911.update({
             where: { id: callId },
             data: { mainUnitId: userId }
         });
+
+        if (io) {
+            const fullCall = await prisma.call911.findUnique({
+                where: { id: callId },
+                include: {
+                    units: {
+                        include: {
+                            character: true,
+                            user: { select: { username: true, avatarUrl: true } }
+                        }
+                    }
+                }
+            });
+
+            if (fullCall) {
+                io.emit('lead_unit_changed', {
+                    callId,
+                    newLeadUserId: userId,
+                    previousLeadUserId: null,
+                    call: {
+                        id: fullCall.id,
+                        status: fullCall.status,
+                        mainUnitId: fullCall.mainUnitId,
+                        units: fullCall.units.map(u => ({
+                            userId: u.userId,
+                            characterId: u.characterId,
+                            name: u.character ? `${u.character.firstName} ${u.character.lastName}` : u.callSign,
+                            status: u.status,
+                            callSign: u.callSign,
+                            isLead: u.userId === fullCall.mainUnitId
+                        }))
+                    }
+                });
+            }
+        }
+
+        return updatedCall;
     }
 }

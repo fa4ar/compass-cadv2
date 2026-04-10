@@ -27,7 +27,7 @@ const ROLE_PAGES: RolePage[] = [
     { key: 'dispatcher', label: 'Dispatcher', path: '/dispatcher', icon: Radio, requiredRoles: ['dispatcher'] },
     { key: 'officer', label: 'Police', path: '/police', icon: Shield, requiredRoles: ['police'] },
     { key: 'map', label: 'Live Map', path: '/map', icon: Compass, requiredRoles: ['police', 'dispatcher'] },
-    { key: 'ems', label: 'EMS / Fire', path: '/ems', icon: Heart, disabled: true },
+    { key: 'ems', label: 'EMS / Fire', path: '/ems', icon: Heart, requiredRoles: ['ems'] },
 ];
 
 export default function RoleSwitcher() {

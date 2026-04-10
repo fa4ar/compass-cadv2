@@ -47,6 +47,7 @@ app.use('/api', apiRoutes);
 // Хранилища
 export const activeUserSessions = new Map<number, Set<string>>(); // userId -> Set of socketIds
 const liveBlips = new Map<string, any>(); // identifier -> { x, y, z, heading, icon, color, label }
+const liveCalls = new Map<number, any>(); // callId -> { id, type, location, description, priority, callerName, status, x, y, z, createdAt }
 
 io.on('connection', (socket) => {
     console.log(`✅ Client connected: ${socket.id}`);
@@ -126,6 +127,20 @@ io.on('connection', (socket) => {
         socket.emit('units_data', Array.from(liveBlips.values()));
     });
 
+    // Пакетное обновление вызовов 911 от FiveM
+    socket.on('update_calls_batch', (calls: any[]) => {
+        for (const call of calls) {
+            if (!call.id) continue;
+            liveCalls.set(call.id, {
+                ...call,
+                lastSeen: Date.now()
+            });
+        }
+
+        // Транслируем всем веб-клиентам
+        io.emit('calls_updated', Array.from(liveCalls.values()));
+    });
+
     // Ручное удаление блипа (например, юнит ушел со смены)
     socket.on('remove_blip', (identifier: string) => {
         liveBlips.delete(identifier);
@@ -134,6 +149,9 @@ io.on('connection', (socket) => {
 
     // Отправляем текущие блипы новому клиенту
     socket.emit('blips_updated', Array.from(liveBlips.values()));
+    
+    // Отправляем текущие вызовы новому клиенту
+    socket.emit('calls_updated', Array.from(liveCalls.values()));
 
     // -------------------------
 

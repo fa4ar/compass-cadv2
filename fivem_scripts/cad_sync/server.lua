@@ -174,9 +174,172 @@ CreateThread(function()
             end
         end
 
+        -- Добавляем активные вызовы 911
+        local calls = {}
+        for callId, call in pairs(activeCalls) do
+            if call.x and call.y and call.status ~= "closed" then
+                table.insert(calls, {
+                    id = call.id,
+                    type = call.type,
+                    location = call.location,
+                    description = call.description,
+                    priority = call.priority,
+                    callerName = call.callerName,
+                    status = call.status,
+                    x = call.x,
+                    y = call.y,
+                    z = call.z,
+                    createdAt = call.createdAt
+                })
+            end
+        end
+
         -- Отправляем в JS-скрипт для передачи через сокет
-        if #blips > 0 then
-            TriggerEvent('cad_sync:sendMapUpdate', blips)
+        if #blips > 0 or #calls > 0 then
+            TriggerEvent('cad_sync:sendMapUpdate', blips, calls)
+        end
+    end
+end)
+
+-- =====================================================
+-- 911 CALL SYSTEM (Integration with Backend API)
+-- =====================================================
+
+-- Команда для вызова 911 из игры
+RegisterCommand('911', function(source, args, rawCommand)
+    local src = source
+    local callType = args[1] or "other"
+    local description = table.concat(args, " ", 2)
+    
+    if #description < 10 then
+        TriggerClientEvent('chat:addMessage', src, { args = { '^1[911]', 'Опишите ситуацию подробнее (минимум 10 символов)' } })
+        return
+    end
+    
+    -- Получаем координаты игрока
+    local ped = GetPlayerPed(src)
+    local coords = GetEntityCoords(ped)
+    local streetHash, crossingHash = GetStreetNameAtCoord(coords.x, coords.y, coords.z)
+    local streetName = GetStreetNameFromHashKey(streetHash)
+    local areaName = GetNameOfZone(coords.x, coords.y, coords.z)
+    local location = streetName .. ", " .. (areaName or "Unknown")
+    
+    -- Получаем информацию о звонящем
+    local playerName = GetPlayerName(src)
+    local discordId = GetDiscordId(src)
+    
+    -- Формируем данные вызова
+    local callData = {
+        type = callType,
+        location = location,
+        description = description,
+        priority = "medium",
+        callerName = playerName,
+        callerDiscordId = discordId,
+        x = coords.x,
+        y = coords.y,
+        z = coords.z,
+        status = "pending",
+        createdAt = os.time() * 1000,
+        responders = {}
+    }
+    
+    -- Отправляем в backend API
+    PerformHttpRequest(Config.ApiUrl .. "/calls911", function(status, body, headers)
+        if status == 201 then
+            local response = json.decode(body)
+            callData.id = response.id
+            
+            -- Сохраняем активный вызов
+            StoreActiveCall(callData)
+            
+            -- Уведомляем игрока
+            TriggerClientEvent('chat:addMessage', src, { args = { '^2[911]', 'Вызов #' .. response.id .. ' отправлен. Ожидайте ответа.' } })
+            
+            print("[CAD-911] New call #" .. response.id .. " from " .. playerName .. " at " .. location)
+        else
+            TriggerClientEvent('chat:addMessage', src, { args = { '^1[911]', 'Ошибка отправки вызова. Попробуйте снова.' } })
+            print("[CAD-911] Failed to create call. Status: " .. status)
+        end
+    end, 'POST', json.encode(callData), { ['Content-Type'] = 'application/json' })
+end, false)
+
+-- Команда для отмены вызова
+RegisterCommand('cancel911', function(source, args, rawCommand)
+    local src = source
+    local callId = args[1]
+    
+    if not callId then
+        TriggerClientEvent('chat:addMessage', src, { args = { '^1[911]', 'Использование: /cancel911 [ID вызова]' } })
+        return
+    end
+    
+    -- Проверяем, есть ли такой вызов
+    local call = activeCalls[tonumber(callId)]
+    if not call then
+        TriggerClientEvent('chat:addMessage', src, { args = { '^1[911]', 'Вызов с таким ID не найден' } })
+        return
+    end
+    
+    -- Отправляем запрос на отмену в API
+    PerformHttpRequest(Config.ApiUrl .. "/calls911/" .. callId .. "/cancel", function(status, body, headers)
+        if status == 200 then
+            -- Удаляем из активных
+            activeCalls[tonumber(callId)] = nil
+            
+            -- Уведомляем всех игроков
+            TriggerClientEvent('cad_sync:callClosed', -1, tonumber(callId))
+            
+            TriggerClientEvent('chat:addMessage', src, { args = { '^2[911]', 'Вызов #' .. callId .. ' отменен' } })
+            print("[CAD-911] Call #" .. callId .. " cancelled")
+        else
+            TriggerClientEvent('chat:addMessage', src, { args = { '^1[911]', 'Ошибка отмены вызова' } })
+        end
+    end, 'POST', '', { ['Content-Type'] = 'application/json' })
+end, false)
+
+-- Синхронизация вызовов с backend API (получение активных вызовов)
+CreateThread(function()
+    while true do
+        Wait(5000) -- Каждые 5 секунд
+        
+        -- Получаем активные вызовы из API
+        PerformHttpRequest(Config.ApiUrl .. "/calls911/active", function(status, body, headers)
+            if status == 200 then
+                local data = json.decode(body)
+                if data and data.calls then
+                    for _, call in ipairs(data.calls) do
+                        -- Если вызов новый, сохраняем и транслируем
+                        if not activeCalls[call.id] then
+                            activeCalls[call.id] = call
+                            TriggerClientEvent('cad_sync:new911Call', -1, call)
+                        elseif activeCalls[call.id].status ~= call.status then
+                            -- Если статус изменился, обновляем и уведомляем
+                            activeCalls[call.id] = call
+                            TriggerClientEvent('cad_sync:callUpdated', -1, call)
+                        end
+                    end
+                end
+            end
+        end, 'GET', '', { ['Content-Type'] = 'application/json' })
+    end
+end)
+
+-- Назначение юнита на вызов (вызывается из CAD)
+RegisterNetEvent('cad_sync:assignUnitToCall')
+AddEventHandler('cad_sync:assignUnitToCall', function(callId, unitId)
+    local src = source
+    
+    -- Находим игрока по unitId (можно расширить логику)
+    for pid, data in pairs(linkedPlayers) do
+        if data.unitId == unitId then
+            -- Получаем детали вызова
+            local call = activeCalls[callId]
+            if call then
+                SendCallToUnit(pid, call)
+                print("[CAD-911] Unit " .. unitId .. " assigned to call #" .. callId)
+            end
+            break
         end
     end
 end)

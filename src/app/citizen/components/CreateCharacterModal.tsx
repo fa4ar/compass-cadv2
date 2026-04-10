@@ -85,7 +85,7 @@ export const CreateCharacterModal: React.FC<CreateCharacterModalProps> = ({
                             <div className="grid grid-cols-3 gap-3">
                                 <div className="col-span-2">
                                     <Label className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Имя *</Label>
-                                    <Input name="firstName" value={formData.firstName} onChange={handleInputChange} placeholder="Иван" className="mt-1 bg-zinc-800/40 border-zinc-700/50 h-10" />
+                                    <Input name="firstName" value={formData.firstName} onChange={handleInputChange} placeholder="Sam" className="mt-1 bg-zinc-800/40 border-zinc-700/50 h-10" />
                                 </div>
                                 <div>
                                     <Label className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">M.I. (Второе имя)</Label>
@@ -95,7 +95,7 @@ export const CreateCharacterModal: React.FC<CreateCharacterModalProps> = ({
                             <div className="grid grid-cols-3 gap-3">
                                 <div className="col-span-2">
                                     <Label className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Фамилия *</Label>
-                                    <Input name="lastName" value={formData.lastName} onChange={handleInputChange} placeholder="Иванов" className="mt-1 bg-zinc-800/40 border-zinc-700/50 h-10" />
+                                    <Input name="lastName" value={formData.lastName} onChange={handleInputChange} placeholder="Nolan" className="mt-1 bg-zinc-800/40 border-zinc-700/50 h-10" />
                                 </div>
                                 <div>
                                     <Label className="text-zinc-500 text-[10px] uppercase font-bold tracking-wider">Позывной / Кличка</Label>

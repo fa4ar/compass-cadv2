@@ -29,7 +29,7 @@ export function ProtectedRoute({ children, allowedRoles = [] }: ProtectedRoutePr
             <div className="min-h-screen flex items-center justify-center bg-zinc-950">
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-12 h-12 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin" />
-                    <span className="text-zinc-500 text-sm font-medium animate-pulse">Initializing CAD...</span>
+                    <span className="text-zinc-500 text-sm font-medium animate-pulse">Loading...</span>
                 </div>
             </div>
         );

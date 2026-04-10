@@ -1,55 +1,68 @@
-type ServiceWorkerMessage = {
-    type: 'CLEAR_ALL_CACHES' | 'INVALIDATE_URLS';
-    urls?: string[];
-};
-
-const sendMessageToServiceWorker = async (message: ServiceWorkerMessage): Promise<boolean> => {
-    if (!('serviceWorker' in navigator)) {
-        return false;
-    }
-
-    const registration = await navigator.serviceWorker.ready;
-    const activeWorker = registration.active || navigator.serviceWorker.controller;
-
-    if (!activeWorker) {
-        return false;
-    }
-
-    return await new Promise<boolean>((resolve) => {
-        const channel = new MessageChannel();
-
-        channel.port1.onmessage = (event) => {
-            resolve(Boolean(event.data?.ok));
-        };
-
-        activeWorker.postMessage(message, [channel.port2]);
-
-        setTimeout(() => resolve(false), 1500);
-    });
-};
-
-export async function clearClientCaches(): Promise<boolean> {
-    if (typeof window === 'undefined') {
-        return false;
-    }
-
-    const clearedViaServiceWorker = await sendMessageToServiceWorker({ type: 'CLEAR_ALL_CACHES' });
-
-    if ('caches' in window) {
-        const keys = await caches.keys();
-        await Promise.all(keys.map((key) => caches.delete(key)));
-    }
-
-    return clearedViaServiceWorker;
+interface ServiceWorkerMessage {
+  type: string;
+  [key: string]: any;
 }
 
-export async function invalidateClientCache(urls: string[]): Promise<boolean> {
-    if (typeof window === 'undefined' || urls.length === 0) {
-        return false;
-    }
+const sendMessageToServiceWorker = async (
+  message: ServiceWorkerMessage,
+): Promise<boolean> => {
+  if (!("serviceWorker" in navigator)) {
+    return false;
+  }
 
-    return await sendMessageToServiceWorker({
-        type: 'INVALIDATE_URLS',
-        urls,
-    });
-}
+  const registration = await navigator.serviceWorker.ready;
+  const activeWorker = registration.active;
+
+  if (!activeWorker) {
+    return false;
+  }
+
+  return new Promise<boolean>((resolve) => {
+    const messageHandler = (event: MessageEvent) => {
+      if (event.data?.type === `${message.type}_RESPONSE`) {
+        navigator.serviceWorker.removeEventListener("message", messageHandler);
+        resolve(Boolean(event.data?.ok));
+      }
+    };
+
+    navigator.serviceWorker.addEventListener("message", messageHandler);
+    activeWorker.postMessage(message);
+
+    setTimeout(() => {
+      navigator.serviceWorker.removeEventListener("message", messageHandler);
+      resolve(false);
+    }, 1500);
+  });
+};
+
+export const clearClientCaches = async (): Promise<boolean> => {
+  if (!("caches" in window)) {
+    return false;
+  }
+
+  try {
+    const cacheNames = await caches.keys();
+    await Promise.all(cacheNames.map((name) => caches.delete(name)));
+    return true;
+  } catch (error) {
+    console.error("Failed to clear caches:", error);
+    return false;
+  }
+};
+
+export const invalidateClientCache = async (urls: string[]): Promise<boolean> => {
+  if (!("caches" in window)) {
+    return false;
+  }
+
+  try {
+    const cache = await caches.open("default");
+    for (const url of urls) {
+      await cache.delete(url);
+    }
+    return true;
+  } catch (error) {
+    console.error("Failed to invalidate cache:", error);
+    return false;
+  }
+};

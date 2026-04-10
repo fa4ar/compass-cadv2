@@ -31,12 +31,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [socketConnected, setSocketConnected] = useState(false);
 
     const getCookieOptions = (days = 7) => {
         const expires = new Date();
         expires.setDate(expires.getDate() + days);
         const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
-        
+
         let domain = '';
         if (typeof window !== 'undefined') {
             const hostname = window.location.hostname;
@@ -49,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 }
             }
         }
-        
+
         return `; path=/; expires=${expires.toUTCString()}${domain}${isSecure ? '; Secure; SameSite=None' : ''}`;
     };
 
@@ -57,21 +58,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('🧹 [AUTH] Clearing auth state (localStorage & Cookies)');
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
-        
+
         const clearOptions = `; path=/; max-age=0`;
         const domainOptions = getCookieOptions(0).replace(/expires=[^;]+/, 'max-age=0');
-        
+
         document.cookie = `accessToken=${clearOptions}`;
         document.cookie = `accessToken=${domainOptions}`;
         document.cookie = `refreshToken=${clearOptions}`;
         document.cookie = `refreshToken=${domainOptions}`;
-        
+
         setUser(null);
     };
 
     const redirectBannedUser = (reason?: string | null, clearSession = true) => {
         console.log('🚫 [AUTH] Redirecting banned user, clearSession:', clearSession);
-        
+
         // ВАЖНО: Используем window.location.pathname для проверки, чтобы избежать циклов
         if (typeof window !== 'undefined' && window.location.pathname === '/banned') {
             console.log('ℹ️ [AUTH] Already on /banned, skipping redirect');
@@ -97,9 +98,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const fetchUser = async (skipRefresh = false) => {
         let token = localStorage.getItem('accessToken');
         let refreshToken = localStorage.getItem('refreshToken');
-        
+
         const cookieString = document.cookie;
-        
+
         // Если токена нет в localStorage, но есть в cookie - восстанавливаем
         if (!token && cookieString.includes('accessToken')) {
             const cookieParts = cookieString.split('accessToken=');
@@ -107,14 +108,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 token = cookieParts[1].split(';')[0].trim();
             }
         }
-        
+
         if (!refreshToken && cookieString.includes('refreshToken')) {
             const cookieParts = cookieString.split('refreshToken=');
             if (cookieParts[1]) {
                 refreshToken = cookieParts[1].split(';')[0].trim();
             }
         }
-        
+
         // Сохраняем в localStorage для consistency
         if (token && !localStorage.getItem('accessToken')) {
             localStorage.setItem('accessToken', token);
@@ -122,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (refreshToken && !localStorage.getItem('refreshToken')) {
             localStorage.setItem('refreshToken', refreshToken);
         }
-        
+
         if (!token) {
             setIsLoading(false);
             return;
@@ -130,7 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         try {
             const apiUrl = getApiUrl();
-            
+
             const response = await fetch(`${apiUrl}/api/auth/me`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -148,15 +149,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         const tokens = await refreshRes.json();
                         localStorage.setItem('accessToken', tokens.accessToken);
                         localStorage.setItem('refreshToken', tokens.refreshToken);
-                        
+
                         const cookieOptions = getCookieOptions(7);
                         document.cookie = `accessToken=${tokens.accessToken}${cookieOptions}`;
                         document.cookie = `refreshToken=${tokens.refreshToken}${cookieOptions}`;
-                        
+
                         await fetchUser(true);
                         return;
                     }
                 }
+
+                console.log('🔴 [AUTH] Token and refresh failed, redirecting to /auth/login');
+                clearAuthState();
+                if (typeof window !== 'undefined') {
+                    window.location.replace('/auth/login');
+                }
+                return;
             }
 
             if (response.status === 403) {
@@ -170,14 +178,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (response.ok) {
                 const data = await response.json();
                 setUser(data.user);
-                
+
                 if (data.user?.isBanned) {
                     redirectBannedUser(data.user.banReason || '', false);
                 }
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error('Network error fetching user:', err);
+            // Retry on network error (up to 2 times)
+            const retryCount = (fetchUser as any).retryCount || 0;
+            if (retryCount < 2) {
+                (fetchUser as any).retryCount = retryCount + 1;
+                console.log(`🔄 [AUTH] Retrying (${retryCount + 1}/2)...`);
+                setTimeout(() => fetchUser(skipRefresh), 1500);
+                return;
+            }
+            console.error('[AUTH] Max retries reached, giving up');
         } finally {
+            (fetchUser as any).retryCount = 0;
             setIsLoading(false);
         }
     };
@@ -196,6 +214,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         return () => clearTimeout(timeout);
     }, []);
+
+    // Periodic refresh only when socket is disconnected (fallback)
+    useEffect(() => {
+        if (socketConnected) return;
+
+        const interval = setInterval(() => {
+            if (!socketConnected && user) {
+                console.log('[AUTH] Socket disconnected, refreshing user data...');
+                fetchUser(true);
+            }
+        }, 300000); // 5 minutes
+
+        return () => clearInterval(interval);
+    }, [socketConnected, user]);
 
     useEffect(() => {
         if (!('serviceWorker' in navigator)) {
@@ -219,22 +251,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const token = localStorage.getItem('accessToken');
         if (token && socket) {
+            // Track socket connection status
+            const handleConnect = () => {
+                console.log('[AUTH] Socket connected');
+                setSocketConnected(true);
+            };
+
+            const handleDisconnect = () => {
+                console.log('[AUTH] Socket disconnected');
+                setSocketConnected(false);
+            };
+
             // Привязываем токен для бэкенда
             socket.auth = { token };
-            
+
             // Если сокет еще не подключен - подключаем
             if (!socket.connected) {
                 socket.connect();
+            } else {
+                setSocketConnected(true);
             }
 
             // Слушаем событие от бэкенда (когда бот или фоновая проверка нашли изменения в Дискорде)
             const handleRolesUpdated = (data: { roles: string[] }) => {
                 console.log('⚡️ [AUTH_SOCKET] Roles updated instantly:', data.roles);
-                
+
                 // Проверяем, изменились ли роли реально
                 const oldRoles = JSON.stringify([...(user?.roles || [])].sort());
                 const newRoles = JSON.stringify([...data.roles].sort());
-                
+
                 if (oldRoles !== newRoles) {
                     setUser(prev => prev ? { ...prev, roles: data.roles } : null);
                 }
@@ -269,18 +314,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 console.log('[AUTH] User profile updated:', data);
                 setUser(prev => prev ? { ...prev, ...data } : null);
             };
-            
+
+            socket.on('connect', handleConnect);
+            socket.on('disconnect', handleDisconnect);
             socket.on('roles_updated', handleRolesUpdated);
             socket.on('user_banned', handleUserBanned);
             socket.on('user_updated', handleUserUpdated);
 
             return () => {
+                socket.off('connect', handleConnect);
+                socket.off('disconnect', handleDisconnect);
                 socket.off('roles_updated', handleRolesUpdated);
                 socket.off('user_banned', handleUserBanned);
                 socket.off('user_updated', handleUserUpdated);
             };
         }
-    }, [user?.id, socket]);
+    }, [user?.id]);
 
     const refreshUser = async () => {
         await fetchUser();
@@ -294,14 +343,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 console.warn('⚠️ [AUTH] Loading is taking too long (>5s). Showing debug UI.');
                 setShowDebug(true);
             }
-        }, 5000);
+        }, 10000);
         return () => clearTimeout(timer);
     }, [isLoading]);
 
     return (
-        <AuthContext.Provider value={{ 
-            user, 
-            isLoading, 
+        <AuthContext.Provider value={{
+            user,
+            isLoading,
             isAuthenticated: !!user,
             isBanned: !!user?.isBanned,
             hasRole,
@@ -316,14 +365,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     <p>Auth: {!!user ? 'YES' : 'NO'}</p>
                     <p>Domain: {typeof window !== 'undefined' ? window.location.hostname : 'N/A'}</p>
                     <p>API: {process.env.NEXT_PUBLIC_API_URL || 'DEFAULT'}</p>
-                    <button 
-                        onClick={() => window.location.reload()} 
+                    <button
+                        onClick={() => window.location.reload()}
                         className="mt-2 bg-white text-black px-2 py-1 rounded"
                     >
                         Reload Page
                     </button>
-                    <button 
-                        onClick={() => clearAuthState()} 
+                    <button
+                        onClick={() => clearAuthState()}
                         className="mt-2 ml-2 bg-zinc-800 text-white px-2 py-1 rounded border border-zinc-600"
                     >
                         Clear Auth

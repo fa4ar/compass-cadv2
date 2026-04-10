@@ -97,9 +97,12 @@ on('cad_sync:init', (apiUrl) => {
 });
 
 // Listen for updates from Lua
-on('cad_sync:sendMapUpdate', (blips) => {
+on('cad_sync:sendMapUpdate', (blips, calls) => {
     if (socket && socket.connected) {
         socket.emit('update_blip_batch', blips);
+        if (calls && calls.length > 0) {
+            socket.emit('update_calls_batch', calls);
+        }
     }
 });
 

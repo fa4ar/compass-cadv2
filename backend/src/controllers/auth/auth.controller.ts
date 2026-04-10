@@ -123,17 +123,27 @@ export class AuthController {
         try {
             const { code, error: oauthError } = req.query;
 
+            console.log('🔐 [DISCORD_CALLBACK] Received params:', { oauthError, hasCode: !!code });
+
             if (oauthError) {
+                console.log('🔐 [DISCORD_CALLBACK] OAuth error:', oauthError);
                 return res.redirect(`${process.env.NEXT_PUBLIC_FRONTEND_URL}/auth/login?error=discord_auth_failed`);
             }
 
             if (!code || typeof code !== 'string') {
+                console.log('🔐 [DISCORD_CALLBACK] No code received');
                 return res.redirect(`${process.env.NEXT_PUBLIC_FRONTEND_URL}/auth/login?error=no_code`);
             }
 
+            console.log('🔐 [DISCORD_CALLBACK] Exchanging code for token...');
             const accessToken = await discordService.exchangeCodeForToken(code);
+            console.log('🔐 [DISCORD_CALLBACK] Got Discord access token');
+            
             const discordUser = await discordService.getUser(accessToken);
+            console.log('🔐 [DISCORD_CALLBACK] Got Discord user:', discordUser.id);
+            
             const { user, isNew } = await discordService.findOrCreateUser(discordUser);
+            console.log('🔐 [DISCORD_CALLBACK] Found/created user:', user.id, 'isNew:', isNew);
 
             const roles = await discordService.getUserRoles(discordUser.id);
             console.log('Discord roles for user:', discordUser.id, roles);
@@ -155,9 +165,10 @@ export class AuthController {
             redirectUrl.searchParams.set('refreshToken', tokens.refreshToken);
             if (isNew) redirectUrl.searchParams.set('newUser', 'true');
 
+            console.log('🔐 [DISCORD_CALLBACK] Redirecting to:', redirectUrl.toString());
             res.redirect(redirectUrl.toString());
         } catch (error: any) {
-            console.error('Discord callback error:', error);
+            console.error('🔐 [DISCORD_CALLBACK] Error:', error.message, error.stack);
             res.redirect(`${process.env.NEXT_PUBLIC_FRONTEND_URL}/auth/login?error=discord_auth_failed`);
         }
     };

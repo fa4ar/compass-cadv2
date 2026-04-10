@@ -1,7 +1,7 @@
 // context/SocketContext.tsx
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from "react";
 import { socket } from "../lib/socket";
 
 interface SocketContextType {
@@ -10,14 +10,21 @@ interface SocketContextType {
     emit: (event: string, data?: any) => void;
     on: (event: string, callback: (...args: any[]) => void) => void;
     off: (event: string, callback?: (...args: any[]) => void) => void;
+    subscribedEvents: Set<string>;
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
+const subscribedEvents = new Set<string>();
+
 export function SocketProvider({ children }: { children: ReactNode }) {
     const [isConnected, setIsConnected] = useState(false);
+    const [isInitialized, setIsInitialized] = useState(false);
+    const cleanupRef = useRef<(() => void)[]>([]);
 
     useEffect(() => {
+        if (isInitialized) return;
+
         const handleConnect = () => {
             console.log('✅ [SocketContext] Connected to:', socket.io.uri);
             console.log('🆔 [SocketContext] Socket ID:', socket.id);
@@ -26,26 +33,34 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
         const handleDisconnect = (reason: string) => {
             console.log('❌ [SocketContext] Disconnected:', reason);
-            if (reason === "io server disconnect") {
-                // the disconnection was initiated by the server, you need to reconnect manually
+            setIsConnected(false);
+            
+            if (reason === 'io server disconnect') {
                 socket.connect();
             }
-            setIsConnected(false);
         };
 
         const handleConnectError = (error: any) => {
-            console.error('⚠️ [SocketContext] Connection error details:', {
-                message: error?.message,
-                description: error?.description,
-                context: error?.context,
-                type: error?.type
-            });
+            console.error('⚠️ [SocketContext] Connection error:', error?.message);
             setIsConnected(false);
+        };
+
+        const handleReconnect = (attemptNumber: number) => {
+            console.log(`🔄 [SocketContext] Reconnected after ${attemptNumber} attempts`);
+            setIsConnected(true);
         };
 
         socket.on('connect', handleConnect);
         socket.on('disconnect', handleDisconnect);
         socket.on('connect_error', handleConnectError);
+        socket.on('reconnect', handleReconnect);
+
+        cleanupRef.current = [
+            () => socket.off('connect', handleConnect),
+            () => socket.off('disconnect', handleDisconnect),
+            () => socket.off('connect_error', handleConnectError),
+            () => socket.off('reconnect', handleReconnect)
+        ];
 
         if (!socket.connected) {
             socket.connect();
@@ -53,12 +68,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
             setIsConnected(true);
         }
 
+        setIsInitialized(true);
+
         return () => {
-            socket.off('connect', handleConnect);
-            socket.off('disconnect', handleDisconnect);
-            socket.off('connect_error', handleConnectError);
+            cleanupRef.current.forEach(cleanup => cleanup());
         };
-    }, []);
+    }, [isInitialized]);
 
     const emit = useCallback((event: string, data?: any) => {
         if (socket?.connected) {
@@ -69,15 +84,25 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const on = useCallback((event: string, callback: (...args: any[]) => void) => {
+        if (subscribedEvents.has(event)) {
+            console.log(`[SocketContext] Event ${event} already subscribed, skipping duplicate`);
+            return;
+        }
+        
         socket?.on(event, callback);
+        subscribedEvents.add(event);
     }, []);
 
     const off = useCallback((event: string, callback?: (...args: any[]) => void) => {
-        socket?.off(event, callback);
+        if (callback) {
+            socket?.off(event, callback);
+        } else {
+            socket?.off(event);
+        }
     }, []);
 
     return (
-        <SocketContext.Provider value={{ socket, isConnected, emit, on, off }}>
+        <SocketContext.Provider value={{ socket, isConnected, emit, on, off, subscribedEvents }}>
             {children}
         </SocketContext.Provider>
     );
@@ -89,4 +114,27 @@ export function useSocket() {
         throw new Error("useSocket must be used within a SocketProvider");
     }
     return context;
+}
+
+export function useSocketSubscription(event: string, handler: (...args: any[]) => void, deps: any[] = []) {
+    const { on, off, isConnected } = useSocket();
+    const handlerRef = useRef(handler);
+    
+    useEffect(() => {
+        handlerRef.current = handler;
+    }, [handler, ...deps]);
+
+    useEffect(() => {
+        if (!isConnected) return;
+        
+        const wrappedHandler = (...args: any[]) => {
+            handlerRef.current(...args);
+        };
+        
+        on(event, wrappedHandler);
+        
+        return () => {
+            off(event, wrappedHandler);
+        };
+    }, [event, isConnected, on, off]);
 }

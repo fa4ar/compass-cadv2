@@ -45,7 +45,7 @@ export class DiscordService {
             client_id: this.clientId,
             redirect_uri: this.redirectUri,
             response_type: 'code',
-            scope: 'identify guilds.members.read',
+            scope: 'identify email',
             state,
         });
         return `https://discord.com/api/oauth2/authorize?${params.toString()}`;

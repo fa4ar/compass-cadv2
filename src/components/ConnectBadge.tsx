@@ -18,7 +18,7 @@ export default function ConnectBadge() {
                         isConnected ? "bg-green-500 animate-pulse" : "bg-red-500"
                     }`}
                 />
-                {isConnected ? "Подключено" : "Отключено"}
+
             </Badge>
         </div>
     );

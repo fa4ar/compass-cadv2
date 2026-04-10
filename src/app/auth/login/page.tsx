@@ -71,18 +71,30 @@ function LoginContent() {
         
         try {
             const apiUrl = getApiUrl();
-            
             console.log('📡 [LOGIN] Connecting to API:', `${apiUrl}/api/auth/discord`);
+            
             const response = await fetch(`${apiUrl}/api/auth/discord`);
+            console.log('📡 [LOGIN] Response status:', response.status);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('📡 [LOGIN] Error response:', errorText);
+                setError('Failed to connect to auth server');
+                setIsLoading(false);
+                return;
+            }
+            
             const data = await response.json();
+            console.log('📡 [LOGIN] Received URL:', data.url);
             
             if (data.url) {
                 window.location.href = data.url;
             } else {
-                setError('Failed to initiate Discord login');
+                setError('Failed to get Discord login URL');
                 setIsLoading(false);
             }
         } catch (err) {
+            console.error('📡 [LOGIN] Network error:', err);
             setError('Failed to connect to server');
             setIsLoading(false);
         }

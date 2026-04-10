@@ -5,7 +5,7 @@ import { MapContainer, ImageOverlay, Marker, Popup, ZoomControl, useMapEvents } 
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useSocket } from '@/context/SocketContext';
-import { Shield, Siren, User, Flame, Wrench, Crosshair, Car, MapPin } from 'lucide-react';
+import { Shield, Siren, User, Flame, Wrench, Crosshair, Car, MapPin, Phone, AlertTriangle, Clock } from 'lucide-react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 // --- НАСТРОЙКИ КАЛИБРОВКИ И МАСШТАБА (Вычислено по замерам юзера) ---
@@ -51,10 +51,45 @@ const createCustomIcon = (type: string, color: string, heading: number, inVehicl
     });
 };
 
+const createCallIcon = (priority: string, status: string) => {
+    const priorityColors = {
+        low: '#22c55e',
+        medium: '#f59e0b',
+        high: '#ef4444',
+        critical: '#dc2626'
+    };
+    const color = priorityColors[priority as keyof typeof priorityColors] || '#f59e0b';
+    const isClosed = status === 'closed';
+
+    return L.divIcon({
+        html: renderToStaticMarkup(
+            <div className="relative w-[32px] h-[32px] transition-all duration-500 transform-gpu">
+                <div className={`absolute inset-0 bg-zinc-950/90 rounded-full border-2 shadow-lg flex items-center justify-center overflow-hidden ${isClosed ? 'opacity-50' : ''}`}
+                     style={{ borderColor: color, boxShadow: `0 0 15px ${color}66, inset 0 0 6px ${color}33` }}>
+                    <Phone className="w-full h-full p-1.5" style={{ color }} />
+                </div>
+                {!isClosed && (
+                    <div className="absolute inset-0 rounded-full animate-ping opacity-30" style={{ backgroundColor: color }}></div>
+                )}
+                {!isClosed && (
+                    <div className="absolute inset-0 rounded-full animate-pulse opacity-40" style={{ backgroundColor: color }}></div>
+                )}
+            </div>
+        ),
+        className: '', iconSize: [32, 32], iconAnchor: [16, 16],
+    });
+};
+
 interface Blip {
     identifier: string; x: number; y: number; z: number; heading: number;
     type: string; label: string; color: string; location?: string;
     status?: string; department?: string; inVehicle?: boolean;
+}
+
+interface Call911 {
+    id: number; type: string; location: string; description: string;
+    priority: string; callerName: string; status: string;
+    x: number; y: number; z: number; createdAt: number;
 }
 
 // --- ФОН КАРТЫ (Фиксированная сетка) ---
@@ -78,11 +113,19 @@ function MapHelpers({ onCoordClick }: { onCoordClick: (lat: number, lng: number)
     return null;
 }
 
-export default function LiveMap() {
+interface LiveMapProps {
+    selectedCall?: Call911 | null;
+    onCallSelect?: (call: Call911 | null) => void;
+    onCallsUpdate?: (calls: Call911[]) => void;
+}
+
+export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: LiveMapProps = {}) {
     const { socket } = useSocket();
     const [blips, setBlips] = useState<Blip[]>([]);
+    const [calls, setCalls] = useState<Call911[]>([]);
     const [isMounted, setIsMounted] = useState(false);
     const [lastClickedCoord, setLastClickedCoord] = useState<{ lat: number, lng: number } | null>(null);
+    const mapRef = useRef<L.Map | null>(null);
     
     useEffect(() => {
         setIsMounted(true);
@@ -93,15 +136,31 @@ export default function LiveMap() {
                 if (data && data.units) setBlips(data.units);
             } catch (error) { console.error("Initial blips fetch error:", error); }
         };
+        const fetchInitialCalls = async () => {
+            try {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/calls911/active`);
+                const data = await res.json();
+                if (data && data.calls) setCalls(data.calls);
+            } catch (error) { console.error("Initial calls fetch error:", error); }
+        };
         fetchInitialBlips();
+        fetchInitialCalls();
     }, []);
 
     useEffect(() => {
         if (!socket) return;
-        const handler = (data: Blip[]) => setBlips(data);
-        socket.on('blips_updated', handler);
-        return () => { socket.off('blips_updated', handler); };
-    }, [socket]);
+        const blipHandler = (data: Blip[]) => setBlips(data);
+        const callHandler = (data: Call911[]) => {
+            setCalls(data);
+            if (onCallsUpdate) onCallsUpdate(data);
+        };
+        socket.on('blips_updated', blipHandler);
+        socket.on('calls_updated', callHandler);
+        return () => { 
+            socket.off('blips_updated', blipHandler);
+            socket.off('calls_updated', callHandler);
+        };
+    }, [socket, onCallsUpdate]);
 
     // ТУТ ПРОИСХОДИТ ПЕРЕСЧЕТ С УЧЕТОМ МАСШТАБА
     const convertToLatLng = useCallback((x: number, y: number): L.LatLngTuple => {
@@ -110,11 +169,20 @@ export default function LiveMap() {
         return [lat, lng];
     }, []);
 
+    // Pan to selected call
+    useEffect(() => {
+        if (selectedCall && mapRef.current) {
+            const latLng = convertToLatLng(selectedCall.x, selectedCall.y);
+            mapRef.current.setView(latLng, -1, { animate: true, duration: 0.5 });
+        }
+    }, [selectedCall, convertToLatLng]);
+
     if (!isMounted) return <div className="w-full h-full bg-[#050505]" />;
 
     return (
         <div className="w-full h-full bg-[#030303] overflow-hidden rounded-xl border border-zinc-800 relative shadow-2xl">
             <MapContainer
+                ref={(map) => { if (map) mapRef.current = map; }}
                 center={DEFAULT_CENTER} zoom={DEFAULT_ZOOM} 
                 minZoom={-7} maxZoom={3} scrollWheelZoom={true}
                 className="w-full h-full" style={{ background: '#030303' }}
@@ -161,6 +229,86 @@ export default function LiveMap() {
 
                                     <div className="pt-1.5 mt-1 border-t border-zinc-800/50 flex items-center gap-1 text-[10px] text-zinc-400 italic">
                                         <MapPin className="w-3 h-3 text-zinc-600" /> {blip.location}
+                                    </div>
+                                </div>
+                            </div>
+                        </Popup>
+                    </Marker>
+                ))}
+
+                {calls.map((call) => (
+                    <Marker
+                        key={`call-${call.id}`}
+                        position={convertToLatLng(call.x, call.y)}
+                        icon={createCallIcon(call.priority, call.status)}
+                        eventHandlers={{
+                            click: () => {
+                                if (onCallSelect) onCallSelect(call);
+                            }
+                        }}
+                    >
+                        <Popup className="cad-map-popup">
+                            <div className="p-4 min-w-[280px] bg-zinc-950/20 text-zinc-100 rounded-lg border border-white/5">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="font-black text-sm uppercase flex items-center gap-2">
+                                        <Phone className="w-4 h-4" />
+                                        Вызов #{call.id}
+                                    </h3>
+                                    <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${
+                                        call.priority === 'critical' ? 'bg-red-600 text-white' :
+                                        call.priority === 'high' ? 'bg-orange-600 text-white' :
+                                        call.priority === 'medium' ? 'bg-amber-600 text-white' :
+                                        'bg-green-600 text-white'
+                                    }`}>
+                                        {call.priority}
+                                    </span>
+                                </div>
+                                
+                                <div className="space-y-3">
+                                    <div className="flex items-start gap-2">
+                                        <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-xs text-zinc-400 uppercase tracking-tighter">Тип вызова</p>
+                                            <p className="text-sm font-bold text-zinc-200">{call.type}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-start gap-2">
+                                        <MapPin className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-xs text-zinc-400 uppercase tracking-tighter">Локация</p>
+                                            <p className="text-sm font-bold text-zinc-200">{call.location}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800">
+                                        <p className="text-xs text-zinc-400 uppercase tracking-tighter mb-1">Описание</p>
+                                        <p className="text-sm text-zinc-200 leading-relaxed">{call.description}</p>
+                                    </div>
+
+                                    <div className="flex items-center gap-4 pt-2 border-t border-zinc-800">
+                                        <div className="flex items-center gap-1">
+                                            <User className="w-3 h-3 text-zinc-500" />
+                                            <span className="text-[10px] text-zinc-400">{call.callerName}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <Clock className="w-3 h-3 text-zinc-500" />
+                                            <span className="text-[10px] text-zinc-400">
+                                                {new Date(call.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] text-zinc-400 uppercase tracking-tighter">Статус:</span>
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                            call.status === 'pending' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                                            call.status === 'active' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                                            call.status === 'resolved' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                                            'bg-zinc-500/20 text-zinc-400 border border-zinc-500/30'
+                                        }`}>
+                                            {call.status}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
