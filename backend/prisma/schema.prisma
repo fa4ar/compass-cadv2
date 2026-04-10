@@ -38,6 +38,7 @@ model User {
   roleplayBackups     RoleplayBackup[]
   issuedWarrants      Warrant[]
   issuedDocuments     RoleplayDocument[]
+  createdBOLOs        BOLO[]
 
   unit Unit?
 
@@ -141,6 +142,7 @@ model Character {
   roleplayDocuments    RoleplayDocument[]
   roleplayTags         CharacterRoleplayTag[]
   roleplayEvents       RoleplayEventLog[]
+  bolos                BOLO[]
 
   @@unique([userId, firstName, lastName])
   @@index([userId])
@@ -1050,6 +1052,54 @@ model Warrant {
   @@index([expiresAt])
 }
 
+// ==================== BOLO (Be On the Lookout) ====================
+
+model BOLO {
+  id          Int        @id @default(autoincrement())
+  
+  // Тип BOLO
+  type        BOLOType  @default(vehicle)
+  status      BOLOStatus @default(active)
+  
+  // Описание
+  description String
+  details     Json?      // Дополнительные детали (JSON)
+  
+  // Для транспортных средств
+  plate       String?
+  color       String?
+  model       String?
+  
+  // Для персонажей
+  characterId Int?
+  
+  // Кто создал
+  createdBy   Int
+  creatorName String?
+  
+  // Приоритет
+  priority    String     @default("medium") // low, medium, high, emergency
+  
+  // Срок действия
+  issuedAt    DateTime   @default(now())
+  expiresAt   DateTime?
+  
+  // Причина закрытия
+  closedAt    DateTime?
+  closedBy    Int?
+  closeReason String?
+  
+  character   Character? @relation(fields: [characterId], references: [id], onDelete: SetNull)
+  creator     User      @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([type])
+  @@index([status])
+  @@index([plate])
+  @@index([characterId])
+  @@index([createdBy])
+  @@index([expiresAt])
+}
+
 // ==================== РОЛЕВЫЕ ТЕГИ (МЕТКИ) ====================
 
 model RoleplayTagDefinition {
@@ -1177,6 +1227,19 @@ enum WarrantStatus {
   expired
   cancelled
   pending
+}
+
+enum BOLOType {
+  vehicle
+  person
+  item
+  location
+}
+
+enum BOLOStatus {
+  active
+  closed
+  expired
 }
 
 enum TagCategory {

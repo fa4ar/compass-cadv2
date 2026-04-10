@@ -318,6 +318,33 @@ CreateThread(function()
                             activeCalls[call.id] = call
                             TriggerClientEvent('cad_sync:callUpdated', -1, call)
                         end
+                        
+                        -- Check if any linked players are attached to this call
+                        if call.units then
+                            for pid, playerData in pairs(linkedPlayers) do
+                                -- Find if this player's Discord ID matches any unit attached to the call
+                                for _, unit in ipairs(call.units) do
+                                    if unit.user and unit.user.discordId == playerData.discordId then
+                                        -- Check if this player is on duty and has correct job
+                                        -- We need to get their duty status
+                                        PerformHttpRequest(Config.ApiUrl .. "/link/check?discordId=" .. playerData.discordId, function(dutyStatus, dutyBody, dutyHeaders)
+                                            if dutyStatus == 200 then
+                                                local dutyData = json.decode(dutyBody)
+                                                if dutyData and dutyData.user and dutyData.user.onDuty then
+                                                    local job = dutyData.user.job
+                                                    if job == "police" or job == "ems" then
+                                                        -- Trigger callAssigned event for this player
+                                                        TriggerClientEvent('cad_sync:callAssigned', pid, call)
+                                                        print("[CAD-911] Call #" .. call.id .. " assigned to player " .. GetPlayerName(pid) .. " (polling)")
+                                                    end
+                                                end
+                                            end
+                                        end, 'GET', '', { ['Content-Type'] = 'application/json', ['X-API-Key'] = Config.ApiKey })
+                                        break
+                                    end
+                                end
+                            end
+                        end
                     end
                 end
             end
@@ -342,4 +369,54 @@ AddEventHandler('cad_sync:assignUnitToCall', function(callId, unitId)
             break
         end
     end
+end)
+
+-- =====================================================
+-- HTTP SERVER FOR CAD NOTIFICATIONS
+-- =====================================================
+
+-- HTTP callback endpoint for unit attachment notifications from CAD
+CreateThread(function()
+    SetHttpHandler(function(req, res)
+        local path = req.path
+        
+        -- Handle /notify-unit-attached endpoint
+        if path == '/notify-unit-attached' then
+            -- Verify API key
+            local apiKey = req.headers['X-API-Key']
+            if apiKey ~= Config.ApiKey then
+                res.send('[HTTP] Unauthorized', 401)
+                return
+            end
+            
+            -- Parse request body
+            local data = json.decode(req.data)
+            if not data or not data.discordId or not data.call then
+                res.send('[HTTP] Bad request - missing discordId or call data', 400)
+                return
+            end
+            
+            local discordId = data.discordId
+            local call = data.call
+            
+            -- Find the player by Discord ID and trigger callAssigned event
+            for pid, playerData in pairs(linkedPlayers) do
+                if playerData.discordId == discordId then
+                    -- Trigger the callAssigned event for this player
+                    TriggerClientEvent('cad_sync:callAssigned', pid, call)
+                    print("[CAD-HTTP] Call #" .. call.id .. " assigned to player with discordId: " .. discordId)
+                    res.send('[HTTP] Unit attached notification delivered', 200)
+                    return
+                end
+            end
+            
+            -- Player not found
+            print("[CAD-HTTP] Player not found with discordId: " .. discordId)
+            res.send('[HTTP] Player not found', 404)
+        else
+            res.send('[HTTP] Not found', 404)
+        end
+    end)
+    
+    print("[CAD-HTTP] HTTP server handler registered for CAD notifications")
 end)

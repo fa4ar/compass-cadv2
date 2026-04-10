@@ -330,6 +330,137 @@ router.patch('/warrants/:id', authMiddleware as any, async (req: any, res: Respo
 });
 
 // =============================================
+// BOLO (Be On the Lookout)
+// =============================================
+
+// Создать BOLO
+router.post('/bolos', authMiddleware as any, async (req: any, res: Response) => {
+    try {
+        const { type, description, plate, color, model, characterId, priority, expiresAt } = req.body;
+        const userId = req.user.userId;
+        
+        if (!type || !description) {
+            return res.status(400).json({ error: 'Требуются поля: type, description' });
+        }
+        
+        const prisma = require('../lib/prisma').default;
+        
+        // Проверяем права (только LEO)
+        const userRoles = (req.user.roles || []).map((r: string) => r.toLowerCase());
+        const isLEO = ['admin', 'police', 'sheriff', 'trooper', 'dispatcher'].some(r => userRoles.includes(r));
+        
+        if (!isLEO) {
+            return res.status(403).json({ error: 'Только LEO могут создавать BOLO' });
+        }
+        
+        // Получаем username
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { username: true }
+        });
+        
+        const bolo = await prisma.bOLO.create({
+            data: {
+                type,
+                description,
+                plate: plate || null,
+                color: color || null,
+                model: model || null,
+                characterId: characterId ? parseInt(characterId) : null,
+                createdBy: userId,
+                creatorName: user?.username,
+                priority: priority || 'medium',
+                expiresAt: expiresAt ? new Date(expiresAt) : null,
+                status: 'active'
+            },
+            include: {
+                character: {
+                    select: { firstName: true, lastName: true }
+                }
+            }
+        });
+        
+        res.status(201).json(bolo);
+    } catch (error) {
+        console.error('Error creating BOLO:', error);
+        res.status(500).json({ error: 'Ошибка при создании BOLO' });
+    }
+});
+
+// Получить все активные BOLO
+router.get('/bolos', authMiddleware as any, async (req: any, res: Response) => {
+    try {
+        const prisma = require('../lib/prisma').default;
+        
+        const userRoles = (req.user.roles || []).map((r: string) => r.toLowerCase());
+        const isLEO = ['admin', 'police', 'sheriff', 'trooper', 'dispatcher'].some(r => userRoles.includes(r));
+        
+        if (!isLEO) {
+            return res.status(403).json({ error: 'Только LEO могут просматривать BOLO' });
+        }
+        
+        const bolos = await prisma.bOLO.findMany({
+            where: {
+                status: 'active'
+            },
+            include: {
+                character: {
+                    select: { firstName: true, lastName: true }
+                }
+            },
+            orderBy: { issuedAt: 'desc' },
+            take: 100
+        });
+        
+        res.json(bolos);
+    } catch (error) {
+        console.error('Error fetching BOLOs:', error);
+        res.status(500).json({ error: 'Ошибка при получении BOLO' });
+    }
+});
+
+// Закрыть BOLO
+router.patch('/bolos/:id', authMiddleware as any, async (req: any, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { status, closeReason } = req.body;
+        const userId = req.user.userId;
+        
+        const prisma = require('../lib/prisma').default;
+        
+        const bolo = await prisma.bOLO.findUnique({
+            where: { id: parseInt(id) }
+        });
+        
+        if (!bolo) {
+            return res.status(404).json({ error: 'BOLO не найден' });
+        }
+        
+        const userRoles = (req.user.roles || []).map((r: string) => r.toLowerCase());
+        const isLEO = ['admin', 'police', 'sheriff', 'trooper', 'dispatcher'].some(r => userRoles.includes(r));
+        
+        if (!isLEO) {
+            return res.status(403).json({ error: 'Только LEO могут закрывать BOLO' });
+        }
+        
+        const updated = await prisma.bOLO.update({
+            where: { id: parseInt(id) },
+            data: {
+                status: status || 'closed',
+                closedAt: new Date(),
+                closedBy: userId,
+                closeReason
+            }
+        });
+        
+        res.json(updated);
+    } catch (error) {
+        console.error('Error closing BOLO:', error);
+        res.status(500).json({ error: 'Ошибка при закрытии BOLO' });
+    }
+});
+
+// =============================================
 // ДЛЯ ГРАЖДАН: САМОСТОЯТЕЛЬНОЕ СОЗДАНИЕ
 // =============================================
 

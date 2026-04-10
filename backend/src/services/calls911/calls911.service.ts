@@ -264,6 +264,22 @@ export class Calls911Service {
             }
         }
 
+        // Notify FiveM server about unit attachment
+        try {
+            const fetch = (await import('node-fetch')).default;
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            await fetch(`${apiUrl}/api/fivem/unit-attached`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': process.env.FIVEM_API_KEY || 'compass-cad-fivem-secret-key'
+                },
+                body: JSON.stringify({ userId, callId })
+            });
+        } catch (error) {
+            console.error('[FIVEM] Failed to notify FiveM server:', error);
+        }
+
         return result;
     }
 

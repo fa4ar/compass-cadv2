@@ -189,4 +189,89 @@ router.post('/update-map', async (req, res) => {
     }
 });
 
+// POST /api/fivem/unit-attached
+// Уведомляет FiveM сервер о прикреплении юнита к вызову (через callback)
+router.post('/unit-attached', authOrApiKeyMiddleware, async (req: Request, res: Response) => {
+    try {
+        const { userId, callId } = req.body;
+
+        if (!userId || !callId) {
+            return res.status(400).json({ error: 'Missing userId or callId' });
+        }
+
+        // Get the call details
+        const call = await prisma.call911.findUnique({
+            where: { id: callId },
+            include: {
+                units: {
+                    include: {
+                        character: true,
+                        user: {
+                            select: {
+                                username: true,
+                                avatarUrl: true,
+                                discordId: true
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!call) {
+            return res.status(404).json({ error: 'Call not found' });
+        }
+
+        // Get the user's Discord ID to identify them in FiveM
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { discordId: true }
+        });
+
+        // Notify FiveM server via HTTP callback if configured
+        const fivemCallbackUrl = process.env.FIVEM_CALLBACK_URL;
+        if (fivemCallbackUrl && user?.discordId) {
+            try {
+                const fetch = (await import('node-fetch')).default;
+                await fetch(`${fivemCallbackUrl}/notify-unit-attached`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': process.env.FIVEM_API_KEY || 'compass-cad-fivem-secret-key'
+                    },
+                    body: JSON.stringify({
+                        discordId: user.discordId,
+                        call: {
+                            id: call.id,
+                            type: call.type,
+                            location: call.location,
+                            description: call.description,
+                            priority: call.priority,
+                            callerName: call.callerName,
+                            callerPhone: call.phoneNumber,
+                            status: call.status,
+                            x: call.x,
+                            y: call.y,
+                            z: call.z,
+                            createdAt: call.createdAt.getTime(),
+                            units: call.units.map(u => ({
+                                name: u.character ? `${u.character.firstName} ${u.character.lastName}` : u.user?.username || 'Unknown',
+                                status: u.status?.toLowerCase() || 'available'
+                            }))
+                        }
+                    })
+                });
+                console.log('[FIVEM] Unit attached notification sent to FiveM server for discordId:', user.discordId);
+            } catch (fetchError) {
+                console.error('[FIVEM] Failed to notify FiveM server:', fetchError);
+            }
+        }
+
+        res.json({ success: true });
+    } catch (error: any) {
+        console.error('[FIVEM] Unit attached notification error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 export default router;
