@@ -4,27 +4,31 @@ local isOnDuty = false
 local playerJob = nil
 local playerDutyStatus = nil
 
+-- Функция для получения License ID
+function GetLicenseId(src)
+    for _, id in ipairs(GetPlayerIdentifiers(src)) do
+        if string.match(id, "license:") then
+            return string.gsub(id, "license:", "")
+        end
+    end
+    return nil
+end
+
 -- Функция для проверки статуса смены через API
 local function CheckDutyStatus()
     local src = GetPlayerServerId(PlayerId())
     
-    -- Получаем Discord ID
-    local discordId = nil
-    for _, id in ipairs(GetPlayerIdentifiers(src)) do
-        if string.match(id, "discord:") then
-            discordId = string.gsub(id, "discord:", "")
-            break
-        end
-    end
+    -- Получаем License ID
+    local licenseId = GetLicenseId(src)
     
-    if not discordId then
+    if not licenseId then
         isOnDuty = false
         playerJob = nil
         return
     end
     
     -- Запрашиваем статус смены из API
-    PerformHttpRequest(Config.ApiUrl .. "/link/check?discordId=" .. discordId, function(status, body, headers)
+    PerformHttpRequest(Config.ApiUrl .. "/link/check?license=" .. licenseId, function(status, body, headers)
         if status == 200 then
             local data = json.decode(body)
             if data and data.linked and data.user then

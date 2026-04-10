@@ -8,7 +8,7 @@ const router = Router();
 // Привязывает FiveM идентификатор к юзеру по его API ID
 router.post('/link', authOrApiKeyMiddleware, async (req: Request, res: Response) => {
     try {
-        const { apiId, discordId, steamId, license } = req.body;
+        const { apiId, license, discordId, steamId } = req.body;
 
         if (!apiId) {
             return res.status(400).json({ error: 'API ID is required' });
@@ -23,13 +23,13 @@ router.post('/link', authOrApiKeyMiddleware, async (req: Request, res: Response)
             return res.status(404).json({ error: 'Invalid API ID' });
         }
 
-        // Обновляем discordId (или другой идентификатор) у пользователя
+        // Обновляем license (или другой идентификатор) у пользователя
         // Это связывает веб-аккаунт с игровым
         await prisma.user.update({
             where: { id: user.id },
             data: { 
-                discordId: discordId || user.discordId 
-                // Можно добавить доп. поля для steamId если нужно
+                license: license || user.license,
+                discordId: discordId || user.discordId
             }
         });
 
@@ -47,19 +47,28 @@ router.post('/link', authOrApiKeyMiddleware, async (req: Request, res: Response)
 // Проверяет статус привязки и возвращает информацию о пользователе и смене
 router.get('/link/check', async (req, res) => {
     try {
-        const { discordId } = req.query;
+        const { license, discordId } = req.query;
 
-        if (!discordId) {
-            return res.status(400).json({ error: 'Discord ID is required' });
+        // Use license if provided, otherwise fall back to discordId
+        const identifier = license || discordId;
+
+        if (!identifier) {
+            return res.status(400).json({ error: 'License ID or Discord ID is required' });
         }
 
-        // Ищем юзера по Discord ID
-        const user = await prisma.user.findUnique({
-            where: { discordId: discordId as string },
+        // Ищем юзера по License ID (или Discord ID для обратной совместимости)
+        const user = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { license: identifier as string },
+                    { discordId: identifier as string }
+                ]
+            },
             select: {
                 id: true,
                 username: true,
-                discordId: true
+                discordId: true,
+                license: true
             }
         });
 
@@ -101,6 +110,7 @@ router.get('/link/check', async (req, res) => {
                 id: user.id,
                 username: user.username,
                 discordId: user.discordId,
+                license: user.license,
                 onDuty: onDuty,
                 job: job
             }
@@ -126,11 +136,23 @@ router.post('/update-map', async (req, res) => {
         const enrichedBlips: any[] = [];
 
         for (const blip of blips) {
-            if (!blip.discordId) continue;
+            if (!blip.discordId && !blip.license) continue;
             
+            // Try to find user by license first, then fall back to discordId
+            const user = await prisma.user.findFirst({
+                where: {
+                    OR: [
+                        { license: blip.license },
+                        { discordId: blip.discordId }
+                    ]
+                }
+            });
+
+            if (!user) continue;
+
             const unit = await prisma.unit.findFirst({
                 where: { 
-                    user: { discordId: blip.discordId } 
+                    userId: user.id
                 },
                 include: {
                     character: true,
@@ -210,6 +232,7 @@ router.post('/unit-attached', authOrApiKeyMiddleware, async (req: Request, res: 
                             select: {
                                 username: true,
                                 avatarUrl: true,
+                                license: true,
                                 discordId: true
                             }
                         }
@@ -222,15 +245,15 @@ router.post('/unit-attached', authOrApiKeyMiddleware, async (req: Request, res: 
             return res.status(404).json({ error: 'Call not found' });
         }
 
-        // Get the user's Discord ID to identify them in FiveM
+        // Get the user's License ID to identify them in FiveM
         const user = await prisma.user.findUnique({
             where: { id: userId },
-            select: { discordId: true }
+            select: { license: true, discordId: true }
         });
 
         // Notify FiveM server via HTTP callback if configured
         const fivemCallbackUrl = process.env.FIVEM_CALLBACK_URL;
-        if (fivemCallbackUrl && user?.discordId) {
+        if (fivemCallbackUrl && user?.license) {
             try {
                 const fetch = (await import('node-fetch')).default;
                 await fetch(`${fivemCallbackUrl}/notify-unit-attached`, {
@@ -240,7 +263,7 @@ router.post('/unit-attached', authOrApiKeyMiddleware, async (req: Request, res: 
                         'X-API-Key': process.env.FIVEM_API_KEY || 'compass-cad-fivem-secret-key'
                     },
                     body: JSON.stringify({
-                        discordId: user.discordId,
+                        licenseId: user.license,
                         call: {
                             id: call.id,
                             type: call.type,
@@ -261,7 +284,7 @@ router.post('/unit-attached', authOrApiKeyMiddleware, async (req: Request, res: 
                         }
                     })
                 });
-                console.log('[FIVEM] Unit attached notification sent to FiveM server for discordId:', user.discordId);
+                console.log('[FIVEM] Unit attached notification sent to FiveM server for licenseId:', user.license);
             } catch (fetchError) {
                 console.error('[FIVEM] Failed to notify FiveM server:', fetchError);
             }

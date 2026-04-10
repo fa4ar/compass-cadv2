@@ -69,7 +69,8 @@ export class Calls911Service {
                             select: {
                                 id: true,
                                 username: true,
-                                avatarUrl: true
+                                avatarUrl: true,
+                                license: true
                             }
                         },
                         pairedWith: {
@@ -85,7 +86,8 @@ export class Calls911Service {
                                     select: {
                                         id: true,
                                         username: true,
-                                        avatarUrl: true
+                                        avatarUrl: true,
+                                        license: true
                                     }
                                 }
                             }

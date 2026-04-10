@@ -5,11 +5,11 @@ local activeCalls = {} -- Store active 911 calls for unit assignment
 -- Mapping CAD userId to FiveM source
 local userIdToSource = {}
 
--- Функция для получения Discord ID
-function GetDiscordId(src)
+-- Функция для получения License ID
+function GetLicenseId(src)
     for _, id in ipairs(GetPlayerIdentifiers(src)) do
-        if string.match(id, "discord:") then
-            return string.gsub(id, "discord:", "")
+        if string.match(id, "license:") then
+            return string.gsub(id, "license:", "")
         end
     end
     return nil
@@ -18,14 +18,14 @@ end
 -- Авто-привязка при входе игрока
 AddEventHandler('playerJoining', function()
     local src = source
-    local discordId = GetDiscordId(src)
-    if discordId then
-        PerformHttpRequest(Config.ApiUrl .. "/link/check?discordId=" .. discordId, function(status, body, headers)
+    local licenseId = GetLicenseId(src)
+    if licenseId then
+        PerformHttpRequest(Config.ApiUrl .. "/link/check?license=" .. licenseId, function(status, body, headers)
             if status == 200 then
                 local data = json.decode(body)
                 if data and data.linked then
                     linkedPlayers[src] = {
-                        discordId = discordId,
+                        licenseId = licenseId,
                         username = data.username,
                         x = 0, y = 0, z = 0, heading = 0, location = "Connecting..."
                     }
@@ -50,9 +50,9 @@ RegisterCommand('cad-link', function(source, args, rawCommand)
         return
     end
 
-    local discordId = GetDiscordId(source)
-    if not discordId then
-        TriggerClientEvent('chat:addMessage', source, { args = { '^1[CAD]', 'Ошибка Discord.' } })
+    local licenseId = GetLicenseId(source)
+    if not licenseId then
+        TriggerClientEvent('chat:addMessage', source, { args = { '^1[CAD]', 'Ошибка License.' } })
         return
     end
 
@@ -60,13 +60,13 @@ RegisterCommand('cad-link', function(source, args, rawCommand)
         if status == 200 then
             local data = json.decode(body)
             linkedPlayers[source] = {
-                discordId = discordId,
+                licenseId = licenseId,
                 username = data.username,
                 x = 0, y = 0, z = 0, heading = 0, location = "Connecting..."
             }
             TriggerClientEvent('chat:addMessage', source, { args = { '^2[CAD]', 'Привязано к ' .. data.username } })
         end
-    end, 'POST', json.encode({ discordId = discordId, apiId = apiId }), { ['Content-Type'] = 'application/json', ['X-API-Key'] = Config.ApiKey })
+    end, 'POST', json.encode({ license = licenseId, apiId = apiId }), { ['Content-Type'] = 'application/json', ['X-API-Key'] = Config.ApiKey })
 end, false)
 
 -- Прием координат от клиента
@@ -81,9 +81,9 @@ AddEventHandler('cad_sync:updatePosition', function(data)
         linkedPlayers[src].location = data.location
         linkedPlayers[src].inVehicle = data.inVehicle
     else
-        local dId = GetDiscordId(src)
-        if dId then
-             linkedPlayers[src] = { discordId = dId, x = data.x, y = data.y, z = data.z, heading = data.heading, location = data.location, inVehicle = data.inVehicle }
+        local lId = GetLicenseId(src)
+        if lId then
+             linkedPlayers[src] = { licenseId = lId, x = data.x, y = data.y, z = data.z, heading = data.heading, location = data.location, inVehicle = data.inVehicle }
         end
     end
 end)
@@ -322,12 +322,12 @@ CreateThread(function()
                         -- Check if any linked players are attached to this call
                         if call.units then
                             for pid, playerData in pairs(linkedPlayers) do
-                                -- Find if this player's Discord ID matches any unit attached to the call
+                                -- Find if this player's License ID matches any unit attached to the call
                                 for _, unit in ipairs(call.units) do
-                                    if unit.user and unit.user.discordId == playerData.discordId then
+                                    if unit.user and unit.user.license == playerData.licenseId then
                                         -- Check if this player is on duty and has correct job
                                         -- We need to get their duty status
-                                        PerformHttpRequest(Config.ApiUrl .. "/link/check?discordId=" .. playerData.discordId, function(dutyStatus, dutyBody, dutyHeaders)
+                                        PerformHttpRequest(Config.ApiUrl .. "/link/check?license=" .. playerData.licenseId, function(dutyStatus, dutyBody, dutyHeaders)
                                             if dutyStatus == 200 then
                                                 local dutyData = json.decode(dutyBody)
                                                 if dutyData and dutyData.user and dutyData.user.onDuty then
@@ -391,27 +391,27 @@ CreateThread(function()
             
             -- Parse request body
             local data = json.decode(req.data)
-            if not data or not data.discordId or not data.call then
-                res.send('[HTTP] Bad request - missing discordId or call data', 400)
+            if not data or not data.licenseId or not data.call then
+                res.send('[HTTP] Bad request - missing licenseId or call data', 400)
                 return
             end
             
-            local discordId = data.discordId
+            local licenseId = data.licenseId
             local call = data.call
             
-            -- Find the player by Discord ID and trigger callAssigned event
+            -- Find the player by License ID and trigger callAssigned event
             for pid, playerData in pairs(linkedPlayers) do
-                if playerData.discordId == discordId then
+                if playerData.licenseId == licenseId then
                     -- Trigger the callAssigned event for this player
                     TriggerClientEvent('cad_sync:callAssigned', pid, call)
-                    print("[CAD-HTTP] Call #" .. call.id .. " assigned to player with discordId: " .. discordId)
+                    print("[CAD-HTTP] Call #" .. call.id .. " assigned to player with licenseId: " .. licenseId)
                     res.send('[HTTP] Unit attached notification delivered', 200)
                     return
                 end
             end
             
             -- Player not found
-            print("[CAD-HTTP] Player not found with discordId: " .. discordId)
+            print("[CAD-HTTP] Player not found with licenseId: " .. licenseId)
             res.send('[HTTP] Player not found', 404)
         else
             res.send('[HTTP] Not found', 404)

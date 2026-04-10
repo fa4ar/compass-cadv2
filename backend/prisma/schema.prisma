@@ -19,6 +19,7 @@ model User {
   refreshToken String?
   avatarUrl    String?
   discordId    String?   @unique
+  license      String?   @unique
   apiId        String?   @unique
   isActive     Boolean   @default(true)
   isBanned     Boolean   @default(false)
@@ -44,6 +45,7 @@ model User {
 
   @@index([email])
   @@index([discordId])
+  @@index([license])
   @@index([isActive])
 }
 
