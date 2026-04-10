@@ -155,9 +155,12 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
         setIsMounted(true);
         const fetchInitialData = async () => {
             try {
+                const token = localStorage.getItem('accessToken');
+                const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+                
                 const [blipsRes, callsRes] = await Promise.all([
                     fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/fivem/active-units`),
-                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/calls911/active`)
+                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/calls911/active`, { headers })
                 ]);
                 
                 if (blipsRes.ok) {
