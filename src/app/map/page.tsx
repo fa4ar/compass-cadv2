@@ -182,46 +182,47 @@ export default function MapPage() {
                                     </div>
                                 ) : (
                                     gameCalls.map((call) => (
-                                    <div
-                                        key={call.id}
-                                        onClick={() => setSelectedCall(call)}
-                                        className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                                            selectedCall?.id === call.id
-                                                ? 'bg-blue-600/20 border-blue-500/50'
-                                                : 'bg-zinc-800/50 border-zinc-700/50 hover:bg-zinc-800/80 hover:border-zinc-600'
-                                        }`}
-                                    >
-                                        <div className="flex items-start justify-between mb-2">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-xs font-bold text-zinc-200">#{call.id}</span>
-                                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase text-white ${priorityColors[call.priority as keyof typeof priorityColors]}`}>
-                                                    {call.priority}
+                                        <div
+                                            key={call.id}
+                                            onClick={() => setSelectedCall(call)}
+                                            className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                                                selectedCall?.id === call.id
+                                                    ? 'bg-blue-600/20 border-blue-500/50'
+                                                    : 'bg-zinc-800/50 border-zinc-700/50 hover:bg-zinc-800/80 hover:border-zinc-600'
+                                            }`}
+                                        >
+                                            <div className="flex items-start justify-between mb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-bold text-zinc-200">#{call.id}</span>
+                                                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase text-white ${priorityColors[call.priority as keyof typeof priorityColors]}`}>
+                                                        {call.priority}
+                                                    </span>
+                                                </div>
+                                                <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${statusColors[call.status as keyof typeof statusColors]}`}>
+                                                    {call.status}
                                                 </span>
                                             </div>
-                                            <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${statusColors[call.status as keyof typeof statusColors]}`}>
-                                                {call.status}
-                                            </span>
-                                        </div>
 
-                                        <div className="space-y-1.5">
-                                            <div className="flex items-center gap-1.5 text-[10px] text-zinc-400">
-                                                <AlertTriangle className="w-3 h-3 text-red-400" />
-                                                <span className="font-medium text-zinc-300">{call.type}</span>
-                                            </div>
+                                            <div className="space-y-1.5">
+                                                <div className="flex items-center gap-1.5 text-[10px] text-zinc-400">
+                                                    <AlertTriangle className="w-3 h-3 text-red-400" />
+                                                    <span className="font-medium text-zinc-300">{call.type}</span>
+                                                </div>
 
-                                            <div className="flex items-center gap-1.5 text-[10px] text-zinc-400">
-                                                <MapPin className="w-3 h-3 text-blue-400" />
-                                                <span className="truncate">{call.location}</span>
-                                            </div>
+                                                <div className="flex items-center gap-1.5 text-[10px] text-zinc-400">
+                                                    <MapPin className="w-3 h-3 text-blue-400" />
+                                                    <span className="truncate">{call.location}</span>
+                                                </div>
 
-                                            <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
-                                                <Clock className="w-3 h-3" />
-                                                <span>{new Date(call.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
+                                                <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
+                                                    <Clock className="w-3 h-3" />
+                                                    <span>{new Date(call.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))
-                            )}
+                                    ))
+                                )}
+                            </div>
                         </div>
                     </div>
 
