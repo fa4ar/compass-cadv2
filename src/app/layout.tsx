@@ -1,6 +1,6 @@
 // src/app/layout.tsx
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
 import { SocketProvider } from "../context/SocketContext";
 import { AuthProvider } from "../context/AuthContext";
@@ -11,9 +11,10 @@ import FooterBar from "@/components/Footer";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-const inter = Inter({
+const ibmPlexSans = IBM_Plex_Sans({
     subsets: ["latin", "cyrillic"],
-    variable: "--font-inter",
+    weight: ["300", "400", "500", "600", "700"],
+    variable: "--font-ibm-plex-sans",
     display: "swap",
 });
 
@@ -30,7 +31,7 @@ export default function RootLayout({
     return (
         <html
             lang="ru"
-            className={`${inter.variable} h-full antialiased ui-hard`}
+            className={`${ibmPlexSans.variable} h-full antialiased ui-hard`}
             suppressHydrationWarning
         >
             <body className="min-h-full flex flex-col bg-background text-foreground font-sans">
