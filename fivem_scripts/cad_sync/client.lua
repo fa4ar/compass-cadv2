@@ -1,5 +1,103 @@
 -- CAD Sync Client Side
 local activeBlips = {}
+local isOnDuty = false
+local playerJob = nil
+local playerDutyStatus = nil
+
+-- Функция для проверки статуса смены через API
+local function CheckDutyStatus()
+    local src = GetPlayerServerId(PlayerId())
+    
+    -- Получаем Discord ID
+    local discordId = nil
+    for _, id in ipairs(GetPlayerIdentifiers(src)) do
+        if string.match(id, "discord:") then
+            discordId = string.gsub(id, "discord:", "")
+            break
+        end
+    end
+    
+    if not discordId then
+        isOnDuty = false
+        playerJob = nil
+        return
+    end
+    
+    -- Запрашиваем статус смены из API
+    PerformHttpRequest(Config.ApiUrl .. "/link/check?discordId=" .. discordId, function(status, body, headers)
+        if status == 200 then
+            local data = json.decode(body)
+            if data and data.linked and data.user then
+                -- Проверяем роли пользователя
+                local roles = data.user.roles or {}
+                local isCop = false
+                local isEms = false
+                
+                for _, role in ipairs(roles) do
+                    if role:lower() == "police" then
+                        isCop = true
+                    elseif role:lower() == "ems" then
+                        isEms = true
+                    end
+                end
+                
+                -- Проверяем, находится ли юнит на смене в CAD
+                if data.user.onDuty then
+                    isOnDuty = true
+                    if isCop then
+                        playerJob = "police"
+                    elseif isEms then
+                        playerJob = "ems"
+                    end
+                else
+                    isOnDuty = false
+                    playerJob = nil
+                end
+            else
+                isOnDuty = false
+                playerJob = nil
+            end
+        else
+            isOnDuty = false
+            playerJob = nil
+        end
+    end, 'GET', '', { ['Content-Type'] = 'application/json' })
+end
+
+-- Проверяем статус смены при входе и периодически
+CreateThread(function()
+    Wait(2000) -- Ждем загрузки
+    CheckDutyStatus()
+    
+    -- Проверяем каждые 30 секунд
+    while true do
+        Wait(30000)
+        CheckDutyStatus()
+    end
+end)
+
+-- Export duty status for client_911.lua
+exports('getDutyStatus', function()
+    return isOnDuty, playerJob
+end)
+
+-- Also update client_911.lua when duty status changes
+local lastDutyStatus = false
+local lastJob = nil
+
+CreateThread(function()
+    while true do
+        Wait(1000)
+        if lastDutyStatus ~= isOnDuty or lastJob ~= playerJob then
+            lastDutyStatus = isOnDuty
+            lastJob = playerJob
+            -- Notify client_911.lua of duty status change
+            local success = pcall(function()
+                exports.cad_sync:setDutyStatus(isOnDuty, playerJob)
+            end)
+        end
+    end
+end)
 
 -- Поток отправки собственных координат на сервер
 CreateThread(function()
@@ -23,7 +121,9 @@ CreateThread(function()
                 z = coords.z,
                 heading = heading,
                 inVehicle = inVehicle,
-                location = streetName .. ", " .. zoneName
+                location = streetName .. ", " .. zoneName,
+                onDuty = isOnDuty,
+                job = playerJob
             })
         end
     end

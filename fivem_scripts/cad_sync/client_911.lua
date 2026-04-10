@@ -1,6 +1,6 @@
 -- =====================================================
 -- CAD Sync - 911 Call Notification
--- Show left card ONLY when unit is assigned to a call
+-- Show left card ONLY when unit is assigned to a call AND is on duty
 -- =====================================================
 
 local CallUI = {
@@ -12,6 +12,32 @@ local CallUI = {
         accident = "Авария", other = "Другое"
     }
 }
+
+-- Shared duty status (set by client.lua)
+local isOnDuty = false
+local playerJob = nil
+
+-- Export duty status for client.lua to set
+exports('setDutyStatus', function(onDuty, job)
+    isOnDuty = onDuty
+    playerJob = job
+    print("[CAD-911] Duty status updated: onDuty=" .. tostring(onDuty) .. ", job=" .. tostring(job))
+end)
+
+-- Import duty status from client.lua
+local function getDutyStatus()
+    -- Try to get from client.lua exports
+    local resource = GetResourceState('cad_sync')
+    if resource == 'started' then
+        local success, onDuty, job = pcall(function()
+            return exports.cad_sync:getDutyStatus()
+        end)
+        if success then
+            return onDuty, job
+        end
+    end
+    return isOnDuty, playerJob
+end
 
 -- Show toast notification for any new 911 call (for awareness)
 function CallUI:showNotification(call)
@@ -28,8 +54,16 @@ function CallUI:showNotification(call)
     print("[CAD-911] New call notification: #" .. call.id)
 end
 
--- Show LEFT CARD only when unit is assigned to this specific call
+-- Show LEFT CARD only when unit is assigned to this specific call AND is on duty
 function CallUI:showCallPanel(call)
+    local onDuty, job = getDutyStatus()
+    
+    -- Only show call card if on duty and has correct job (police or ems)
+    if not onDuty or (job ~= "police" and job ~= "ems") then
+        print("[CAD-911] Call card NOT shown - not on duty or invalid job. onDuty=" .. tostring(onDuty) .. ", job=" .. tostring(job))
+        return
+    end
+    
     self.state.activeCall = call
     self.state.isAssigned = true
     SendNUIMessage({ action = "showCall", call = call })

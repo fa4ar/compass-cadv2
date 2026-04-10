@@ -42,6 +42,56 @@ router.post('/link', async (req, res) => {
     }
 });
 
+// GET /api/fivem/link/check
+// Проверяет статус привязки и возвращает информацию о пользователе и смене
+router.get('/link/check', async (req, res) => {
+    try {
+        const { discordId } = req.query;
+
+        if (!discordId) {
+            return res.status(400).json({ error: 'Discord ID is required' });
+        }
+
+        // Ищем юзера по Discord ID
+        const user = await prisma.user.findUnique({
+            where: { discordId: discordId as string },
+            select: {
+                id: true,
+                username: true,
+                roles: true,
+                discordId: true
+            }
+        });
+
+        if (!user) {
+            return res.json({ linked: false });
+        }
+
+        // Проверяем, находится ли юнит на смене
+        const activeUnit = await prisma.unit.findFirst({
+            where: { 
+                userId: user.id,
+                status: { in: ['active', 'busy', 'enroute', 'onscene'] }
+            }
+        });
+
+        const onDuty = !!activeUnit;
+
+        res.json({ 
+            linked: true,
+            user: {
+                id: user.id,
+                username: user.username,
+                roles: user.roles,
+                discordId: user.discordId,
+                onDuty: onDuty
+            }
+        });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Кэш для хранения последних обогащенных блипов в памяти
 let lastEnrichedBlips: any[] = [];
 

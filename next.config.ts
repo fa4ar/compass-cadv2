@@ -10,6 +10,37 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_SOCKET_URL: process.env.NEXT_PUBLIC_SOCKET_URL,
     NEXT_PUBLIC_FRONTEND_URL: process.env.NEXT_PUBLIC_FRONTEND_URL,
   },
+  // Disable caching for development and ensure proper updates
+  output: 'standalone',
+  // Disable static optimization to ensure dynamic rendering
+  experimental: {
+    // Disable caching for API routes
+    serverActions: {
+      bodySizeLimit: '2mb',
+    },
+  },
+  // Add cache control headers
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+          },
+          {
+            key: 'Pragma',
+            value: 'no-cache',
+          },
+          {
+            key: 'Expires',
+            value: '0',
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
