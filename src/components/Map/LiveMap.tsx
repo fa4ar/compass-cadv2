@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { MapContainer, ImageOverlay, Marker, Popup, ZoomControl, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useSocket } from '@/context/SocketContext';
 import { Shield, Siren, User, Flame, Wrench, Crosshair, Car, MapPin, Phone, AlertTriangle, Clock } from 'lucide-react';
-import { renderToStaticMarkup } from 'react-dom/server';
 
 // --- НАСТРОЙКИ КАЛИБРОВКИ И МАСШТАБА (Вычислено по замерам юзера) ---
 const CALIBRATION = {
@@ -23,35 +22,53 @@ const DEFAULT_ZOOM = -2;
 const SAVE_DEBOUNCE_MS = 500;
 
 // --- ICONS ---
-const createCustomIcon = (type: string, color: string, heading: number, inVehicle?: boolean) => {
-    let iconContent;
-    if (inVehicle) {
-        iconContent = <Car className="w-full h-full p-1" style={{ color }} />;
-    } else {
-        switch (type) {
-            case 'police': iconContent = <Shield className="w-full h-full p-1" style={{ color }} />; break;
-            case 'ems': iconContent = <Siren className="w-full h-full p-1" style={{ color }} />; break;
-            case 'fire': iconContent = <Flame className="w-full h-full p-1" style={{ color }} />; break;
-            case 'dot': iconContent = <Wrench className="w-full h-full p-1" style={{ color }} />; break;
-            default: iconContent = <User className="w-full h-full p-1" style={{ color }} />; break;
-        }
+// Memoized icon cache to avoid recreating icons
+const iconCache = new Map<string, L.DivIcon>();
+
+const createCustomIcon = (type: string, color: string, heading: number, inVehicle?: boolean): L.DivIcon => {
+    const cacheKey = `${type}-${color}-${heading}-${inVehicle}`;
+    if (iconCache.has(cacheKey)) {
+        return iconCache.get(cacheKey)!;
     }
 
-    return L.divIcon({
-        html: renderToStaticMarkup(
-            <div className="relative w-[26px] h-[26px] transition-all duration-500 transform-gpu" style={{ transform: `rotate(${heading}deg)` }}>
-                <div className="absolute inset-0 bg-zinc-950/90 rounded-full border border-zinc-100/20 shadow-lg flex items-center justify-center overflow-hidden" 
-                     style={{ borderColor: color, boxShadow: `0 0 10px ${color}44, inset 0 0 4px ${color}22` }}>
-                    <div className="w-full h-full relative flex items-center justify-center p-1">{iconContent}</div>
-                </div>
-                <div className="absolute inset-0 rounded-full animate-pulse opacity-20" style={{ backgroundColor: color }}></div>
-            </div>
-        ),
-        className: '', iconSize: [26, 26], iconAnchor: [13, 13],
+    let iconHtml: string;
+    if (inVehicle) {
+        iconHtml = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="p-1"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>`;
+    } else {
+        const iconMap: Record<string, string> = {
+            police: `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="p-1"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>`,
+            ems: `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="p-1"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>`,
+            fire: `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="p-1"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.1.2-2.2.6-3.3.7-1.9 2.1-4.1 4.9-2.2z"/></svg>`,
+            dot: `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="p-1"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
+            default: `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="p-1"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`
+        };
+        iconHtml = iconMap[type] || iconMap.default;
+    }
+
+    const html = `<div class="relative w-[26px] h-[26px] transition-all duration-500 transform-gpu" style="transform: rotate(${heading}deg)">
+        <div class="absolute inset-0 bg-zinc-950/90 rounded-full border border-zinc-100/20 shadow-lg flex items-center justify-center overflow-hidden" style="border-color: ${color}; box-shadow: 0 0 10px ${color}44, inset 0 0 4px ${color}22">
+            <div class="w-full h-full relative flex items-center justify-center p-1">${iconHtml}</div>
+        </div>
+        <div class="absolute inset-0 rounded-full animate-pulse opacity-20" style="background-color: ${color}"></div>
+    </div>`;
+
+    const icon = L.divIcon({
+        html,
+        className: '',
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
     });
+
+    iconCache.set(cacheKey, icon);
+    return icon;
 };
 
-const createCallIcon = (priority: string, status: string) => {
+const createCallIcon = (priority: string, status: string): L.DivIcon => {
+    const cacheKey = `call-${priority}-${status}`;
+    if (iconCache.has(cacheKey)) {
+        return iconCache.get(cacheKey)!;
+    }
+
     const priorityColors = {
         low: '#22c55e',
         medium: '#f59e0b',
@@ -61,23 +78,30 @@ const createCallIcon = (priority: string, status: string) => {
     const color = priorityColors[priority as keyof typeof priorityColors] || '#f59e0b';
     const isClosed = status === 'closed';
 
-    return L.divIcon({
-        html: renderToStaticMarkup(
-            <div className="relative w-[32px] h-[32px] transition-all duration-500 transform-gpu">
-                <div className={`absolute inset-0 bg-zinc-950/90 rounded-full border-2 shadow-lg flex items-center justify-center overflow-hidden ${isClosed ? 'opacity-50' : ''}`}
-                     style={{ borderColor: color, boxShadow: `0 0 15px ${color}66, inset 0 0 6px ${color}33` }}>
-                    <Phone className="w-full h-full p-1.5" style={{ color }} />
-                </div>
-                {!isClosed && (
-                    <div className="absolute inset-0 rounded-full animate-ping opacity-30" style={{ backgroundColor: color }}></div>
-                )}
-                {!isClosed && (
-                    <div className="absolute inset-0 rounded-full animate-pulse opacity-40" style={{ backgroundColor: color }}></div>
-                )}
-            </div>
-        ),
-        className: '', iconSize: [32, 32], iconAnchor: [16, 16],
+    const phoneIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="p-1.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`;
+
+    let animations = '';
+    if (!isClosed) {
+        animations = `<div class="absolute inset-0 rounded-full animate-ping opacity-30" style="background-color: ${color}"></div>
+                   <div class="absolute inset-0 rounded-full animate-pulse opacity-40" style="background-color: ${color}"></div>`;
+    }
+
+    const html = `<div class="relative w-[32px] h-[32px] transition-all duration-500 transform-gpu">
+        <div class="absolute inset-0 bg-zinc-950/90 rounded-full border-2 shadow-lg flex items-center justify-center overflow-hidden ${isClosed ? 'opacity-50' : ''}" style="border-color: ${color}; box-shadow: 0 0 15px ${color}66, inset 0 0 6px ${color}33">
+            ${phoneIcon}
+        </div>
+        ${animations}
+    </div>`;
+
+    const icon = L.divIcon({
+        html,
+        className: '',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
     });
+
+    iconCache.set(cacheKey, icon);
+    return icon;
 };
 
 interface Blip {
@@ -93,7 +117,7 @@ interface Call911 {
 }
 
 // --- ФОН КАРТЫ (Фиксированная сетка) ---
-function AtlasBackground() {
+const AtlasBackground = React.memo(function AtlasBackground() {
     const s = 2500;
     const tiles = [
         { url: '/map/minimap_sea_0_0.png', bounds: [[s, -s], [0, 0]] as L.LatLngBoundsLiteral },
@@ -104,7 +128,7 @@ function AtlasBackground() {
         { url: '/map/minimap_sea_2_1.png', bounds: [[-s, 0], [-2 * s, s]] as L.LatLngBoundsLiteral },
     ];
     return <>{tiles.map((tile, i) => (<ImageOverlay key={i} url={tile.url} bounds={tile.bounds} opacity={1} />))}</>;
-}
+});
 
 function MapHelpers({ onCoordClick }: { onCoordClick: (lat: number, lng: number) => void }) {
     const map = useMapEvents({
@@ -129,22 +153,29 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
     
     useEffect(() => {
         setIsMounted(true);
-        const fetchInitialBlips = async () => {
+        const fetchInitialData = async () => {
             try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/fivem/active-units`);
-                const data = await res.json();
-                if (data && data.units) setBlips(data.units);
-            } catch (error) { console.error("Initial blips fetch error:", error); }
+                const [blipsRes, callsRes] = await Promise.all([
+                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/fivem/active-units`),
+                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/calls911/active`)
+                ]);
+                
+                if (blipsRes.ok) {
+                    const blipsData = await blipsRes.json();
+                    if (blipsData && blipsData.units) setBlips(blipsData.units);
+                } else {
+                    console.error("Initial blips fetch error:", blipsRes.status);
+                }
+                
+                if (callsRes.ok) {
+                    const callsData = await callsRes.json();
+                    if (callsData && callsData.calls) setCalls(callsData.calls);
+                } else {
+                    console.error("Initial calls fetch error:", callsRes.status);
+                }
+            } catch (error) { console.error("Initial data fetch error:", error); }
         };
-        const fetchInitialCalls = async () => {
-            try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/calls911/active`);
-                const data = await res.json();
-                if (data && data.calls) setCalls(data.calls);
-            } catch (error) { console.error("Initial calls fetch error:", error); }
-        };
-        fetchInitialBlips();
-        fetchInitialCalls();
+        fetchInitialData();
     }, []);
 
     useEffect(() => {
@@ -160,7 +191,7 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
             socket.off('blips_updated', blipHandler);
             socket.off('calls_updated', callHandler);
         };
-    }, [socket, onCallsUpdate]);
+    }, [socket]);
 
     // ТУТ ПРОИСХОДИТ ПЕРЕСЧЕТ С УЧЕТОМ МАСШТАБА
     const convertToLatLng = useCallback((x: number, y: number): L.LatLngTuple => {
@@ -192,7 +223,7 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
                 <MapHelpers onCoordClick={(lat, lng) => setLastClickedCoord({ lat, lng })} />
                 <ZoomControl position="bottomright" />
 
-                {blips.map((blip) => (
+                {useMemo(() => blips.map((blip) => (
                     <Marker
                         key={blip.identifier}
                         position={convertToLatLng(blip.x, blip.y)}
@@ -234,9 +265,9 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
                             </div>
                         </Popup>
                     </Marker>
-                ))}
+                )), [blips, convertToLatLng])}
 
-                {calls.map((call) => (
+                {useMemo(() => calls.map((call) => (
                     <Marker
                         key={`call-${call.id}`}
                         position={convertToLatLng(call.x, call.y)}
@@ -314,7 +345,7 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
                             </div>
                         </Popup>
                     </Marker>
-                ))}
+                )), [calls, convertToLatLng, onCallSelect])}
             </MapContainer>
 
             {lastClickedCoord && (

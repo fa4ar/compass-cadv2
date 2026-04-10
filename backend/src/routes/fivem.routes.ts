@@ -1,11 +1,12 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import prisma from '../lib/prisma';
+import { authMiddleware, authOrApiKeyMiddleware } from '../middleware/auth.middleware';
 
 const router = Router();
 
 // /api/fivem/link
 // Привязывает FiveM идентификатор к юзеру по его API ID
-router.post('/link', async (req, res) => {
+router.post('/link', authOrApiKeyMiddleware, async (req: Request, res: Response) => {
     try {
         const { apiId, discordId, steamId, license } = req.body;
 

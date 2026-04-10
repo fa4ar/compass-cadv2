@@ -502,7 +502,7 @@ function PolicePageContent() {
             socket.off('pair_formed');
             socket.off('pair_disbanded');
         };
-    }, [selectedCallForNotes?.id]);
+    }, []);
 
     const handleTabChange = (tab: string) => {
         setActiveTab(tab);

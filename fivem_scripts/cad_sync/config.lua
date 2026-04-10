@@ -1,7 +1,10 @@
 Config = {}
 
 -- URL вашего API CAD (Укажите реальный IP бэкенда)
-Config.ApiUrl = "http://localhost:4000/api/fivem"
+Config.ApiUrl = "http://localhost:4000/api"
+
+-- API Key для аутентификации FiveM сервера (должен совпадать с backend)
+Config.ApiKey = "compass-cad-fivem-secret-key"
 
 -- Интервал обновления карты (в миллисекундах)
 Config.MapUpdateInterval = 5000 -- 5 секунд

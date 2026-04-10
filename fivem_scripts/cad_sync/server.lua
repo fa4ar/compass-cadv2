@@ -32,7 +32,7 @@ AddEventHandler('playerJoining', function()
                     print("[CAD-SYNC] Auto-linked " .. GetPlayerName(src) .. " to " .. data.username)
                 end
             end
-        end, 'GET', '', { ['Content-Type'] = 'application/json' })
+        end, 'GET', '', { ['Content-Type'] = 'application/json', ['X-API-Key'] = Config.ApiKey })
     end
 end)
 
@@ -66,7 +66,7 @@ RegisterCommand('cad-link', function(source, args, rawCommand)
             }
             TriggerClientEvent('chat:addMessage', source, { args = { '^2[CAD]', 'Привязано к ' .. data.username } })
         end
-    end, 'POST', json.encode({ discordId = discordId, apiId = apiId }), { ['Content-Type'] = 'application/json' })
+    end, 'POST', json.encode({ discordId = discordId, apiId = apiId }), { ['Content-Type'] = 'application/json', ['X-API-Key'] = Config.ApiKey })
 end, false)
 
 -- Прием координат от клиента
@@ -249,19 +249,19 @@ RegisterCommand('911', function(source, args, rawCommand)
         if status == 201 then
             local response = json.decode(body)
             callData.id = response.id
-            
+
             -- Сохраняем активный вызов
             StoreActiveCall(callData)
-            
+
             -- Уведомляем игрока
             TriggerClientEvent('chat:addMessage', src, { args = { '^2[911]', 'Вызов #' .. response.id .. ' отправлен. Ожидайте ответа.' } })
-            
+
             print("[CAD-911] New call #" .. response.id .. " from " .. playerName .. " at " .. location)
         else
             TriggerClientEvent('chat:addMessage', src, { args = { '^1[911]', 'Ошибка отправки вызова. Попробуйте снова.' } })
             print("[CAD-911] Failed to create call. Status: " .. status)
         end
-    end, 'POST', json.encode(callData), { ['Content-Type'] = 'application/json' })
+    end, 'POST', json.encode(callData), { ['Content-Type'] = 'application/json', ['X-API-Key'] = Config.ApiKey })
 end, false)
 
 -- Команда для отмены вызова
@@ -286,16 +286,16 @@ RegisterCommand('cancel911', function(source, args, rawCommand)
         if status == 200 then
             -- Удаляем из активных
             activeCalls[tonumber(callId)] = nil
-            
+
             -- Уведомляем всех игроков
             TriggerClientEvent('cad_sync:callClosed', -1, tonumber(callId))
-            
+
             TriggerClientEvent('chat:addMessage', src, { args = { '^2[911]', 'Вызов #' .. callId .. ' отменен' } })
             print("[CAD-911] Call #" .. callId .. " cancelled")
         else
             TriggerClientEvent('chat:addMessage', src, { args = { '^1[911]', 'Ошибка отмены вызова' } })
         end
-    end, 'POST', '', { ['Content-Type'] = 'application/json' })
+    end, 'POST', '', { ['Content-Type'] = 'application/json', ['X-API-Key'] = Config.ApiKey })
 end, false)
 
 -- Синхронизация вызовов с backend API (получение активных вызовов)
@@ -321,7 +321,7 @@ CreateThread(function()
                     end
                 end
             end
-        end, 'GET', '', { ['Content-Type'] = 'application/json' })
+        end, 'GET', '', { ['Content-Type'] = 'application/json', ['X-API-Key'] = Config.ApiKey })
     end
 end)
 

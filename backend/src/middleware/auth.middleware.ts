@@ -5,6 +5,27 @@ export interface AuthRequest extends Request {
     user?: TokenPayload;
 }
 
+// API Key for FiveM server authentication
+const FIVEM_API_KEY = process.env.FIVEM_API_KEY || 'compass-cad-fivem-secret-key';
+
+export const apiKeyMiddleware = (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+) => {
+    const apiKey = req.headers['x-api-key'] as string;
+
+    if (!apiKey) {
+        return res.status(401).json({ error: 'No API key provided' });
+    }
+
+    if (apiKey !== FIVEM_API_KEY) {
+        return res.status(401).json({ error: 'Invalid API key' });
+    }
+
+    next();
+};
+
 export const authMiddleware = async (
     req: AuthRequest,
     res: Response,
@@ -40,10 +61,10 @@ export const authMiddleware = async (
         const isAdmin = userRoles.includes('admin') || userRoles.includes('supervisor');
 
         if (user?.isBanned && !isAdmin) {
-            return res.status(403).json({ 
-                error: 'Account is banned', 
+            return res.status(403).json({
+                error: 'Account is banned',
                 reason: user.banReason,
-                banned: true 
+                banned: true
             });
         }
 
@@ -52,6 +73,25 @@ export const authMiddleware = async (
     } catch (error) {
         return res.status(401).json({ error: 'Authentication failed' });
     }
+};
+
+// Middleware that accepts either JWT token or API key
+export const authOrApiKeyMiddleware = async (
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+) => {
+    // Check for API key first
+    const apiKey = req.headers['x-api-key'] as string;
+    if (apiKey) {
+        if (apiKey === FIVEM_API_KEY) {
+            return next();
+        }
+        return res.status(401).json({ error: 'Invalid API key' });
+    }
+
+    // Fall back to JWT authentication
+    return authMiddleware(req, res, next);
 };
 
 // Проверка ролей
