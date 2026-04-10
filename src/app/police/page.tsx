@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { Shield, Users, FileSearch, Laptop, Map, AlertTriangle, Search, Navigation, MapPinned, ArrowRightLeft, CheckCircle, BarChart3, MessageCircle, PlusSquare, Ambulance, Clock, Car, Footprints, Siren, X, User, LogOut, MapPin, Send, Loader2, UserPlus, UserMinus, Receipt, AlertCircle, DollarSign, RefreshCw, Settings2, Maximize2, Move } from 'lucide-react';
-import Draggable from 'react-draggable';
 import { ResizableBox } from 'react-resizable';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
