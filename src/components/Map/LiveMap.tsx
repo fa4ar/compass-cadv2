@@ -229,7 +229,7 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
                 <MapHelpers onCoordClick={(lat, lng) => setLastClickedCoord({ lat, lng })} />
                 <ZoomControl position="bottomright" />
 
-                {useMemo(() => blips.map((blip) => (
+                {blips.map((blip) => (
                     <Marker
                         key={blip.identifier}
                         position={convertToLatLng(blip.x, blip.y)}
@@ -271,9 +271,9 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
                             </div>
                         </Popup>
                     </Marker>
-                )), [blips])}
+                ))}
 
-                {useMemo(() => calls.map((call) => (
+                {calls.map((call) => (
                     <Marker
                         key={`call-${call.id}`}
                         position={convertToLatLng(call.x, call.y)}
@@ -351,7 +351,7 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
                             </div>
                         </Popup>
                     </Marker>
-                )), [calls])}
+                ))}
             </MapContainer>
 
             {lastClickedCoord && (
