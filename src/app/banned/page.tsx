@@ -19,7 +19,7 @@ function BannedPageContent() {
         return value && value.trim().length > 0
             ? value
             : 'Причина блокировки не указана администрацией.';
-    }, [searchParams]);
+    }, []);
 
     const isAdmin = useMemo(() => {
         const roles = (user?.roles || []).map((role) => role.toLowerCase());
