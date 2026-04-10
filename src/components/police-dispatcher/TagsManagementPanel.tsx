@@ -53,7 +53,7 @@ const predefinedTags: Array<{ type: PredefinedTagType; label: string; color: str
 
 export const TagsManagementPanel: React.FC<TagsManagementPanelProps> = ({
     characterId,
-    tags,
+    tags = [],
     onTagsChange,
     currentCharacterId,
     maxCustomTags = 5
