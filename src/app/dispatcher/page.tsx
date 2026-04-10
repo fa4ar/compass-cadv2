@@ -199,38 +199,39 @@ function DispatcherPageContent() {
         // Socket connection handled by SocketProvider
 
         socket.on('new_911_call', (newCall: Call911) => {
-            setCalls(prev => [newCall, ...prev]);
+            setCalls(prev => Array.isArray(prev) ? [newCall, ...prev] : [newCall]);
             playSound('new_call_911').then(() => console.log('[Dispatcher] Sound played')).catch(e => console.error('[Dispatcher] Sound error:', e));
             toast({ title: 'Новый вызов!', description: `${newCall.callerName}: ${newCall.description}` });
         });
 
         socket.on('update_911_call', (updatedCall: Call911) => {
-            setCalls(prev => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
+            setCalls(prev => Array.isArray(prev) ? prev.map(c => c.id === updatedCall.id ? updatedCall : c) : [updatedCall]);
             if (selectedCall?.id === updatedCall.id) {
                 setSelectedCall(updatedCall);
             }
         });
 
         socket.on('new_911_note', ({ callId, note }: { callId: number, note: CallNote }) => {
-            setCalls(prev => prev.map(c => {
+            setCalls(prev => Array.isArray(prev) ? prev.map(c => {
                 if (c.id === callId) {
                     return { ...c, notes: [...(c.notes || []), note] };
                 }
                 return c;
-            }));
+            }) : []);
             if (selectedCall?.id === callId) {
-                setSelectedCall(prev => prev ? { ...prev, notes: [...(prev.notes || []), note] } : null);
+                setSelectedCall(prev => prev ? { ...prev, notes: Array.isArray(prev.notes) ? [...prev.notes, note] : [note] } : null);
             }
         });
 
         socket.on('delete_911_call', ({ id }: { id: number }) => {
-            setCalls(prev => prev.filter(c => c.id !== id));
+            setCalls(prev => Array.isArray(prev) ? prev.filter(c => c.id !== id) : []);
             if (selectedCall?.id === id) setSelectedCall(null);
         });
 
         socket.on('supervisor_request', (data: { unit: string; message: string }) => {
             playSound('supervisor_request');
             toast({ title: 'Запрос супервайзера!', description: `Юнит ${data.unit}: ${data.message}`, variant: 'destructive' });
+            // ...
         });
 
         socket.on('dispatcher_message', (data: { message: string; from: string }) => {
@@ -258,14 +259,9 @@ function DispatcherPageContent() {
         });
 
         socket.on('unit_status_changed', (data: { userId: number; status: string; unit?: string }) => {
-            setUnits(prev => prev.map(u => 
+            setUnits(prev => Array.isArray(prev) ? prev.map(u => 
                 u.userId === data.userId ? { ...u, status: data.status } : u
-            ));
-        });
-
-        socket.on('unit_unassigned', (data: { userId: number; callId: number }) => {
-            fetchData();
-            toast({ title: 'Юнит откреплен', description: `Юнит откреплен от вызова #${data.callId}` });
+            ) : []);
         });
 
         socket.on('call_assigned_to_unit', (data: { userId: number; call: any }) => {
@@ -291,8 +287,8 @@ function DispatcherPageContent() {
             toast({ title: 'Юнит откреплен', description: `${data.unitCallSign} откреплен от вызова #${data.callId}` });
             fetchData();
             if (selectedCall?.id === data.callId && data.call) {
-                setSelectedCall(prev => prev ? { 
-                    ...prev, status: data.call.status, mainUnitId: data.newMainUnitId, units: data.call.units || [] 
+                setSelectedCall(prev => prev ? {
+                    ...prev, status: data.call.status, mainUnitId: data.newMainUnitId, units: data.call.units || []
                 } : null);
             }
         });
@@ -300,11 +296,11 @@ function DispatcherPageContent() {
         socket.on('lead_unit_changed', (data: any) => {
             console.log('[SOCKET] lead_unit_changed:', data);
             playSound('notification');
-            toast({ title: 'Новый главный юнит', description: `Главный юнит на вызове #${data.callId} изменен` });
+            toast({ title: 'Новый главный юнит', description: 'Главный юнит на вызове #${data.callId} изменен' });
             fetchData();
             if (selectedCall?.id === data.callId && data.call) {
-                setSelectedCall(prev => prev ? { 
-                    ...prev, mainUnitId: data.newLeadUserId, units: data.call.units.map((u: any) => ({ ...u, isLead: u.userId === data.newLeadUserId })) 
+                setSelectedCall(prev => prev ? {
+                    ...prev, mainUnitId: data.newLeadUserId, units: Array.isArray(data.call.units) ? data.call.units.map((u: any) => ({ ...u, isLead: u.userId === data.newLeadUserId })) : []
                 } : null);
             }
         });
@@ -314,7 +310,7 @@ function DispatcherPageContent() {
         });
 
         socket.on('unit_off_duty', (data: { userId: number }) => {
-            setUnits(prev => prev.filter(u => u.userId !== data.userId));
+            setUnits(prev => Array.isArray(prev) ? prev.filter(u => u.userId !== data.userId) : []);
         });
 
         return () => {
