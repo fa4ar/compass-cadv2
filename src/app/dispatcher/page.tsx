@@ -677,11 +677,7 @@ function DispatcherPageContent() {
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': 'Bearer ' + token,
-                    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-                    'Pragma': 'no-cache',
-                    'Expires': '0',
-                    'X-Request-ID': searchId,
-                    'X-Cache-Bypass': 'true'
+                    'X-Request-ID': searchId
                 },
                 body: JSON.stringify(body)
             });
