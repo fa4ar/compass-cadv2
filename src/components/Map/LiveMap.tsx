@@ -117,7 +117,7 @@ interface Call911 {
 }
 
 // --- ФОН КАРТЫ (Фиксированная сетка) ---
-const AtlasBackground = React.memo(function AtlasBackground() {
+function AtlasBackground() {
     const s = 2500;
     const tiles = [
         { url: '/map/minimap_sea_0_0.png', bounds: [[s, -s], [0, 0]] as L.LatLngBoundsLiteral },
@@ -128,7 +128,7 @@ const AtlasBackground = React.memo(function AtlasBackground() {
         { url: '/map/minimap_sea_2_1.png', bounds: [[-s, 0], [-2 * s, s]] as L.LatLngBoundsLiteral },
     ];
     return <>{tiles.map((tile, i) => (<ImageOverlay key={i} url={tile.url} bounds={tile.bounds} opacity={1} />))}</>;
-});
+}
 
 function MapHelpers({ onCoordClick }: { onCoordClick: (lat: number, lng: number) => void }) {
     const map = useMapEvents({
