@@ -80,8 +80,22 @@ export interface Call911 {
   createdAt: number;
   source?: string;
   callerPhone?: string;
+  phoneNumber?: string;
   units?: CallUnit[];
   updatedAt?: number;
+  notes?: CallNote[];
+  mainUnitId?: number;
+  callType?: string;
+}
+
+/**
+ * Call note
+ */
+export interface CallNote {
+  id: number;
+  author: string;
+  text: string;
+  createdAt: string;
 }
 
 /**

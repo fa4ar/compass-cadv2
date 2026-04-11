@@ -16,6 +16,7 @@ import { CallCard } from '@/components/police-dispatcher/CallCard';
 import { DutyModal } from '@/components/police-dispatcher/DutyModal';
 import { MessageModal } from '@/components/police-dispatcher/MessageModal';
 import { PairCreationModal } from '@/components/police-dispatcher/PairCreationModal';
+import type { Call911 } from '@/types/coordinates';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -50,21 +51,6 @@ interface Unit {
         username: string;
         avatarUrl: string;
     };
-}
-
-interface Call911 {
-    id: number;
-    callerName: string;
-    location: string;
-    description: string;
-    status: string;
-    createdAt: string;
-    priority?: string;
-    phoneNumber?: string;
-    notes?: CallNote[];
-    units?: Unit[];
-    mainUnitId?: number;
-    callType?: string;
 }
 
 interface CallNote {

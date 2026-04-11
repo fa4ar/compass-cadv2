@@ -15,13 +15,7 @@ const LiveMap = dynamic(() => import('@/components/Map/LiveMap'), {
     )
 });
 import { Map as MapIcon, Layers, Radio, Users, Phone, AlertTriangle, Clock, MapPin, Shield, Activity } from 'lucide-react';
-
-interface Call911 {
-    id: number; type: string; location: string; description: string;
-    priority: string; callerName: string; status: string;
-    x: number; y: number; z: number; createdAt: number;
-    source?: string;
-}
+import type { Call911, UnitBlip } from '@/types/coordinates';
 
 interface Blip {
     identifier: string; x: number; y: number; z: number; heading: number;
