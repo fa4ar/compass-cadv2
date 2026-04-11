@@ -1,13 +1,13 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../lib/prisma';
-import { authMiddleware, authOrApiKeyMiddleware } from '../middleware/auth.middleware';
 import { Calls911Service } from '../services/calls911/calls911.service';
+import { validateCallCoordinates, validateBlipCoordinates } from '../middleware/coordinateValidation.middleware';
 
 const router = Router();
 
 // /api/fivem/link
 // Привязывает FiveM идентификатор к юзеру по его API ID
-router.post('/link', authOrApiKeyMiddleware, async (req: Request, res: Response) => {
+router.post('/link', async (req: Request, res: Response) => {
     try {
         const { apiId, license, discordId, steamId } = req.body;
 
@@ -153,7 +153,8 @@ router.post('/update-map', async (req, res) => {
 
             const unit = await prisma.unit.findFirst({
                 where: { 
-                    userId: user.id
+                    userId: user.id,
+                    status: { in: ['active', 'busy', 'enroute', 'onscene'] } // Only active shift units
                 },
                 include: {
                     character: true,
@@ -214,7 +215,7 @@ router.post('/update-map', async (req, res) => {
 
 // POST /api/fivem/create-call
 // Создает вызов от FiveM сервера (через команду /911)
-router.post('/create-call', authOrApiKeyMiddleware, async (req: Request, res: Response) => {
+router.post('/create-call', validateCallCoordinates, async (req: Request, res: Response) => {
     try {
         const { callerName, location, description, type, priority, x, y, z } = req.body;
 
@@ -250,7 +251,7 @@ router.post('/create-call', authOrApiKeyMiddleware, async (req: Request, res: Re
 
 // POST /api/fivem/unit-attached
 // Уведомляет FiveM сервер о прикреплении юнита к вызову (через callback)
-router.post('/unit-attached', authOrApiKeyMiddleware, async (req: Request, res: Response) => {
+router.post('/unit-attached', async (req: Request, res: Response) => {
     try {
         const { userId, callId } = req.body;
 

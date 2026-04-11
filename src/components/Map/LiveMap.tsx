@@ -7,6 +7,18 @@ import 'leaflet/dist/leaflet.css';
 import { useSocket } from '@/context/SocketContext';
 import { Shield, Siren, User, Flame, Wrench, Crosshair, Car, MapPin, Phone, AlertTriangle, Clock } from 'lucide-react';
 import LazyImageOverlay from './LazyImageOverlay';
+import { 
+  gameToMap, 
+  validateGameCoordinates, 
+  formatCoordinates,
+  calculateDistance
+} from '@/lib/coordinates';
+import type { 
+  GameCoordinates,
+  MapCoordinates,
+  UnitBlip,
+  Call911
+} from '@/types/coordinates';
 
 // --- НАСТРОЙКИ КАЛИБРОВКИ И МАСШТАБА (Вычислено по замерам юзера) ---
 const CALIBRATION = {
@@ -105,18 +117,8 @@ const createCallIcon = (priority: string, status: string): L.DivIcon => {
     return icon;
 };
 
-interface Blip {
-    identifier: string; x: number; y: number; z: number; heading: number;
-    type: string; label: string; color: string; location?: string;
-    status?: string; department?: string; inVehicle?: boolean;
-}
-
-interface Call911 {
-    id: number; type: string; location: string; description: string;
-    priority: string; callerName: string; status: string;
-    x: number; y: number; z: number; createdAt: number;
-    source?: string;
-}
+// Type alias for backward compatibility
+type Blip = UnitBlip;
 
 // --- ФОН КАРТЫ (Фиксированная сетка) ---
 function AtlasBackground() {
@@ -172,7 +174,7 @@ interface LiveMapProps {
 
 export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: LiveMapProps = {}) {
     const { socket } = useSocket();
-    const [blips, setBlips] = useState<Blip[]>([]);
+    const [blips, setBlips] = useState<UnitBlip[]>([]);
     const [calls, setCalls] = useState<Call911[]>([]);
     const [isMounted, setIsMounted] = useState(false);
     const [lastClickedCoord, setLastClickedCoord] = useState<{ lat: number, lng: number } | null>(null);
@@ -202,9 +204,10 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
                 
                 if (callsRes.ok) {
                     const callsData = await callsRes.json();
-                    if (callsData && callsData.calls) {
-                        setCalls(Array.isArray(callsData.calls) ? callsData.calls : []);
-                    }
+                    // Filter to only show calls from CAD_SYNC (/911 command)
+                    const cadSyncCalls = (callsData || []).filter((call: Call911) => call.source === 'cad_sync');
+                    setCalls(cadSyncCalls);
+                    if (onCallsUpdate) onCallsUpdate(cadSyncCalls);
                 } else {
                     console.error("Initial calls fetch error:", callsRes.status);
                 }
@@ -215,11 +218,40 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
 
     useEffect(() => {
         if (!socket) return;
-        const blipHandler = (data: Blip[]) => setBlips(data);
+        const blipHandler = (data: UnitBlip[]) => {
+            // Validate and filter invalid blips and only show units on active shift
+            const validBlips = data.filter(blip => {
+                const validation = validateGameCoordinates({ x: blip.x, y: blip.y, z: blip.z, heading: blip.heading });
+                if (!validation.isValid) {
+                    console.warn(`[LiveMap] Invalid blip coordinates for ${blip.identifier}:`, validation.errors);
+                    return false;
+                }
+                
+                // Only show units with active status (on shift)
+                if (blip.status && !['active', 'busy', 'enroute', 'onscene'].includes(blip.status.toLowerCase())) {
+                    return false;
+                }
+                
+                return true;
+            });
+            setBlips(validBlips);
+        };
         const callHandler = (data: Call911[]) => {
             const gameCalls = Array.isArray(data) ? data : [];
-            // Filter to only show calls from CAD_SYNC (/911 command)
-            const cadSyncCalls = gameCalls.filter(call => call.source === 'cad_sync');
+            // Filter to only show calls from CAD_SYNC (/911 command) and validate coordinates
+            const cadSyncCalls = gameCalls.filter(call => {
+                if (call.source !== 'cad_sync') return false;
+                
+                // Validate coordinates if present
+                if (call.x !== undefined && call.y !== undefined && call.z !== undefined) {
+                    const validation = validateGameCoordinates({ x: call.x, y: call.y, z: call.z });
+                    if (!validation.isValid) {
+                        console.warn(`[LiveMap] Invalid call coordinates for call #${call.id}:`, validation.errors);
+                        return false;
+                    }
+                }
+                return true;
+            });
             console.log(`[LiveMap] Filtered calls: ${gameCalls.length} total, ${cadSyncCalls.length} from CAD_SYNC`);
             setCalls(cadSyncCalls);
             if (onCallsUpdate) onCallsUpdate(cadSyncCalls);
@@ -232,11 +264,10 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
         };
     }, [socket, onCallsUpdate]);
 
-    // ТУТ ПРОИСХОДИТ ПЕРЕСЧЕТ С УЧЕТОМ МАСШТАБА
+    // ТУТ ПРОИСХОДИТ ПЕРЕСЧЕТ С УЧЕТОМ МАСШТАБА (используем утилиту)
     const convertToLatLng = useCallback((x: number, y: number): L.LatLngTuple => {
-        const lat = (y * CALIBRATION.SCALE_Y) + CALIBRATION.OFFSET_Y;
-        const lng = (x * CALIBRATION.SCALE_X) + CALIBRATION.OFFSET_X;
-        return [lat, lng];
+        const mapCoords = gameToMap({ x, y, z: 0 }, CALIBRATION);
+        return [mapCoords.lat, mapCoords.lng];
     }, []);
 
     // Pan to selected call
@@ -299,6 +330,10 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
 
                                     <div className="pt-1.5 mt-1 border-t border-zinc-800/50 flex items-center gap-1 text-[10px] text-zinc-400 italic">
                                         <MapPin className="w-3 h-3 text-zinc-600" /> {blip.location}
+                                    </div>
+
+                                    <div className="pt-1.5 mt-1 border-t border-zinc-800/50 flex items-center gap-1 text-[10px] text-zinc-400 font-mono">
+                                        <Crosshair className="w-3 h-3 text-zinc-600" /> {formatCoordinates({ x: blip.x, y: blip.y, z: blip.z })}
                                     </div>
                                 </div>
                             </div>
@@ -373,13 +408,19 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
                                         <span className="text-[10px] text-zinc-400 uppercase tracking-tighter">Статус:</span>
                                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                                             call.status === 'pending' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-                                            call.status === 'active' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
-                                            call.status === 'resolved' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                                            call.status === 'dispatched' || call.status === 'enroute' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                                            call.status === 'on_scene' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
                                             'bg-zinc-500/20 text-zinc-400 border border-zinc-500/30'
                                         }`}>
                                             {call.status}
                                         </span>
                                     </div>
+
+                                    {call.x !== undefined && call.y !== undefined && call.z !== undefined && (
+                                        <div className="pt-1.5 mt-1 border-t border-zinc-800 flex items-center gap-1 text-[10px] text-zinc-400 font-mono">
+                                            <Crosshair className="w-3 h-3 text-zinc-600" /> {formatCoordinates({ x: call.x, y: call.y, z: call.z })}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </Popup>

@@ -1,31 +1,96 @@
 Config = {}
 
--- URL вашего API CAD (Укажите реальный IP бэкенда)
-Config.ApiUrl = "http://localhost:4000/api"
-
--- API Key для аутентификации FiveM сервера (должен совпадать с backend)
-Config.ApiKey = "compass-cad-fivem-secret-key"
-
--- Интервал обновления карты (в миллисекундах)
-Config.MapUpdateInterval = 5000 -- 5 секунд
-
--- Настройки работ для определения типа блипа
-Config.PoliceJobName = "police"
-Config.EmsJobName = "ambulance"
-Config.FireJobName = "fire"
-Config.DotJobName = "mechanic" -- Или "dot", если у вас такая работа в игре
-
--- Куда будет приходить вызов (рация/чат/уведомление)
-Config.NotifyJobOnly = true -- Присылать вызовы только фракциям (если есть фреймворк)
-
--- Настройки сопоставления цветов (только для гос. служб)
-Config.Colors = {
-    police = "#3b82f6",    -- Синий (Полиция)
-    ambulance = "#ef4444", -- Красный (Скорая/Пожарные)
-    fire = "#f97316",      -- Оранжевый (Пожарные)
-    dot = "#eab308",       -- Желтый (DOT / Тех. служба)
-    dispatch = "#8b5cf6"   -- Фиолетовый (Диспетчер)
+-- API Configuration
+Config.API = {
+    -- CAD API endpoint for validation
+    BaseURL = 'http://localhost:3000/api',
+    ValidateEndpoint = '/validate-link',
+    WebhookEndpoint = '/webhook/911-call',
+    
+    -- Request timeout in milliseconds
+    Timeout = 10000,
 }
 
--- Использовать ли фреймворки (ESX, QB-Core или Standalone)
-Config.Framework = "Standalone" -- "ESX", "QBCore" или "Standalone"
+-- Database Configuration
+Config.Database = {
+    -- Table name for CAD links
+    LinkTable = 'cad_links',
+    
+    -- Auto-create table if not exists
+    AutoCreate = true,
+    
+    -- Connection check interval (ms)
+    CheckInterval = 60000,
+}
+
+-- Notification Configuration
+Config.Notifications = {
+    -- Sound settings
+    SoundEnabled = true,
+    SoundFile = 'alert.mp3',
+    SoundVolume = 0.5,
+    
+    -- Blip settings
+    BlipEnabled = true,
+    BlipSprite = 359, -- Emergency blip
+    BlipColor = 1, -- Red
+    BlipScale = 1.0,
+    BlipDuration = 30000, -- 30 seconds
+    
+    -- Notification duration (ms)
+    Duration = 15000,
+    
+    -- Roles that receive 911 notifications
+    AllowedRoles = {
+        'police',
+        'ambulance',
+    },
+}
+
+-- UI Configuration
+Config.UI = {
+    -- Position: 'left-center', 'right-center', 'top-left', etc.
+    Position = 'left-center',
+    
+    -- Auto-hide after inactivity (ms)
+    AutoHide = 300000, -- 5 minutes
+    
+    -- Update interval for real-time data (ms)
+    UpdateInterval = 1000,
+    
+    -- Maximum performance budget (ms)
+    MaxIdleTime = 0.05,
+    MaxActiveTime = 0.15,
+}
+
+-- Localization
+Config.Locale = 'en' -- 'en' or 'ru'
+
+-- Logging
+Config.Logging = {
+    Enabled = true,
+    LogPath = 'logs/cad_sync_[date].log',
+    LogLevel = 'info', -- 'debug', 'info', 'warn', 'error'
+}
+
+-- OneSync Configuration
+Config.OneSync = {
+    Enabled = true,
+    CoordinateSync = true,
+    SyncInterval = 500, -- ms
+}
+
+-- CAD Browser Configuration
+Config.CADBrowser = {
+    -- CAD web URL
+    URL = 'http://localhost:3000',
+    
+    -- Key to open CAD browser (default: F10)
+    Key = 'F10',
+    
+    -- Enable browser
+    Enabled = true,
+    
+    -- Auto-close on Escape
+    CloseOnEscape = true,
+}

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAD Sync - Call Card</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Call Card -->
+    <div id="call-card" class="call-card hidden">
+        <div class="card-header">
+            <div class="call-id">#<span id="call-id-value">0</span></div>
+            <div class="call-status">
+                <span id="call-status-value">Active</span>
+            </div>
+        </div>
+        
+        <div class="card-body">
+            <div class="call-info">
+                <div class="info-row">
+                    <span class="label">Type:</span>
+                    <span id="call-type-value" class="value">Unknown</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Time:</span>
+                    <span id="call-time-value" class="value">--:--:--</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Address:</span>
+                    <span id="call-address-value" class="value">Unknown</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Priority:</span>
+                    <span id="call-priority-value" class="value priority-normal">Normal</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Units:</span>
+                    <span id="call-units-value" class="value">0</span>
+                </div>
+            </div>
+            
+            <div class="call-description">
+                <div class="label">Description:</div>
+                <div id="call-description-value" class="description-text">No description</div>
+            </div>
+        </div>
+        
+        <div class="card-footer">
+            <button id="btn-arrived" class="btn btn-success">Mark Arrived</button>
+            <button id="btn-detach" class="btn btn-warning">Detach</button>
+            <button id="btn-close" class="btn btn-danger">Close Call</button>
+        </div>
+    </div>
+    
+    <!-- Notification -->
+    <div id="notification" class="notification hidden">
+        <div class="notification-header">
+            <div class="notification-icon">🚨</div>
+            <div class="notification-title">911 Call</div>
+            <button id="notification-close" class="notification-close">×</button>
+        </div>
+        <div class="notification-body">
+            <div class="notification-call-id">#<span id="notification-call-id">0</span></div>
+            <div id="notification-type" class="notification-type">Unknown</div>
+            <div id="notification-address" class="notification-address">Unknown</div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
