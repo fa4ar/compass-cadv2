@@ -47,6 +47,11 @@ local function CreateEmergencyBlip(callData)
         return
     end
     
+    -- Skip blip creation for calls from /9111 command (source='fivem')
+    if callData.source == 'fivem' then
+        return
+    end
+    
     local coords = callData.coordinates
     local blip = AddBlipForCoord(coords.x, coords.y, coords.z)
     

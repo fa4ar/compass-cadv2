@@ -16,6 +16,7 @@ const LiveMap = dynamic(() => import('@/components/Map/LiveMap'), {
 });
 import { Map as MapIcon, Layers, Radio, Users, Phone, AlertTriangle, Clock, MapPin, Shield, Activity } from 'lucide-react';
 import type { Call911, UnitBlip } from '@/types/coordinates';
+import { useSocket } from '@/context/SocketContext';
 
 interface Blip {
     identifier: string; x: number; y: number; z: number; heading: number;
@@ -27,6 +28,7 @@ export default function MapPage() {
     const [calls, setCalls] = useState<Call911[]>([]);
     const [units, setUnits] = useState<Blip[]>([]);
     const [selectedCall, setSelectedCall] = useState<Call911 | null>(null);
+    const socket = useSocket();
 
     // Fetch initial data
     useEffect(() => {
@@ -61,6 +63,46 @@ export default function MapPage() {
 
         fetchData();
     }, []);
+
+    // Socket listeners for real-time updates
+    useEffect(() => {
+        if (!socket) return;
+
+        const blipHandler = (data: UnitBlip[]) => {
+            const validBlips = data.filter(blip => {
+                if (typeof blip.x !== 'number' || typeof blip.y !== 'number' || isNaN(blip.x) || isNaN(blip.y)) {
+                    return false;
+                }
+                if (blip.status && !['active', 'busy', 'enroute', 'onscene'].includes(blip.status.toLowerCase())) {
+                    return false;
+                }
+                return true;
+            });
+            setUnits(validBlips);
+        };
+
+        const callHandler = (data: Call911[]) => {
+            const gameCalls = Array.isArray(data) ? data : [];
+            const validCalls = gameCalls.filter(call => {
+                if (call.source !== 'cad_sync' && call.source !== 'fivem') return false;
+                if (call.x !== undefined && call.y !== undefined) {
+                    if (typeof call.x !== 'number' || typeof call.y !== 'number' || isNaN(call.x) || isNaN(call.y)) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+            setCalls(validCalls);
+        };
+
+        socket.on('blips_updated', blipHandler);
+        socket.on('calls_updated', callHandler);
+
+        return () => {
+            socket.off('blips_updated', blipHandler);
+            socket.off('calls_updated', callHandler);
+        };
+    }, [socket]);
 
     const gameCalls = calls;
 
