@@ -204,8 +204,10 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
                 
                 if (callsRes.ok) {
                     const callsData = await callsRes.json();
+                    // Handle API response format { calls: [...] }
+                    const callsArray = callsData.calls || callsData || [];
                     // Filter to show calls from CAD_SYNC and FiveM
-                    const validCalls = (callsData || []).filter((call: Call911) => 
+                    const validCalls = (Array.isArray(callsArray) ? callsArray : []).filter((call: Call911) => 
                         call.source === 'cad_sync' || call.source === 'fivem'
                     );
                     setCalls(validCalls);
