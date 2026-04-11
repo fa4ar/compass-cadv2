@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { Shield, Users, FileSearch, Laptop, Map, AlertTriangle, Search, Navigation, MapPinned, ArrowRightLeft, CheckCircle, BarChart3, MessageCircle, PlusSquare, Ambulance, Clock, Car, Footprints, Siren, X, User, LogOut, MapPin, Send, Loader2, UserPlus, UserMinus, Receipt, AlertCircle, DollarSign, RefreshCw, Settings2, Maximize2, Move } from 'lucide-react';
-import { PoliceProtectedRoute } from '@/components/PoliceProtectedRoute';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 const LiveMap = dynamic(() => import('@/components/Map/LiveMap'), { 
     ssr: false,
@@ -23,7 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { usePoliceAuth } from '@/context/PoliceAuthContext';
+import { useAuth } from '@/context/AuthContext';
 import { useSocket } from '@/context/SocketContext';
 import { useSound } from '@/hooks/useSound';
 import { StatusBadge } from '@/components/police-dispatcher/StatusBadge';
@@ -103,14 +103,14 @@ const SUPERVISOR_ACTIONS = [
 
 export default function PolicePage() {
     return (
-        <PoliceProtectedRoute allowedRoles={['police', 'dispatcher', 'admin']}>
+        <ProtectedRoute allowedRoles={['police', 'dispatcher', 'admin']}>
             <PolicePageContent />
-        </PoliceProtectedRoute>
+        </ProtectedRoute>
     );
 }
 
 function PolicePageContent() {
-    const { user } = usePoliceAuth();
+    const { user } = useAuth();
     const { socket, isConnected } = useSocket();
     const [units, setUnits] = useState<Unit[]>([]);
     const [calls, setCalls] = useState<any[]>([]);
@@ -534,7 +534,7 @@ function PolicePageContent() {
 
     const checkActiveUnit = async () => {
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             if (!token) return;
 
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -562,7 +562,7 @@ function PolicePageContent() {
         const currentSelectedId = selectedCallForNotes?.id;
         setIsLoading(true);
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             if (!token) return;
 
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -613,7 +613,7 @@ function PolicePageContent() {
     const handleDutyStart = async () => {
         setIsSubmitting(true);
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             if (!token) return;
 
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -665,7 +665,7 @@ function PolicePageContent() {
         if (!newCallNoteText.trim()) return;
 
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
             const res = await fetch(`${apiUrl}/api/calls911/${callId}/notes`, {
@@ -715,7 +715,7 @@ function PolicePageContent() {
         }
 
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             if (!token) {
                 console.log('[handleUpdateStatus] No token');
                 return;
@@ -762,7 +762,7 @@ function PolicePageContent() {
 
     const handleCloseCall = async (callId: number) => {
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
             const res = await fetch(`${apiUrl}/api/calls911/${callId}`, {
@@ -795,7 +795,7 @@ function PolicePageContent() {
         }
 
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
             const res = await fetch(`${apiUrl}/api/calls911/${callId}/attach`, {
@@ -824,7 +824,7 @@ function PolicePageContent() {
         if (!currentUnit?.callId) return;
 
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
             const res = await fetch(`${apiUrl}/api/calls911/detach`, {
@@ -854,7 +854,7 @@ function PolicePageContent() {
 
     const handleSetMainUnit = async (callId: number, targetUserId: number) => {
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
             const res = await fetch(`${apiUrl}/api/calls911/${callId}/main-unit`, {
@@ -881,7 +881,7 @@ function PolicePageContent() {
 
     const handleUpdatePriority = async (callId: number, priority: string) => {
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
             const res = await fetch(`${apiUrl}/api/calls911/${callId}`, {
@@ -909,7 +909,7 @@ function PolicePageContent() {
 
     const addSystemNote = async (callId: number, message: string) => {
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
             await fetch(`${apiUrl}/api/calls911/${callId}/notes`, {
@@ -932,7 +932,7 @@ function PolicePageContent() {
         if (!onDuty) return;
 
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             if (!token) return;
 
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -959,7 +959,7 @@ function PolicePageContent() {
 
         setIsSearching(true);
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
             const params = new URLSearchParams();
@@ -987,7 +987,7 @@ function PolicePageContent() {
         if (!fineForm.characterId || !fineForm.amount || !fineForm.reason) return;
         setIsSubmitting(true);
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
             const res = await fetch(`${apiUrl}/api/fines`, {
@@ -1021,7 +1021,7 @@ function PolicePageContent() {
     const fetchWarrants = async (characterId?: number) => {
         setIsLoadingWarrants(true);
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
             
             const url = characterId 
@@ -1051,7 +1051,7 @@ function PolicePageContent() {
         
         setIsSubmitting(true);
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
             const res = await fetch(`${apiUrl}/api/roleplay/warrants`, {
@@ -1090,7 +1090,7 @@ function PolicePageContent() {
     const handleExecuteWarrant = async (warrantId: number) => {
         setIsSubmitting(true);
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
             const res = await fetch(`${apiUrl}/api/roleplay/warrants/${warrantId}`, {
@@ -1116,7 +1116,7 @@ function PolicePageContent() {
     const handleCancelWarrant = async (warrantId: number, reason: string) => {
         setIsSubmitting(true);
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
             const res = await fetch(`${apiUrl}/api/roleplay/warrants/${warrantId}`, {
@@ -1143,7 +1143,7 @@ function PolicePageContent() {
     const handleBoloSubmit = async () => {
         setIsSubmitting(true);
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
             const res = await fetch(`${apiUrl}/api/roleplay/bolos`, {
@@ -1177,7 +1177,7 @@ function PolicePageContent() {
         
         setIsSearching(true);
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
             const res = await fetch(`${apiUrl}/api/ncic/search?plate=${plateCheckForm.plate}`, {
@@ -1219,7 +1219,7 @@ function PolicePageContent() {
     const handleDotCall = async () => {
         setIsSubmitting(true);
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
             const res = await fetch(`${apiUrl}/api/calls911`, {
@@ -1256,7 +1256,7 @@ function PolicePageContent() {
     const handle2hrCall = async () => {
         setIsSubmitting(true);
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
             const res = await fetch(`${apiUrl}/api/calls911`, {
@@ -1294,7 +1294,7 @@ function PolicePageContent() {
         if (!selectedUnit || !unitMessage.trim()) return;
 
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
             const res = await fetch(`${apiUrl}/api/units/message`, {
@@ -1325,7 +1325,7 @@ function PolicePageContent() {
         if (!selectedUnit) return;
 
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
             const res = await fetch(`${apiUrl}/api/units/${selectedUnit.userId}/call`, {
@@ -1348,7 +1348,7 @@ function PolicePageContent() {
     const handleInviteToPair = async () => {
         if (!selectedUnit) return;
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
             const res = await fetch(`${apiUrl}/api/units/invite`, {
                 method: 'POST',
@@ -1370,7 +1370,7 @@ function PolicePageContent() {
 
     const handleLeavePair = async () => {
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
             const res = await fetch(`${apiUrl}/api/units/leave`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
             if (res.ok) {
@@ -1384,7 +1384,7 @@ function PolicePageContent() {
 
     const handleAcceptPairInvite = async () => {
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
             const res = await fetch(`${apiUrl}/api/units/accept`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
             if (res.ok) {
@@ -1403,7 +1403,7 @@ function PolicePageContent() {
         if (!createPairData?.unit1 || !createPairData?.unit2) return;
         
         try {
-            const token = localStorage.getItem('policeAccessToken');
+            const token = localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
             
             const res = await fetch(`${apiUrl}/api/units/create-pair`, {
