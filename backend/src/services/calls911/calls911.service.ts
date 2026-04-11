@@ -172,7 +172,7 @@ export class Calls911Service {
             select: { mainUnitId: true }
         });
 
-        const existingUnit = await prisma.unit.findFirst({
+        const existingUnit = await prisma.unit.findUnique({
             where: { userId }
         });
 
@@ -184,7 +184,7 @@ export class Calls911Service {
         const isFirstUnit = !isMainUnitSet;
 
         const result = await prisma.$transaction([
-            prisma.unit.updateMany({
+            prisma.unit.update({
                 where: { userId },
                 data: { callId }
             }),
@@ -287,7 +287,7 @@ export class Calls911Service {
     }
 
     static async detachUnit(userId: number) {
-        const unit = await prisma.unit.findFirst({
+        const unit = await prisma.unit.findUnique({
             where: { userId },
             select: { callId: true, callSign: true }
         });
@@ -308,7 +308,7 @@ export class Calls911Service {
         const newMainUnitId = remainingUnits.length > 0 ? remainingUnits[0].userId : null;
 
         await prisma.$transaction([
-            prisma.unit.updateMany({
+            prisma.unit.update({
                 where: { userId },
                 data: { callId: null }
             }),

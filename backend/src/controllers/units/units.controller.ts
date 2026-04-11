@@ -14,8 +14,7 @@ export class UnitsController {
     static async getCurrentUnit(req: Request, res: Response, next: NextFunction) {
         try {
             const userId = (req as any).user?.userId;
-            const departmentType = req.query.departmentType as string;
-            const unit = await UnitsService.getCurrentUnit(Number(userId), departmentType || 'police');
+            const unit = await UnitsService.getCurrentUnit(Number(userId));
             res.json(unit);
         } catch (error) {
             next(error);
@@ -25,11 +24,10 @@ export class UnitsController {
     static async goOnDuty(req: Request, res: Response, next: NextFunction) {
         try {
             const userId = (req as any).user?.userId;
-            const { departmentType, characterId, departmentMemberId, callSign, subdivision, vehicleModel, vehiclePlate } = req.body;
+            const { characterId, departmentMemberId, callSign, subdivision, vehicleModel, vehiclePlate } = req.body;
             
             const unit = await UnitsService.goOnDuty(
                 Number(userId),
-                (departmentType as string) || 'police',
                 characterId ? Number(characterId) : null, 
                 departmentMemberId ? Number(departmentMemberId) : null, 
                 callSign,
@@ -79,8 +77,7 @@ export class UnitsController {
     static async goOffDuty(req: Request, res: Response, next: NextFunction) {
         try {
             const userId = (req as any).user?.userId;
-            const { departmentType } = req.body;
-            await UnitsService.goOffDuty(Number(userId), (departmentType as string) || 'police');
+            await UnitsService.goOffDuty(Number(userId));
             res.status(204).send();
         } catch (error) {
             next(error);

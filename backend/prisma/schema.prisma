@@ -41,7 +41,7 @@ model User {
   issuedDocuments     RoleplayDocument[]
   createdBOLOs        BOLO[]
 
-  units Unit[]
+  unit Unit?
 
   @@index([email])
   @@index([discordId])
@@ -902,8 +902,7 @@ enum VehicleStatus {
 
 model Unit {
   id                 Int      @id @default(autoincrement())
-  userId             Int
-  departmentType     DepartmentType
+  userId             Int      @unique
   departmentMemberId Int?     @unique
   characterId        Int?     @unique
   status             String   @default("Available")
@@ -913,7 +912,7 @@ model Unit {
   vehicleModel       String?
   vehiclePlate       String?
   callId             Int?
-  partnerId          Int?
+  partnerUserId      Int?
   onDutyAt           DateTime @default(now())
   lastStatusAt       DateTime @default(now())
 
@@ -921,16 +920,14 @@ model Unit {
   character        Character?        @relation(fields: [characterId], references: [id], onDelete: SetNull)
   departmentMember DepartmentMember? @relation(fields: [departmentMemberId], references: [id], onDelete: SetNull)
   call             Call911?          @relation(fields: [callId], references: [id], onDelete: SetNull)
-  partner          Unit?             @relation("PairRelation", fields: [partnerId], references: [id])
+  partner          Unit?             @relation("PairRelation", fields: [partnerUserId], references: [userId])
   pairedWith       Unit[]            @relation("PairRelation")
 
-  @@unique([userId, departmentType])
   @@index([userId])
-  @@index([departmentType])
   @@index([characterId])
   @@index([status])
   @@index([callId])
-  @@index([partnerId])
+  @@index([partnerUserId])
 }
 
 model CivilianVehicle {

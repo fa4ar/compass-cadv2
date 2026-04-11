@@ -393,29 +393,24 @@ function EMSPageContent() {
             if (!token) return;
 
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+            const res = await fetch(`${apiUrl}/api/units/me`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
 
-            // Check for both EMS and Fire units
-            for (const dept of ['ems', 'fire']) {
-                const res = await fetch(`${apiUrl}/api/units/current?departmentType=${dept}`, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
-
-                if (res.ok) {
-                    const unitData = await res.json();
-                    if (unitData) {
-                        setCurrentUnit(unitData);
-                        setOnDuty(true);
-                        setCallSign(unitData.callSign || '');
-                        setSubdivision(unitData.subdivision || '');
-                        setUnitType(dept === 'fire' ? 'fire' : 'ems');
-                        return;
-                    }
+            if (res.ok) {
+                const unitData = await res.json();
+                if (unitData) {
+                    setCurrentUnit(unitData);
+                    setSelectedCharacter(unitData.characterId);
+                    setCurrentMember(unitData.departmentMember);
+                    setCallSign(unitData.callSign || "");
+                    setSubdivision(unitData.subdivision || "");
+                    setUnitType(unitData.unitType || 'ems');
+                    setOnDuty(true);
                 }
             }
-        } catch (error) {
-            console.error("Failed to check active unit:", error);
+        } catch (err) {
+            console.error("Failed to check active unit", err);
         }
     };
 
@@ -486,9 +481,6 @@ function EMSPageContent() {
                 (m) => m.isActive && (m.department?.type === "ems" || m.department?.type === "fire"),
             );
 
-            // Map unitType to departmentType
-            const departmentType = unitType === 'fire' ? 'fire' : 'ems';
-
             const res = await fetch(`${apiUrl}/api/units`, {
                 method: "POST",
                 headers: {
@@ -496,11 +488,11 @@ function EMSPageContent() {
                     Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({
-                    departmentType,
                     characterId: selectedCharacter ? parseInt(selectedCharacter) : null,
                     departmentMemberId: member?.id || null,
                     callSign,
                     subdivision,
+                    unitType,
                 }),
             });
 
@@ -541,15 +533,11 @@ function EMSPageContent() {
             if (!token) return;
 
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-            const departmentType = unitType === 'fire' ? 'fire' : 'ems';
-            
             const res = await fetch(`${apiUrl}/api/units/me`, {
                 method: "DELETE",
                 headers: {
-                    "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify({ departmentType }),
             });
 
             if (res.ok) {
