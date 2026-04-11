@@ -32,6 +32,7 @@ interface Injury {
 }
 
 interface PatientData {
+    characterId?: number;
     name: string;
     age: number;
     gender: 'male' | 'female';
@@ -42,6 +43,16 @@ interface PatientData {
     saturation: number;
     respiratoryRate: number;
     avpu: AVPU;
+    ssn?: string;
+    photoUrl?: string;
+}
+
+interface Character {
+    id: number;
+    firstName: string;
+    lastName: string;
+    ssn?: string;
+    photoUrl?: string;
 }
 
 interface MedicalReport {
@@ -124,6 +135,9 @@ export default function MedicalReportPage() {
     const [view, setView] = useState<'front' | 'back'>('front');
     const [selectedZone, setSelectedZone] = useState<BodyZone | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [characterSearch, setCharacterSearch] = useState('');
+    const [searchResults, setSearchResults] = useState<Character[]>([]);
+    const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
     const [report, setReport] = useState<MedicalReport>(() => {
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem('medicalReport');
@@ -140,6 +154,8 @@ export default function MedicalReportPage() {
                     saturation: 98,
                     respiratoryRate: 16,
                     avpu: 'alert',
+                    ssn: '',
+                    photoUrl: '',
                 },
                 injuries: [],
                 createdAt: new Date(),
@@ -159,6 +175,8 @@ export default function MedicalReportPage() {
                 saturation: 98,
                 respiratoryRate: 16,
                 avpu: 'alert',
+                ssn: '',
+                photoUrl: '',
             },
             injuries: [],
             createdAt: new Date(),
@@ -173,6 +191,66 @@ export default function MedicalReportPage() {
         bleeding: false,
         treatments: [],
     });
+
+    // Character search function
+    const handleCharacterSearch = async (query: string) => {
+        setCharacterSearch(query);
+        if (query.length < 2) {
+            setSearchResults([]);
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem('accessToken');
+            if (!token) return;
+
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const res = await fetch(`${apiUrl}/api/characters?search=${encodeURIComponent(query)}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setSearchResults(data);
+            }
+        } catch (err) {
+            console.error('Failed to search characters', err);
+        }
+    };
+
+    // Select character and auto-fill patient data
+    const handleSelectCharacter = (character: Character) => {
+        setSelectedCharacter(character);
+        setSearchResults([]);
+        setCharacterSearch('');
+        setReport({
+            ...report,
+            patient: {
+                ...report.patient,
+                characterId: character.id,
+                name: `${character.firstName} ${character.lastName}`,
+                ssn: character.ssn || '',
+                photoUrl: character.photoUrl || '',
+            },
+            updatedAt: new Date(),
+        });
+    };
+
+    // Clear character selection
+    const handleClearCharacter = () => {
+        setSelectedCharacter(null);
+        setReport({
+            ...report,
+            patient: {
+                ...report.patient,
+                characterId: undefined,
+                name: '',
+                ssn: '',
+                photoUrl: '',
+            },
+            updatedAt: new Date(),
+        });
+    };
 
     // Auto-save to localStorage
     useEffect(() => {
@@ -347,6 +425,76 @@ export default function MedicalReportPage() {
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
+                                    {/* Character Search */}
+                                    <div className="relative">
+                                        <Label htmlFor="character-search">Поиск персонажа</Label>
+                                        <Input
+                                            id="character-search"
+                                            placeholder="Введите имя или фамилию..."
+                                            value={characterSearch}
+                                            onChange={(e) => handleCharacterSearch(e.target.value)}
+                                        />
+                                        {searchResults.length > 0 && (
+                                            <div className="absolute z-10 w-full mt-1 bg-zinc-800 border border-zinc-700 max-h-60 overflow-auto">
+                                                {searchResults.map((char) => (
+                                                    <div
+                                                        key={char.id}
+                                                        className="flex items-center gap-3 p-3 hover:bg-zinc-700 cursor-pointer border-b border-zinc-700 last:border-0"
+                                                        onClick={() => handleSelectCharacter(char)}
+                                                    >
+                                                        {char.photoUrl && (
+                                                            <img
+                                                                src={char.photoUrl}
+                                                                alt={char.firstName}
+                                                                className="w-10 h-10 object-cover bg-zinc-600"
+                                                            />
+                                                        )}
+                                                        <div>
+                                                            <div className="font-semibold text-white">
+                                                                {char.firstName} {char.lastName}
+                                                            </div>
+                                                            {char.ssn && (
+                                                                <div className="text-xs text-zinc-400">
+                                                                    SSN: {char.ssn}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Selected Character Info */}
+                                    {selectedCharacter && (
+                                        <div className="flex items-center gap-4 p-3 bg-zinc-800 border border-zinc-700">
+                                            {selectedCharacter.photoUrl && (
+                                                <img
+                                                    src={selectedCharacter.photoUrl}
+                                                    alt={selectedCharacter.firstName}
+                                                    className="w-16 h-16 object-cover bg-zinc-600"
+                                                />
+                                            )}
+                                            <div className="flex-1">
+                                                <div className="font-semibold text-white">
+                                                    {selectedCharacter.firstName} {selectedCharacter.lastName}
+                                                </div>
+                                                {selectedCharacter.ssn && (
+                                                    <div className="text-sm text-zinc-400">
+                                                        SSN: {selectedCharacter.ssn}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={handleClearCharacter}
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+                                    )}
+
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <Label htmlFor="name">ФИО пациента</Label>
@@ -564,7 +712,7 @@ export default function MedicalReportPage() {
                                             {report.injuries.map((injury) => (
                                                 <div
                                                     key={injury.id}
-                                                    className="p-4 bg-zinc-800 rounded-lg border-l-4"
+                                                    className="p-4 bg-zinc-800 border-l-4"
                                                     style={{ borderColor: injuryTypeConfig[injury.type].color }}
                                                 >
                                                     <div className="flex items-start justify-between">
@@ -574,7 +722,7 @@ export default function MedicalReportPage() {
                                                                     {injuryTypeConfig[injury.type].label}
                                                                 </span>
                                                                 <span
-                                                                    className="text-xs px-2 py-1 rounded"
+                                                                    className="text-xs px-2 py-1"
                                                                     style={{
                                                                         backgroundColor: severityConfig[injury.severity].color,
                                                                         color: 'white',
@@ -634,7 +782,7 @@ export default function MedicalReportPage() {
                                                 <SelectItem key={key} value={key}>
                                                     <div className="flex items-center gap-2">
                                                         <div
-                                                            className="w-3 h-3 rounded-full"
+                                                            className="w-3 h-3"
                                                             style={{ backgroundColor: color }}
                                                         />
                                                         {label}
@@ -658,7 +806,7 @@ export default function MedicalReportPage() {
                                                 <SelectItem key={key} value={key}>
                                                     <div className="flex items-center gap-2">
                                                         <div
-                                                            className="w-3 h-3 rounded-full"
+                                                            className="w-3 h-3"
                                                             style={{ backgroundColor: color }}
                                                         />
                                                         {label}
@@ -716,7 +864,7 @@ export default function MedicalReportPage() {
                                                 return zoneTreatmentRestrictions[newInjury.zone]?.includes(key as TreatmentType);
                                             })
                                             .map(([key, { label }]) => (
-                                                <label key={key} className="flex items-center gap-2 p-2 bg-zinc-800 rounded cursor-pointer hover:bg-zinc-700">
+                                                <label key={key} className="flex items-center gap-2 p-2 bg-zinc-800 cursor-pointer hover:bg-zinc-700">
                                                     <input
                                                         type="checkbox"
                                                         checked={newInjury.treatments?.includes(key as TreatmentType)}
@@ -767,6 +915,7 @@ function AnatomicalBody({
     injuries: Injury[];
 }) {
     const [hoveredZone, setHoveredZone] = useState<BodyZone | null>(null);
+    const [hoveredInjury, setHoveredInjury] = useState<Injury | null>(null);
 
     const zones: Record<BodyZone, { path: string; label: string }> = {
         head: {
@@ -851,17 +1000,54 @@ function AnatomicalBody({
 
                 {/* Injury markers */}
                 {injuries.map((injury) => (
-                    <circle
-                        key={injury.id}
-                        cx={injury.position.x}
-                        cy={injury.position.y}
-                        r="8"
-                        fill={injuryTypeConfig[injury.type].color}
-                        stroke="white"
-                        strokeWidth="2"
-                        className="cursor-pointer"
-                        onClick={() => {/* Show injury details */}}
-                    />
+                    <g key={injury.id}>
+                        <circle
+                            cx={injury.position.x}
+                            cy={injury.position.y}
+                            r="8"
+                            fill={injuryTypeConfig[injury.type].color}
+                            stroke="white"
+                            strokeWidth="2"
+                            className="cursor-pointer"
+                            onMouseEnter={() => setHoveredInjury(injury)}
+                            onMouseLeave={() => setHoveredInjury(null)}
+                        />
+                        {/* Tooltip on hover */}
+                        {hoveredInjury && hoveredInjury.id === injury.id && (
+                            <g>
+                                <rect
+                                    x={injury.position.x + 15}
+                                    y={injury.position.y - 30}
+                                    width="150"
+                                    height={40 + (injury.treatments.length > 0 ? 20 : 0)}
+                                    fill="#1f2937"
+                                    stroke="#374151"
+                                    strokeWidth="1"
+                                    rx="0"
+                                />
+                                <text
+                                    x={injury.position.x + 22}
+                                    y={injury.position.y - 15}
+                                    fill="white"
+                                    fontSize="10"
+                                    className="pointer-events-none"
+                                >
+                                    {injuryTypeConfig[injury.type].label}
+                                </text>
+                                {injury.treatments.length > 0 && (
+                                    <text
+                                        x={injury.position.x + 22}
+                                        y={injury.position.y + 5}
+                                        fill="#9ca3af"
+                                        fontSize="8"
+                                        className="pointer-events-none"
+                                    >
+                                        {injury.treatments.map(t => treatmentConfig[t].label).join(', ')}
+                                    </text>
+                                )}
+                            </g>
+                        )}
+                    </g>
                 ))}
             </svg>
         </div>
