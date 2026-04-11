@@ -16,7 +16,7 @@ import { toast } from '@/hooks/use-toast';
 type BodyZone = 'head' | 'neck' | 'torso' | 'pelvis' | 'left_arm' | 'right_arm' | 'left_leg' | 'right_leg';
 type InjuryType = 'gunshot' | 'stab' | 'bruise' | 'fracture' | 'burn' | 'amputation' | 'laceration';
 type Severity = 'light' | 'medium' | 'severe' | 'critical';
-type TreatmentType = 'tourniquet' | 'bandage' | 'splint' | 'cpr' | 'chest_compressions';
+type TreatmentType = 'tourniquet' | 'bandage' | 'splint' | 'cpr_chest' | 'tamponade';
 type AVPU = 'alert' | 'voice' | 'pain' | 'unresponsive';
 type BloodType = '0_pos' | '0_neg' | 'A_pos' | 'A_neg' | 'B_pos' | 'B_neg' | 'AB_pos' | 'AB_neg';
 
@@ -74,8 +74,32 @@ const treatmentConfig: Record<TreatmentType, { label: string }> = {
     tourniquet: { label: 'Наложение жгута' },
     bandage: { label: 'Перевязка раны' },
     splint: { label: 'Иммобилизация шиной' },
-    cpr: { label: 'ИВЛ' },
-    chest_compressions: { label: 'Непрямой массаж сердца' },
+    cpr_chest: { label: 'ИВЛ/НМС' },
+    tamponade: { label: 'Тампонада' },
+};
+
+// Define which treatments are appropriate for each body zone
+const zoneTreatmentRestrictions: Record<BodyZone, TreatmentType[]> = {
+    head: ['bandage', 'cpr_chest'],
+    neck: ['bandage', 'cpr_chest'],
+    torso: ['bandage', 'cpr_chest', 'tamponade'],
+    pelvis: ['bandage', 'cpr_chest'],
+    left_arm: ['tourniquet', 'bandage', 'splint', 'cpr_chest'],
+    right_arm: ['tourniquet', 'bandage', 'splint', 'cpr_chest'],
+    left_leg: ['tourniquet', 'bandage', 'splint', 'cpr_chest'],
+    right_leg: ['tourniquet', 'bandage', 'splint', 'cpr_chest'],
+};
+
+// Zone labels for display
+const zoneLabels: Record<BodyZone, string> = {
+    head: 'Голова',
+    neck: 'Шея',
+    torso: 'Торс',
+    pelvis: 'Таз',
+    left_arm: 'Левая рука',
+    right_arm: 'Правая рука',
+    left_leg: 'Левая нога',
+    right_leg: 'Правая нога',
 };
 
 const avpuConfig: Record<AVPU, { label: string }> = {
@@ -686,24 +710,34 @@ export default function MedicalReportPage() {
                                 <div>
                                     <Label>Оказанная медицинская помощь</Label>
                                     <div className="grid grid-cols-2 gap-2 mt-2">
-                                        {Object.entries(treatmentConfig).map(([key, { label }]) => (
-                                            <label key={key} className="flex items-center gap-2 p-2 bg-zinc-800 rounded cursor-pointer hover:bg-zinc-700">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={newInjury.treatments?.includes(key as TreatmentType)}
-                                                    onChange={(e) => {
-                                                        const treatments = newInjury.treatments || [];
-                                                        if (e.target.checked) {
-                                                            setNewInjury({ ...newInjury, treatments: [...treatments, key as TreatmentType] });
-                                                        } else {
-                                                            setNewInjury({ ...newInjury, treatments: treatments.filter(t => t !== key) });
-                                                        }
-                                                    }}
-                                                />
-                                                {label}
-                                            </label>
-                                        ))}
+                                        {Object.entries(treatmentConfig)
+                                            .filter(([key]) => {
+                                                if (!newInjury.zone) return true;
+                                                return zoneTreatmentRestrictions[newInjury.zone]?.includes(key as TreatmentType);
+                                            })
+                                            .map(([key, { label }]) => (
+                                                <label key={key} className="flex items-center gap-2 p-2 bg-zinc-800 rounded cursor-pointer hover:bg-zinc-700">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={newInjury.treatments?.includes(key as TreatmentType)}
+                                                        onChange={(e) => {
+                                                            const treatments = newInjury.treatments || [];
+                                                            if (e.target.checked) {
+                                                                setNewInjury({ ...newInjury, treatments: [...treatments, key as TreatmentType] });
+                                                            } else {
+                                                                setNewInjury({ ...newInjury, treatments: treatments.filter(t => t !== key) });
+                                                            }
+                                                        }}
+                                                    />
+                                                    {label}
+                                                </label>
+                                            ))}
                                     </div>
+                                    {newInjury.zone && (
+                                        <p className="text-xs text-zinc-500 mt-2">
+                                            Доступные методы помощи для зоны: {zoneLabels[newInjury.zone]}
+                                        </p>
+                                    )}
                                 </div>
                                 <div className="flex gap-2 justify-end pt-4">
                                     <Button variant="outline" onClick={() => setIsModalOpen(false)}>
@@ -737,36 +771,36 @@ function AnatomicalBody({
     const zones: Record<BodyZone, { path: string; label: string }> = {
         head: {
             path: view === 'front'
-                ? 'M 200 30 C 230 30, 250 50, 250 80 C 250 110, 230 130, 200 130 C 170 130, 150 110, 150 80 C 150 50, 170 30, 200 30'
-                : 'M 200 30 C 230 30, 250 50, 250 80 C 250 110, 230 130, 200 130 C 170 130, 150 110, 150 80 C 150 50, 170 30, 200 30',
+                ? 'M 200 25 C 235 25, 260 45, 260 80 C 260 115, 235 140, 200 140 C 165 140, 140 115, 140 80 C 140 45, 165 25, 200 25'
+                : 'M 200 25 C 235 25, 260 45, 260 80 C 260 115, 235 140, 200 140 C 165 140, 140 115, 140 80 C 140 45, 165 25, 200 25',
             label: 'Голова',
         },
         neck: {
-            path: 'M 180 130 L 220 130 L 220 160 L 180 160 Z',
+            path: 'M 175 140 C 175 140, 180 145, 180 155 L 180 165 C 180 165, 220 165, 220 165 L 220 155 C 220 145, 225 140, 225 140 C 225 140, 200 145, 175 140',
             label: 'Шея',
         },
         torso: {
-            path: 'M 140 160 L 260 160 L 260 320 L 140 320 Z',
+            path: 'M 135 165 C 135 165, 125 180, 125 200 L 125 280 C 125 310, 140 330, 155 330 L 245 330 C 260 330, 275 310, 275 280 L 275 200 C 275 180, 265 165, 265 165 C 265 165, 240 160, 200 160 C 160 160, 135 165, 135 165',
             label: 'Торс',
         },
         pelvis: {
-            path: 'M 140 320 L 260 320 L 260 400 L 140 400 Z',
+            path: 'M 140 330 C 140 330, 120 335, 115 360 L 110 400 C 110 415, 130 420, 145 420 L 255 420 C 270 420, 290 415, 290 400 L 285 360 C 280 335, 260 330, 260 330 C 260 330, 230 325, 200 325 C 170 325, 140 330, 140 330',
             label: 'Таз',
         },
         left_arm: {
-            path: 'M 100 160 L 140 160 L 140 320 L 100 320 Z',
+            path: 'M 125 180 C 125 180, 95 185, 85 200 L 70 260 C 65 280, 75 295, 90 300 L 105 305 C 120 310, 135 305, 140 290 L 145 250 C 148 220, 145 190, 135 175 C 135 175, 130 180, 125 180',
             label: 'Левая рука',
         },
         right_arm: {
-            path: 'M 260 160 L 300 160 L 300 320 L 260 320 Z',
+            path: 'M 275 180 C 275 180, 305 185, 315 200 L 330 260 C 335 280, 325 295, 310 300 L 295 305 C 280 310, 265 305, 260 290 L 255 250 C 252 220, 255 190, 265 175 C 265 175, 270 180, 275 180',
             label: 'Правая рука',
         },
         left_leg: {
-            path: 'M 140 400 L 200 400 L 200 600 L 140 600 Z',
+            path: 'M 145 420 C 145 420, 125 425, 115 450 L 100 520 C 95 560, 110 590, 140 595 L 175 600 C 190 600, 195 585, 195 570 L 195 460 C 195 445, 185 430, 170 425 C 170 425, 155 420, 145 420',
             label: 'Левая нога',
         },
         right_leg: {
-            path: 'M 200 400 L 260 400 L 260 600 L 200 600 Z',
+            path: 'M 255 420 C 255 420, 275 425, 285 450 L 300 520 C 305 560, 290 590, 260 595 L 225 600 C 210 600, 205 585, 205 570 L 205 460 C 205 445, 215 430, 230 425 C 230 425, 245 420, 255 420',
             label: 'Правая нога',
         },
     };
@@ -776,7 +810,7 @@ function AnatomicalBody({
             <svg viewBox="0 0 400 650" className="w-full h-full">
                 {/* Body outline */}
                 <path
-                    d="M 200 30 C 230 30, 250 50, 250 80 C 250 110, 230 130, 200 130 C 170 130, 150 110, 150 80 C 150 50, 170 30, 200 30 M 180 130 L 220 130 L 220 160 L 180 160 Z M 100 160 L 300 160 L 300 320 L 260 320 L 260 400 L 200 400 L 200 600 L 140 600 L 140 400 L 100 400 L 100 320 Z"
+                    d="M 200 25 C 235 25, 260 45, 260 80 C 260 115, 235 140, 200 140 C 165 140, 140 115, 140 80 C 140 45, 165 25, 200 25 M 175 140 C 175 140, 180 145, 180 155 L 180 165 C 180 165, 220 165, 220 165 L 220 155 C 220 145, 225 140, 225 140 C 225 140, 200 145, 175 140 M 125 180 C 125 180, 95 185, 85 200 L 70 260 C 65 280, 75 295, 90 300 L 105 305 C 120 310, 135 305, 140 290 L 145 250 C 148 220, 145 190, 135 175 C 135 175, 130 180, 125 180 M 275 180 C 275 180, 305 185, 315 200 L 330 260 C 335 280, 325 295, 310 300 L 295 305 C 280 310, 265 305, 260 290 L 255 250 C 252 220, 255 190, 265 175 C 265 175, 270 180, 275 180 M 135 165 C 135 165, 125 180, 125 200 L 125 280 C 125 310, 140 330, 155 330 L 245 330 C 260 330, 275 310, 275 280 L 275 200 C 275 180, 265 165, 265 165 C 265 165, 240 160, 200 160 C 160 160, 135 165, 135 165 M 140 330 C 140 330, 120 335, 115 360 L 110 400 C 110 415, 130 420, 145 420 L 255 420 C 270 420, 290 415, 290 400 L 285 360 C 280 335, 260 330, 260 330 C 260 330, 230 325, 200 325 C 170 325, 140 330, 140 330 M 145 420 C 145 420, 125 425, 115 450 L 100 520 C 95 560, 110 590, 140 595 L 175 600 C 190 600, 195 585, 195 570 L 195 460 C 195 445, 185 430, 170 425 C 170 425, 155 420, 145 420 M 255 420 C 255 420, 275 425, 285 450 L 300 520 C 305 560, 290 590, 260 595 L 225 600 C 210 600, 205 585, 205 570 L 205 460 C 205 445, 215 430, 230 425 C 230 425, 245 420, 255 420"
                     fill="#1f2937"
                     stroke="#374151"
                     strokeWidth="2"
