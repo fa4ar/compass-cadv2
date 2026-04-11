@@ -110,19 +110,6 @@ AddEventHandler('onResourceStop', function(resourceName)
     end
 end)
 
--- Heartbeat for database connection
-Citizen.CreateThread(function()
-    while true do
-        Wait(Config.Database.CheckInterval)
-        local result = MySQL.query.await('SELECT 1')
-        if result then
-            log('debug', 'Database connection check: OK')
-        else
-            log('error', 'Database connection check: FAILED')
-        end
-    end
-end)
-
 -- Event: Link account
 RegisterNetEvent('cad_sync:server:linkAccount', function(apiId)
     local source = source

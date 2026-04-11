@@ -1,11 +1,11 @@
--- CAD Sync Database Module
--- Handles MySQL/PostgreSQL operations for CAD links
+-- CAD Sync In-Memory Storage Module
+-- Handles CAD links using in-memory Lua tables
 
 local function log(level, message)
     if Config.Logging.Enabled then
         local timestamp = os.date('%Y-%m-%d %H:%M:%S')
         local logPath = Config.Logging.LogPath:gsub('%[date%]', os.date('%Y-%m-%d'))
-        local logLine = string.format('[%s] [%s] [DB] %s\n', timestamp, string.upper(level), message)
+        local logLine = string.format('[%s] [%s] [Storage] %s\n', timestamp, string.upper(level), message)
         local file = io.open(GetResourcePath(GetCurrentResourceName()) .. '/' .. logPath, 'a')
         if file then
             file:write(logLine)
@@ -14,94 +14,55 @@ local function log(level, message)
     end
 end
 
--- Initialize database table
-Citizen.CreateThread(function()
-    Wait(2000)
-    
-    if Config.Database.AutoCreate then
-        local createTableQuery = [[
-            CREATE TABLE IF NOT EXISTS ]] .. Config.Database.LinkTable .. [[ (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                license VARCHAR(255) UNIQUE NOT NULL,
-                api_id VARCHAR(255) UNIQUE NOT NULL,
-                linked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_sync TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                INDEX idx_license (license),
-                INDEX idx_api_id (api_id)
-            )
-        ]]
-        
-        local success = MySQL.query.await(createTableQuery)
-        if success then
-            log('info', 'Database table "' .. Config.Database.LinkTable .. '" created or already exists')
-        else
-            log('error', 'Failed to create database table')
-        end
-    end
-end)
+-- In-memory storage for CAD links
+local CADLinks = {}
 
 -- Create a new CAD link
 -- @param license string - Player's FiveM license
 -- @param apiId string - Player's CAD API ID
 -- @return boolean success, string|nil error
 function CreateCADLink(license, apiId)
-    local query = string.format(
-        'INSERT INTO %s (license, api_id) VALUES (?, ?)',
-        Config.Database.LinkTable
-    )
-    
-    local success, result = pcall(MySQL.insert.await, query, { license, apiId })
-    
-    if success then
-        log('info', string.format('Created CAD link: %s -> %s', license, apiId))
-        
-        -- Update local cache
-        CADSync.LinkedPlayers[license] = {
-            api_id = apiId,
-            linked_at = os.date('%Y-%m-%d %H:%M:%S'),
-            last_sync = os.date('%Y-%m-%d %H:%M:%S'),
-        }
-        
-        return true
-    else
-        log('error', string.format('Failed to create CAD link: %s', result))
-        return false, result
+    if CADLinks[license] then
+        return false, 'Link already exists for this license'
     end
+    
+    -- Check if API ID is already linked
+    for lic, data in pairs(CADLinks) do
+        if data.api_id == apiId then
+            return false, 'API ID already linked to another account'
+        end
+    end
+    
+    CADLinks[license] = {
+        api_id = apiId,
+        linked_at = os.date('%Y-%m-%d %H:%M:%S'),
+        last_sync = os.date('%Y-%m-%d %H:%M:%S'),
+    }
+    
+    log('info', string.format('Created CAD link: %s -> %s', license, apiId))
+    
+    -- Update local cache
+    CADSync.LinkedPlayers[license] = CADLinks[license]
+    
+    return true
 end
 
 -- Get CAD link by license
 -- @param license string - Player's FiveM license
 -- @return table|nil link data
 function GetCADLink(license)
-    local query = string.format(
-        'SELECT * FROM %s WHERE license = ?',
-        Config.Database.LinkTable
-    )
-    
-    local result = MySQL.query.await(query, { license })
-    
-    if result and #result > 0 then
-        return result[1]
-    end
-    
-    return nil
+    return CADLinks[license]
 end
 
 -- Get CAD link by API ID
 -- @param apiId string - Player's CAD API ID
 -- @return table|nil link data
 function GetCADLinkByApiId(apiId)
-    local query = string.format(
-        'SELECT * FROM %s WHERE api_id = ?',
-        Config.Database.LinkTable
-    )
-    
-    local result = MySQL.query.await(query, { apiId })
-    
-    if result and #result > 0 then
-        return result[1]
+    for license, data in pairs(CADLinks) do
+        if data.api_id == apiId then
+            return data
+        end
     end
-    
     return nil
 end
 
@@ -109,14 +70,8 @@ end
 -- @param license string - Player's FiveM license
 -- @return boolean success
 function DeleteCADLink(license)
-    local query = string.format(
-        'DELETE FROM %s WHERE license = ?',
-        Config.Database.LinkTable
-    )
-    
-    local success = MySQL.query.await(query, { license })
-    
-    if success then
+    if CADLinks[license] then
+        CADLinks[license] = nil
         log('info', string.format('Deleted CAD link: %s', license))
         
         -- Update local cache
@@ -132,31 +87,24 @@ end
 -- @param license string - Player's FiveM license
 -- @return boolean success
 function UpdateLastSync(license)
-    local query = string.format(
-        'UPDATE %s SET last_sync = CURRENT_TIMESTAMP WHERE license = ?',
-        Config.Database.LinkTable
-    )
-    
-    local success = MySQL.query.await(query, { license })
-    
-    if success and CADSync.LinkedPlayers[license] then
-        CADSync.LinkedPlayers[license].last_sync = os.date('%Y-%m-%d %H:%M:%S')
+    if CADLinks[license] then
+        CADLinks[license].last_sync = os.date('%Y-%m-%d %H:%M:%S')
+        
+        -- Update local cache
+        if CADSync.LinkedPlayers[license] then
+            CADSync.LinkedPlayers[license].last_sync = CADLinks[license].last_sync
+        end
+        
+        return true
     end
     
-    return success ~= nil
+    return false
 end
 
 -- Get all links
 -- @return table all links
 function GetAllCADLinks()
-    local query = string.format(
-        'SELECT * FROM %s',
-        Config.Database.LinkTable
-    )
-    
-    local result = MySQL.query.await(query)
-    
-    return result or {}
+    return CADLinks
 end
 
-log('info', 'Database module loaded')
+log('info', 'In-memory storage module loaded')

@@ -10,7 +10,6 @@ use_experimental_fxv2_oal 'yes'
 shared_script 'config.lua'
 
 server_script 'server/main.lua'
-server_script 'server/database.lua'
 server_script 'server/api.lua'
 server_script 'server/webhooks.lua'
 

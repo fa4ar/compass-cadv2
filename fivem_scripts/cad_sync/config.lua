@@ -11,18 +11,6 @@ Config.API = {
     Timeout = 10000,
 }
 
--- Database Configuration
-Config.Database = {
-    -- Table name for CAD links
-    LinkTable = 'cad_links',
-    
-    -- Auto-create table if not exists
-    AutoCreate = true,
-    
-    -- Connection check interval (ms)
-    CheckInterval = 60000,
-}
-
 -- Notification Configuration
 Config.Notifications = {
     -- Sound settings
