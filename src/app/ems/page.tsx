@@ -438,7 +438,7 @@ function EMSPageContent() {
                 const data = await unitsRes.json();
                 // Filter for EMS/Fire units only
                 const emsUnits = data.filter((u: any) =>
-                    u.department?.type === 'ems' || u.department?.type === 'fire'
+                    u.departmentMember?.department?.type === 'ems' || u.departmentMember?.department?.type === 'fire'
                 );
                 setUnits(emsUnits);
             }

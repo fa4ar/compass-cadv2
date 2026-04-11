@@ -6,7 +6,11 @@ export class UnitsService {
         const units = await (prisma as any).unit.findMany({
             include: {
                 character: true,
-                departmentMember: true,
+                departmentMember: {
+                    include: {
+                        department: true
+                    }
+                },
                 call: true,
                 user: {
                     select: {
@@ -14,8 +18,8 @@ export class UnitsService {
                         avatarUrl: true
                     }
                 },
-                pairedWith: { 
-                    include: { 
+                pairedWith: {
+                    include: {
                         character: true,
                         user: {
                             select: {
@@ -23,7 +27,7 @@ export class UnitsService {
                                 avatarUrl: true
                             }
                         }
-                    } 
+                    }
                 }
             }
         });
@@ -86,7 +90,11 @@ export class UnitsService {
                 },
                 include: {
                     character: true,
-                    departmentMember: true
+                    departmentMember: {
+                        include: {
+                            department: true
+                        }
+                    }
                 }
             });
 
