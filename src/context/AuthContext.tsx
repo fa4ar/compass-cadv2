@@ -175,6 +175,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 }
             }
 
+            if (response.status === 404) {
+                console.log('🔴 [AUTH] User not found (404), clearing auth state');
+                clearAuthState();
+                if (typeof window !== 'undefined') {
+                    window.location.replace('/auth/login');
+                }
+                return;
+            }
+
             if (response.ok) {
                 const data = await response.json();
                 setUser(data.user);
