@@ -1131,10 +1131,11 @@ function EMSPageContent() {
                                                 <div className="space-y-3">
                                                     {calls.map((call) => {
                                                         const priorityConfig = getPriorityConfig(call.priority);
-                                                        const callTypeConfig = call.callType === 'ems' ? { color: 'emerald', label: 'EMS' } :
-                                                            call.callType === 'fire' ? { color: 'orange', label: 'FIRE' } :
-                                                            call.callType === 'medical' ? { color: 'pink', label: 'MEDICAL' } :
-                                                            { color: 'zinc', label: call.callType?.toUpperCase() || 'UNKNOWN' };
+                                                        const callTypeConfig = call.callType === 'ems' ? { color: 'emerald', label: 'СКОРАЯ' } :
+                                                            call.callType === 'fire' ? { color: 'orange', label: 'ПОЖАРНАЯ' } :
+                                                            call.callType === 'medical' ? { color: 'pink', label: 'МЕДИЦИНА' } :
+                                                            call.callType === 'police' ? { color: 'blue', label: 'ПОЛИЦИЯ' } :
+                                                            { color: 'zinc', label: call.callType?.toUpperCase() || '-' };
                                                         return (
                                                             <div
                                                                 key={call.id}

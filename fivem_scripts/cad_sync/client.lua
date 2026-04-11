@@ -6,9 +6,12 @@ local playerDutyStatus = nil
 
 -- Функция для получения License ID
 function GetLicenseId(src)
-    for _, id in ipairs(GetPlayerIdentifiers(src)) do
-        if string.match(id, "license:") then
-            return string.gsub(id, "license:", "")
+    local identifiers = GetPlayerIdentifiers(src or PlayerId())
+    if identifiers then
+        for _, id in ipairs(identifiers) do
+            if string.match(id, "license:") then
+                return string.gsub(id, "license:", "")
+            end
         end
     end
     return nil
@@ -22,31 +25,40 @@ local function CheckDutyStatus()
     local licenseId = GetLicenseId(src)
     
     if not licenseId then
+        print("[CAD_SYNC] CheckDutyStatus: No license ID found")
         isOnDuty = false
         playerJob = nil
         return
     end
     
+    print("[CAD_SYNC] CheckDutyStatus: Checking duty status for license " .. licenseId)
+    
     -- Запрашиваем статус смены из API
     PerformHttpRequest(Config.ApiUrl .. "/link/check?license=" .. licenseId, function(status, body, headers)
+        print("[CAD_SYNC] CheckDutyStatus: API response status=" .. status)
         if status == 200 then
             local data = json.decode(body)
+            print("[CAD_SYNC] CheckDutyStatus: API response data=" .. json.encode(data))
             if data and data.linked and data.user then
                 -- API теперь возвращает job напрямую
                 if data.user.onDuty and data.user.job then
                     isOnDuty = true
                     playerJob = data.user.job
+                    print("[CAD_SYNC] CheckDutyStatus: ON DUTY - job=" .. data.user.job)
                 else
                     isOnDuty = false
                     playerJob = nil
+                    print("[CAD_SYNC] CheckDutyStatus: NOT ON DUTY - onDuty=" .. tostring(data.user.onDuty) .. ", job=" .. tostring(data.user.job))
                 end
             else
                 isOnDuty = false
                 playerJob = nil
+                print("[CAD_SYNC] CheckDutyStatus: NOT LINKED")
             end
         else
             isOnDuty = false
             playerJob = nil
+            print("[CAD_SYNC] CheckDutyStatus: API ERROR status=" .. status)
         end
     end, 'GET', '', { ['Content-Type'] = 'application/json' })
 end

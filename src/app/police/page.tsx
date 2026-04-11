@@ -1656,6 +1656,7 @@ function PolicePageContent() {
                                                         <tr>
                                                             <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">ID</th>
                                                             <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Время</th>
+                                                            <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Тип</th>
                                                             <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Заявитель</th>
                                                             <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Локация</th>
                                                             <th className="px-3 py-2 text-left text-xs font-medium text-zinc-400">Описание</th>
@@ -1673,6 +1674,15 @@ function PolicePageContent() {
                                                             >
                                                                 <td className="px-3 py-2 font-medium text-zinc-100">#{row.id}</td>
                                                                 <td className="px-3 py-2 text-zinc-300 font-mono text-xs">{new Date(row.createdAt).toLocaleTimeString()}</td>
+                                                                <td className="px-3 py-2">
+                                                                    <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase font-bold ${row.callType === 'police' ? 'bg-blue-500/20 text-blue-400' :
+                                                                        row.callType === 'fire' ? 'bg-orange-500/20 text-orange-400' :
+                                                                        row.callType === 'ems' ? 'bg-emerald-500/20 text-emerald-400' :
+                                                                        'bg-zinc-500/20 text-zinc-400'
+                                                                    }`}>
+                                                                        {row.callType === 'police' ? 'ПОЛИЦИЯ' : row.callType === 'fire' ? 'ПОЖАРНАЯ' : row.callType === 'ems' ? 'СКОРАЯ' : row.callType?.toUpperCase() || '-'}
+                                                                    </span>
+                                                                </td>
                                                                 <td className="px-3 py-2 text-zinc-100">{row.callerName}</td>
                                                                 <td className="px-3 py-2 text-zinc-300">{row.location}</td>
                                                                 <td className="px-3 py-2 text-zinc-100">{row.description}</td>

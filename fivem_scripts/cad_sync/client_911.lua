@@ -58,9 +58,9 @@ end
 function CallUI:showCallPanel(call)
     local onDuty, job = getDutyStatus()
     
-    -- Only show call card if on duty and has correct job (police or ems)
-    if not onDuty or (job ~= "police" and job ~= "ems") then
-        print("[CAD-911] Call card NOT shown - not on duty or invalid job. onDuty=" .. tostring(onDuty) .. ", job=" .. tostring(job))
+    -- Only show call card if on duty
+    if not onDuty then
+        print("[CAD-911] Call card NOT shown - not on duty. onDuty=" .. tostring(onDuty))
         return
     end
     

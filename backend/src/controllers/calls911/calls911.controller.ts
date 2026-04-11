@@ -65,6 +65,7 @@ export class Calls911Controller {
                 io.emit('new_911_call', {
                     ...newCall,
                     type: callType || type || 'other',
+                    callType: callType || 'police',
                     priority: callPriority,
                     isEmergency: (newCall as any).isEmergency,
                     createdAt: newCall.createdAt.getTime(),

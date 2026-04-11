@@ -129,9 +129,18 @@ RegisterCommand('test911', function(source, args, rawCommand)
     local priority = args[1] or "high"
     local callType = args[2] or "traffic_accident"
     
+    -- Определяем callType на основе type
+    local callTypeDept = "police" -- default
+    if callType == "fire" or callType == "accident" then
+        callTypeDept = "fire"
+    elseif callType == "medical" then
+        callTypeDept = "ems"
+    end
+    
     local testCall = {
         id = math.random(1000, 9999),
         type = callType,
+        callType = callTypeDept,
         location = "Vinewood Blvd & Strawberry Ave",
         description = "Тяжелый удар в заднюю часть. Один человек без сознания.",
         priority = priority,
@@ -205,7 +214,7 @@ end)
 -- 911 CALL SYSTEM (Integration with Backend API)
 -- =====================================================
 
--- Команда для вызова 911 из игры
+--- Команда для вызова 911 из игры
 RegisterCommand('911', function(source, args, rawCommand)
     local src = source
     local callType = args[1] or "other"
@@ -228,9 +237,18 @@ RegisterCommand('911', function(source, args, rawCommand)
     local playerName = GetPlayerName(src)
     local discordId = GetDiscordId(src)
     
+    -- Определяем callType на основе type
+    local callTypeDept = "police" -- default
+    if callType == "fire" or callType == "accident" then
+        callTypeDept = "fire"
+    elseif callType == "medical" then
+        callTypeDept = "ems"
+    end
+    
     -- Формируем данные вызова
     local callData = {
         type = callType,
+        callType = callTypeDept,
         location = location,
         description = description,
         priority = "medium",
