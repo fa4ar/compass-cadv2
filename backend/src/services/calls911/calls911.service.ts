@@ -172,7 +172,7 @@ export class Calls911Service {
             select: { mainUnitId: true }
         });
 
-        const existingUnit = await prisma.unit.findUnique({
+        const existingUnit = await prisma.unit.findFirst({
             where: { userId }
         });
 
