@@ -371,7 +371,7 @@ RegisterNetEvent('cad_sync:server:create911Call', function(callType, description
     local apiId = CADSync.LinkedPlayers[license].api_id
 
     -- Send to CAD backend
-    local url = Config.API.BaseURL .. '/api/calls911/create'
+    local url = Config.API.BaseURL .. '/api/fivem/create-call'
     local payload = {
         callerName = playerName,
         location = location,

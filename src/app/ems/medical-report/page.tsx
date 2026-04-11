@@ -258,9 +258,18 @@ export default function MedicalReportPage() {
     }, [report]);
 
     const handleZoneClick = (zone: BodyZone, event: React.MouseEvent) => {
-        const rect = event.currentTarget.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
+        const svgElement = (event.currentTarget as SVGElement).closest('svg');
+        if (!svgElement) return;
+        
+        const svgRect = svgElement.getBoundingClientRect();
+        const viewBox = svgElement.viewBox.baseVal;
+        
+        // Convert screen coordinates to SVG coordinate system
+        const scaleX = viewBox.width / svgRect.width;
+        const scaleY = viewBox.height / svgRect.height;
+        
+        const x = (event.clientX - svgRect.left) * scaleX;
+        const y = (event.clientY - svgRect.top) * scaleY;
         
         setSelectedZone(zone);
         setNewInjury({
@@ -272,10 +281,10 @@ export default function MedicalReportPage() {
     };
 
     const handleAddInjury = () => {
-        if (!newInjury.zone || !newInjury.type || !newInjury.description || newInjury.description.length < 50) {
+        if (!newInjury.zone || !newInjury.type || !newInjury.description) {
             toast({
                 title: 'Ошибка валидации',
-                description: 'Заполните все обязательные поля. Описание должно содержать минимум 50 символов.',
+                description: 'Заполните все обязательные поля.',
                 variant: 'destructive',
             });
             return;
@@ -817,20 +826,14 @@ export default function MedicalReportPage() {
                                     </Select>
                                 </div>
                                 <div>
-                                    <Label htmlFor="description" className="mb-2">Описание травмы (минимум 50 символов)</Label>
+                                    <Label htmlFor="description" className="mb-2">Описание травмы</Label>
                                     <Textarea
                                         id="description"
                                         value={newInjury.description || ''}
                                         onChange={(e) => setNewInjury({ ...newInjury, description: e.target.value })}
                                         placeholder="Подробное описание травмы..."
                                         rows={4}
-                                        className={(newInjury.description?.length || 0) < 50 && (newInjury.description?.length || 0) > 0 ? 'border-red-500' : ''}
                                     />
-                                    {(newInjury.description?.length || 0) > 0 && (newInjury.description?.length || 0) < 50 && (
-                                        <p className="text-xs text-red-500 mt-1">
-                                            Минимум 50 символов (текущих: {newInjury.description?.length})
-                                        </p>
-                                    )}
                                 </div>
                                 <div>
                                     <Label>Признак кровотечения</Label>
@@ -919,37 +922,35 @@ function AnatomicalBody({
 
     const zones: Record<BodyZone, { path: string; label: string }> = {
         head: {
-            path: view === 'front'
-                ? 'M 200 25 L 260 25 L 260 140 L 200 140 L 140 140 L 140 25 L 200 25'
-                : 'M 200 25 L 260 25 L 260 140 L 200 140 L 140 140 L 140 25 L 200 25',
+            path: 'M 140 25 L 260 25 L 260 140 L 140 140 L 140 25',
             label: 'Голова',
         },
         neck: {
-            path: 'M 175 140 L 180 140 L 180 165 L 220 165 L 220 140 L 225 140 L 200 145 L 175 140',
+            path: 'M 175 140 L 225 140 L 225 165 L 175 165 L 175 140',
             label: 'Шея',
         },
         torso: {
-            path: 'M 135 165 L 125 165 L 125 330 L 275 330 L 275 165 L 265 165 L 200 160 L 135 165',
+            path: 'M 125 165 L 275 165 L 275 330 L 125 330 L 125 165',
             label: 'Торс',
         },
         pelvis: {
-            path: 'M 140 330 L 115 330 L 110 420 L 290 420 L 285 330 L 260 330 L 200 325 L 140 330',
+            path: 'M 115 330 L 285 330 L 285 420 L 115 420 L 115 330',
             label: 'Таз',
         },
         left_arm: {
-            path: 'M 125 165 L 85 165 L 70 300 L 140 290 L 145 250 L 135 165 L 125 165',
+            path: 'M 70 165 L 125 165 L 125 300 L 70 300 L 70 165',
             label: 'Левая рука',
         },
         right_arm: {
-            path: 'M 275 165 L 315 165 L 330 300 L 260 290 L 255 250 L 265 165 L 275 165',
+            path: 'M 275 165 L 330 165 L 330 300 L 275 300 L 275 165',
             label: 'Правая рука',
         },
         left_leg: {
-            path: 'M 145 420 L 115 420 L 100 600 L 195 600 L 195 425 L 170 420 L 145 420',
+            path: 'M 100 420 L 195 420 L 195 600 L 100 600 L 100 420',
             label: 'Левая нога',
         },
         right_leg: {
-            path: 'M 255 420 L 285 420 L 300 600 L 205 600 L 205 425 L 230 420 L 255 420',
+            path: 'M 205 420 L 300 420 L 300 600 L 205 600 L 205 420',
             label: 'Правая нога',
         },
     };
@@ -959,7 +960,7 @@ function AnatomicalBody({
             <svg viewBox="0 0 400 650" className="w-full h-full">
                 {/* Body outline */}
                 <path
-                    d="M 200 25 L 260 25 L 260 140 L 200 140 L 140 140 L 140 25 L 200 25 M 175 140 L 180 140 L 180 165 L 220 165 L 220 140 L 225 140 L 200 145 L 175 140 M 125 165 L 85 165 L 70 300 L 140 290 L 145 250 L 135 165 L 125 165 M 275 165 L 315 165 L 330 300 L 260 290 L 255 250 L 265 165 L 275 165 M 135 165 L 125 165 L 125 330 L 275 330 L 275 165 L 265 165 L 200 160 L 135 165 M 140 330 L 115 330 L 110 420 L 290 420 L 285 330 L 260 330 L 200 325 L 140 330 M 145 420 L 115 420 L 100 600 L 195 600 L 195 425 L 170 420 L 145 420 M 255 420 L 285 420 L 300 600 L 205 600 L 205 425 L 230 420 L 255 420"
+                    d="M 140 25 L 260 25 L 260 140 L 140 140 L 140 25 M 175 140 L 225 140 L 225 165 L 175 165 L 175 140 M 125 165 L 275 165 L 275 330 L 125 330 L 125 165 M 115 330 L 285 330 L 285 420 L 115 420 L 115 330 M 70 165 L 125 165 L 125 300 L 70 300 L 70 165 M 275 165 L 330 165 L 330 300 L 275 300 L 275 165 M 100 420 L 195 420 L 195 600 L 100 600 L 100 420 M 205 420 L 300 420 L 300 600 L 205 600 L 205 420"
                     fill="#1f2937"
                     stroke="#374151"
                     strokeWidth="2"
