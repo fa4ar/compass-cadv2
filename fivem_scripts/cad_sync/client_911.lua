@@ -39,8 +39,16 @@ local function getDutyStatus()
     return isOnDuty, playerJob
 end
 
--- Show toast notification for any new 911 call (for awareness)
+-- Show toast notification ONLY when user is on duty (shift-based filtering)
 function CallUI:showNotification(call)
+    local onDuty, job = getDutyStatus()
+    
+    -- Only show notification if on duty
+    if not onDuty then
+        print("[CAD-911] Notification NOT shown - not on duty. onDuty=" .. tostring(onDuty))
+        return
+    end
+    
     local now = GetGameTimer()
     if now < self.state.soundCooldown then return end
     self.state.soundCooldown = now + 10000
@@ -51,16 +59,22 @@ function CallUI:showNotification(call)
     -- Send toast notification only (not the full card)
     SendNUIMessage({ action = "showToast", call = call })
     
-    print("[CAD-911] New call notification: #" .. call.id)
+    print("[CAD-911] New call notification: #" .. call.id .. " (on duty: " .. tostring(job) .. ")")
 end
 
--- Show LEFT CARD only when unit is assigned to this specific call AND is on duty
+-- Show LEFT CARD only when BOTH conditions are met: unit is assigned to this specific call AND is on duty
 function CallUI:showCallPanel(call)
     local onDuty, job = getDutyStatus()
     
-    -- Only show call card if on duty
+    -- Only show call card if BOTH on duty AND assigned to this call
     if not onDuty then
         print("[CAD-911] Call card NOT shown - not on duty. onDuty=" .. tostring(onDuty))
+        return
+    end
+    
+    -- Verify this is the correct call assignment
+    if not call or not call.id then
+        print("[CAD-911] Call card NOT shown - invalid call data")
         return
     end
     
@@ -82,7 +96,7 @@ function CallUI:showCallPanel(call)
         self.state.blip = blip
     end
     
-    print("[CAD-911] Assigned to call: #" .. call.id)
+    print("[CAD-911] Call card shown - on duty: " .. tostring(job) .. ", assigned to call: #" .. call.id)
 end
 
 function CallUI:hideCallPanel()

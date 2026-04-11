@@ -3,6 +3,43 @@ import { CallStatus } from '@prisma/client';
 import { io } from '../../server';
 
 export class Calls911Service {
+    /**
+     * Check if user is on active shift in any department
+     * Uses the DepartmentShift system for independent department tracking
+     */
+    private static async isUserOnShift(userId: number): Promise<boolean> {
+        try {
+            const activeShift = await prisma.departmentShift.findFirst({
+                where: {
+                    userId,
+                    endedAt: null
+                }
+            });
+            return !!activeShift;
+        } catch (error) {
+            console.error('[Calls911Service] Error checking shift status:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Get active shift for a specific department
+     */
+    private static async getUserShiftInDepartment(userId: number, departmentType: string) {
+        try {
+            return await prisma.departmentShift.findUnique({
+                where: {
+                    userId_departmentType: {
+                        userId,
+                        departmentType
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('[Calls911Service] Error getting department shift:', error);
+            return null;
+        }
+    }
     static async createCall(data: { 
         callerId?: number, 
         callerName: string, 
@@ -169,7 +206,7 @@ export class Calls911Service {
     static async attachUnit(callId: number, userId: number) {
         const call = await prisma.call911.findUnique({
             where: { id: callId },
-            select: { mainUnitId: true }
+            select: { mainUnitId: true, callType: true }
         });
 
         const existingUnit = await prisma.unit.findUnique({
@@ -196,6 +233,23 @@ export class Calls911Service {
                 }
             })
         ]);
+
+        // Also attach to DepartmentShift if user has an active shift in the call's department
+        if (call?.callType) {
+            const departmentType = call.callType === 'police' ? 'police' : 
+                                  call.callType === 'fire' ? 'fire' : 'ems';
+            
+            const departmentShift = await this.getUserShiftInDepartment(userId, departmentType);
+            if (departmentShift && departmentShift.endedAt === null) {
+                await prisma.departmentShift.update({
+                    where: { id: departmentShift.id },
+                    data: {
+                        callId,
+                        status: 'OnScene'
+                    }
+                });
+            }
+        }
 
         if (io) {
             const updatedCall = await prisma.call911.findUnique({
@@ -289,14 +343,42 @@ export class Calls911Service {
     static async detachUnit(userId: number) {
         const unit = await prisma.unit.findUnique({
             where: { userId },
-            select: { callId: true, callSign: true }
+            include: { call: true }
         });
 
-        if (!unit?.callId) {
-            return null;
+        if (!unit) {
+            throw new Error('Unit not found');
+        }
+
+        if (!unit.callId) {
+            return { success: true, message: 'Unit is not assigned to any call' };
         }
 
         const callId = unit.callId;
+
+        // Update unit - remove call assignment
+        await prisma.unit.update({
+            where: { userId },
+            data: {
+                callId: null,
+                status: 'Available',
+                lastStatusAt: new Date()
+            }
+        });
+
+        // Also detach from DepartmentShift
+        await prisma.departmentShift.updateMany({
+            where: {
+                userId,
+                callId,
+                endedAt: null
+            },
+            data: {
+                callId: null,
+                status: 'Available',
+                lastStatusAt: new Date()
+            }
+        });
 
         const remainingUnits = await prisma.unit.findMany({
             where: {
@@ -307,16 +389,10 @@ export class Calls911Service {
 
         const newMainUnitId = remainingUnits.length > 0 ? remainingUnits[0].userId : null;
 
-        await prisma.$transaction([
-            prisma.unit.update({
-                where: { userId },
-                data: { callId: null }
-            }),
-            prisma.call911.update({
-                where: { id: callId },
-                data: { mainUnitId: newMainUnitId }
-            })
-        ]);
+        await prisma.call911.update({
+            where: { id: callId },
+            data: { mainUnitId: newMainUnitId }
+        });
 
         if (io) {
             const updatedCall = await prisma.call911.findUnique({

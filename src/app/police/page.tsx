@@ -29,6 +29,7 @@ import { useSound } from '@/hooks/useSound';
 import { StatusBadge } from '@/components/police-dispatcher/StatusBadge';
 import { CallCard } from '@/components/police-dispatcher/CallCard';
 import { CallDetailsModal } from '@/components/police-dispatcher/CallDetailsModal';
+import { ActiveCallCard } from '@/components/police-dispatcher/ActiveCallCard';
 import { UnitTooltip } from '@/components/police-dispatcher/UnitTooltip';
 import { UnitDetailsPanel } from '@/components/police-dispatcher/UnitDetailsPanel';
 import { DutyModal } from '@/components/police-dispatcher/DutyModal';
@@ -127,6 +128,10 @@ function PolicePageContent() {
     const [newCallNoteText, setNewCallNoteText] = useState("");
     const [callSign, setCallSign] = useState("");
     const [subdivision, setSubdivision] = useState("");
+
+    // Active call card state (left side, shown only when on shift + attached)
+    const [activeAttachedCall, setActiveAttachedCall] = useState<any | null>(null);
+    const [isOnShift, setIsOnShift] = useState(false);
 
     const [currentMember, setCurrentMember] = useState<DepartmentMember | null>(null);
     const [selectedUnit, setSelectedUnit] = useState<any | null>(null);
@@ -260,6 +265,26 @@ function PolicePageContent() {
         fetchData();
         checkActiveUnit();
 
+        // Check shift status for active call card display
+        const checkShiftStatus = async () => {
+            try {
+                const response = await fetch('/api/department-shifts/my-shifts');
+                const data = await response.json();
+                if (data.success && data.shifts.length > 0) {
+                    setIsOnShift(true);
+                } else {
+                    setIsOnShift(false);
+                }
+            } catch (error) {
+                console.error('Error checking shift status:', error);
+                setIsOnShift(false);
+            }
+        };
+
+        checkShiftStatus();
+        // Check shift status every 30 seconds
+        const shiftInterval = setInterval(checkShiftStatus, 30000);
+
         // Load persisted UI state
         const savedTab = localStorage.getItem('policeActiveTab');
         if (savedTab) setActiveTab(savedTab);
@@ -364,83 +389,6 @@ function PolicePageContent() {
             if (currentUnit?.userId === data.userId) {
                 setCurrentUnit(prev => prev ? { ...prev, callId: data.callId } : null);
             }
-
-            // Also refresh full data in background
-            fetchData();
-        });
-
-        socket.on('unit_detached_from_call', (data: { userId: number; callId: number; unitCallSign: string; newMainUnitId: number | null; call: any }) => {
-            if (!data || !data.callId) return;
-            console.log('[SOCKET] unit_detached_from_call:', data);
-            playSound('notification');
-            toast({ title: 'Юнит откреплен', description: `${data.unitCallSign} откреплен от вызова #${data.callId}` });
-            
-            handleCallUpdate({ callId: data.callId, call: { status: data.call?.status, mainUnitId: data.newMainUnitId, units: data.call?.units } });
-
-            setCalls(prev => Array.isArray(prev) ? prev.map(c => {
-                if (c.id === data.callId) {
-                    return {
-                        ...c,
-                        status: data.call?.status || c.status,
-                        mainUnitId: data.newMainUnitId,
-                        units: data.call?.units || c.units
-                    };
-                }
-                return c;
-            }) : []);
-            
-            // Update selected call modal if open
-            if (selectedCallForNotes?.id === data.callId) {
-                setSelectedCallForNotes((prev: typeof selectedCallForNotes) => prev ? { 
-                    ...prev, 
-                    status: data.call?.status || prev.status,
-                    mainUnitId: data.newMainUnitId,
-                    units: data.call?.units || []
-                } : null);
-            }
-            
-            // Update currentUnit.callId if the detached unit is the current user
-            if (currentUnit?.userId === data.userId) {
-                setCurrentUnit(prev => prev ? { ...prev, callId: undefined } : null);
-            }
-            
-            fetchData();
-        });
-
-        socket.on('lead_unit_changed', (data: { callId: number; newLeadUserId: number; previousLeadUserId: number | null; call: any }) => {
-            if (!data || !data.callId) return;
-            console.log('[SOCKET] lead_unit_changed:', data);
-            playSound('notification');
-            toast({ title: 'Новый главный юнит', description: `Главный юнит на вызове #${data.callId} изменен` });
-            
-            // Update calls immediately
-            setCalls(prev => Array.isArray(prev) ? prev.map(c => {
-                if (c.id === data.callId) {
-                    return {
-                        ...c,
-                        mainUnitId: data.newLeadUserId,
-                        units: Array.isArray(data.call.units) ? data.call.units.map((u: any) => ({
-                            ...u,
-                            isLead: u.userId === data.newLeadUserId
-                        })) : []
-                    };
-                }
-                return c;
-            }) : []);
-            
-            // Update selected call modal if open
-            if (selectedCallForNotes?.id === data.callId) {
-                setSelectedCallForNotes((prev: typeof selectedCallForNotes) => prev ? { 
-                    ...prev, 
-                    mainUnitId: data.newLeadUserId,
-                    units: data.call.units.map((u: any) => ({
-                        ...u,
-                        isLead: u.userId === data.newLeadUserId
-                    }))
-                } : null);
-            }
-            
-            fetchData();
         });
 
         socket.on('unit_assigned', (data: { userId: number; callId: number; unitCallSign: string }) => {
@@ -3020,6 +2968,18 @@ function PolicePageContent() {
                         </CardContent>
                     </Card>
                 </div>
+            )}
+            {/* Active Call Card - Left side, only shown when on shift AND attached to call */}
+            {activeAttachedCall && isOnShift && (
+                <ActiveCallCard
+                    call={activeAttachedCall}
+                    onDetach={() => {
+                        setActiveAttachedCall(null);
+                    }}
+                    onAddNote={() => {
+                        setSelectedCallForNotes(activeAttachedCall);
+                    }}
+                />
             )}
         </div>
     );

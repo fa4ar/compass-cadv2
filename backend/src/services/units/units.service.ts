@@ -1,5 +1,6 @@
 import prisma from '../../lib/prisma';
 import { io, activeUserSessions } from '../../server';
+import { CallSignsService } from '../call-signs/call-signs.service';
 
 export class UnitsService {
     static async getAllUnits() {
@@ -209,16 +210,40 @@ export class UnitsService {
             where: { userId }
         });
 
-        if (unit && io) {
-            io.emit('unit_off_duty', {
-                userId,
-                unitCallSign: unit.callSign
-            });
+        if (!unit) {
+            throw new Error('Unit not found');
         }
 
-        return await (prisma as any).unit.delete({
+        const ipAddress = (global as any).requestIp || undefined;
+
+        // Restore call sign if unit was in a patrol
+        if (unit.patrolId) {
+            try {
+                await CallSignsService.restoreSingleUnitCallSign(
+                    userId,
+                    'Unit went off duty',
+                    ipAddress
+                );
+            } catch (error) {
+                console.error('[goOffDuty] Failed to restore call sign:', error);
+                // Continue with off duty even if restore fails
+            }
+        }
+
+        // If in a pair, remove from pair first
+        if (unit.partnerUserId) {
+            await this.leavePair(userId);
+        }
+
+        await (prisma as any).unit.delete({
             where: { userId }
         });
+
+        if (io) {
+            io.emit('unit_off_duty', { userId });
+        }
+
+        return { success: true };
     }
 
     static async sendMessageToUnit(senderUserId: number, targetUserId: number, message: string) {
@@ -435,6 +460,20 @@ export class UnitsService {
         }
 
         const partnerUserId = unit.partnerUserId;
+        const ipAddress = (global as any).requestIp || undefined;
+
+        // Restore original call signs before disbanding
+        try {
+            await CallSignsService.restoreOriginalCallSigns(
+                userId,
+                partnerUserId,
+                'Patrol disbanded by unit',
+                ipAddress
+            );
+        } catch (error) {
+            console.error('[leavePair] Failed to restore call signs:', error);
+            // Continue with disbandment even if restore fails
+        }
 
         // Remove partner from both
         await (prisma as any).unit.update({
@@ -487,27 +526,45 @@ export class UnitsService {
             throw new Error('One or both units are already in a pair');
         }
 
-        // Use custom call sign if provided, otherwise generate combined badge
-        let combinedBadge: string;
+        // Get badges for fallback
         const badge1 = unit1.callSign || unit1.departmentMember?.badgeNumber || unit1.id.toString();
         const badge2 = unit2.callSign || unit2.departmentMember?.badgeNumber || unit2.id.toString();
-        if (customCallSign && customCallSign.trim()) {
-            combinedBadge = customCallSign.trim();
-        } else {
-            combinedBadge = `${badge1}+2`;
+
+        // Save original call signs and apply temporary call signs
+        let patrolId: string | null = null;
+        let combinedBadge: string;
+        
+        try {
+            const ipAddress = (global as any).requestIp || undefined;
+            const callSignResult = await CallSignsService.saveAndApplyTemporaryCallSigns(
+                userId1,
+                userId2,
+                customCallSign,
+                ipAddress
+            );
+            patrolId = callSignResult.patrolId;
+            combinedBadge = callSignResult.temporaryCallSign;
+        } catch (error) {
+            console.error('[createPairDirectly] Failed to save call signs:', error);
+            // Fall back to old behavior if call sign service fails
+            if (customCallSign && customCallSign.trim()) {
+                combinedBadge = customCallSign.trim();
+            } else {
+                combinedBadge = `${badge1}+${badge2}`;
+            }
         }
         
-        console.log(`[createPairDirectly] Combined badge: ${combinedBadge}`);
+        console.log(`[createPairDirectly] Combined badge: ${combinedBadge}, Patrol ID: ${patrolId}`);
 
         // Create the pair - link both units together
-        await prisma.unit.update({
+        await (prisma as any).unit.update({
             where: { userId: userId1 },
-            data: { partnerUserId: userId2, callSign: combinedBadge }
+            data: { partnerUserId: userId2, callSign: combinedBadge, patrolId }
         });
 
-        await prisma.unit.update({
+        await (prisma as any).unit.update({
             where: { userId: userId2 },
-            data: { partnerUserId: userId1, callSign: combinedBadge }
+            data: { partnerUserId: userId1, callSign: combinedBadge, patrolId }
         });
 
         // Get updated unit data for frontend
@@ -536,9 +593,9 @@ export class UnitsService {
                 userId1, 
                 userId2, 
                 pairName: pairName || combinedBadge,
-                partner1CallSign: badge1,
+                partner1CallSign: unit1.callSign || badge1,
                 partner1Officer: unit1.character ? `${unit1.character.firstName} ${unit1.character.lastName}` : badge1,
-                partner2CallSign: badge2,
+                partner2CallSign: unit2.callSign || badge2,
                 partner2Officer: unit2.character ? `${unit2.character.firstName} ${unit2.character.lastName}` : badge2,
                 combinedBadge,
                 unit1User: unit1.user,

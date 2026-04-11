@@ -6,6 +6,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useSocket } from '@/context/SocketContext';
 import { Shield, Siren, User, Flame, Wrench, Crosshair, Car, MapPin, Phone, AlertTriangle, Clock } from 'lucide-react';
+import LazyImageOverlay from './LazyImageOverlay';
 
 // --- НАСТРОЙКИ КАЛИБРОВКИ И МАСШТАБА (Вычислено по замерам юзера) ---
 const CALIBRATION = {
@@ -24,9 +25,6 @@ const SAVE_DEBOUNCE_MS = 500;
 // --- ICONS ---
 // Memoized icon cache to avoid recreating icons
 const iconCache = new Map<string, L.DivIcon>();
-
-// Photo cache to avoid reloading images
-const photoCache = new Map<string, string>();
 
 const createCustomIcon = (type: string, color: string, heading: number, inVehicle?: boolean): L.DivIcon => {
     const cacheKey = `${type}-${color}-${heading}-${inVehicle}`;
@@ -124,14 +122,47 @@ interface Call911 {
 function AtlasBackground() {
     const s = 2500;
     const tiles = [
-        { url: '/map/minimap_sea_0_0.png', bounds: [[s, -s], [0, 0]] as L.LatLngBoundsLiteral },
-        { url: '/map/minimap_sea_0_1.png', bounds: [[s, 0], [0, s]] as L.LatLngBoundsLiteral },
-        { url: '/map/minimap_sea_1_0.png', bounds: [[0, -s], [-s, 0]] as L.LatLngBoundsLiteral },
-        { url: '/map/minimap_sea_1_1.png', bounds: [[0, 0], [-s, s]] as L.LatLngBoundsLiteral },
-        { url: '/map/minimap_sea_2_0.png', bounds: [[-s, -s], [-2 * s, 0]] as L.LatLngBoundsLiteral },
-        { url: '/map/minimap_sea_2_1.png', bounds: [[-s, 0], [-2 * s, s]] as L.LatLngBoundsLiteral },
+        { 
+            url: '/map/minimap_sea_0_0.png', 
+            bounds: [[s, -s], [0, 0]] as L.LatLngBoundsLiteral,
+            lowQualityUrl: '/map/minimap_sea_0_0_low.png'
+        },
+        { 
+            url: '/map/minimap_sea_0_1.png', 
+            bounds: [[s, 0], [0, s]] as L.LatLngBoundsLiteral,
+            lowQualityUrl: '/map/minimap_sea_0_1_low.png'
+        },
+        { 
+            url: '/map/minimap_sea_1_0.png', 
+            bounds: [[0, -s], [-s, 0]] as L.LatLngBoundsLiteral,
+            lowQualityUrl: '/map/minimap_sea_1_0_low.png'
+        },
+        { 
+            url: '/map/minimap_sea_1_1.png', 
+            bounds: [[0, 0], [-s, s]] as L.LatLngBoundsLiteral,
+            lowQualityUrl: '/map/minimap_sea_1_1_low.png'
+        },
+        { 
+            url: '/map/minimap_sea_2_0.png', 
+            bounds: [[-s, -s], [-2 * s, 0]] as L.LatLngBoundsLiteral,
+            lowQualityUrl: '/map/minimap_sea_2_0_low.png'
+        },
+        { 
+            url: '/map/minimap_sea_2_1.png', 
+            bounds: [[-s, 0], [-2 * s, s]] as L.LatLngBoundsLiteral,
+            lowQualityUrl: '/map/minimap_sea_2_1_low.png'
+        },
     ];
-    return <>{tiles.map((tile, i) => (<ImageOverlay key={i} url={tile.url} bounds={tile.bounds} opacity={1} />))}</>;
+    return <>{tiles.map((tile, i) => (
+        <LazyImageOverlay 
+            key={i} 
+            url={tile.url} 
+            bounds={tile.bounds} 
+            opacity={1}
+            lowQualityUrl={tile.lowQualityUrl}
+            fallbackUrl="/map/minimap_fallback.png"
+        />
+    ))}</>;
 }
 
 function MapHelpers({ onCoordClick }: { onCoordClick: (lat: number, lng: number) => void }) {

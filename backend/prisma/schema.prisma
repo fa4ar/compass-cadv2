@@ -42,6 +42,7 @@ model User {
   createdBOLOs        BOLO[]
 
   unit Unit?
+  departmentShifts    DepartmentShift[] @relation("UserDepartmentShifts")
 
   @@index([email])
   @@index([discordId])
@@ -145,6 +146,7 @@ model Character {
   roleplayTags         CharacterRoleplayTag[]
   roleplayEvents       RoleplayEventLog[]
   bolos                BOLO[]
+  departmentShifts     DepartmentShift[] @relation("CharacterDepartmentShifts")
 
   @@unique([userId, firstName, lastName])
   @@index([userId])
@@ -241,6 +243,7 @@ model DepartmentMember {
   callParticipants     CallParticipant[]
   incidentParticipants IncidentParticipant[]
   unit                 Unit?
+  departmentShifts     DepartmentShift[] @relation("DepartmentMemberShifts")
 
   @@unique([characterId, departmentId])
   @@index([characterId])
@@ -527,6 +530,7 @@ model Call911 {
   caller Character?    @relation("CitizenCalls911", fields: [callerId], references: [id])
   notes  Call911Note[]
   units  Unit[]
+  departmentShifts DepartmentShift[] @relation("DepartmentShiftCalls")
 
   @@index([callerId])
   @@index([status])
@@ -908,11 +912,14 @@ model Unit {
   status             String   @default("Available")
   beat               String?  @default("N/A")
   callSign           String?
+  originalCallSign   String?  // Original call sign before pairing
   subdivision        String?
   vehicleModel       String?
   vehiclePlate       String?
   callId             Int?
   partnerUserId      Int?
+  patrolId           String?  // Unique identifier for paired patrol
+  callSignOverride   Boolean  @default(false) // Flag for manual call sign override
   onDutyAt           DateTime @default(now())
   lastStatusAt       DateTime @default(now())
 
@@ -922,12 +929,133 @@ model Unit {
   call             Call911?          @relation(fields: [callId], references: [id], onDelete: SetNull)
   partner          Unit?             @relation("PairRelation", fields: [partnerUserId], references: [userId])
   pairedWith       Unit[]            @relation("PairRelation")
+  callSignLogs     CallSignLog[]
 
   @@index([userId])
   @@index([characterId])
   @@index([status])
   @@index([callId])
   @@index([partnerUserId])
+  @@index([patrolId])
+}
+
+// ==================== ЛОГИРОВАНИЕ ПОЗЫВНЫХ ЮНИТОВ ====================
+
+model CallSignLog {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  unitId         Int
+  patrolId       String?  // Patrol ID if operation is related to a paired patrol
+  operation      String   // SAVE, RESTORE, OVERRIDE, MANUAL_CHANGE
+  oldCallSign    String?  // Previous call sign
+  newCallSign    String?  // New call sign
+  reason         String?  // Reason for the change
+  ipAddress      String?
+  createdAt      DateTime @default(now())
+
+  unit           Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([unitId])
+  @@index([patrolId])
+  @@index([operation])
+  @@index([createdAt])
+}
+
+// ==================== ДЕПАРТАМЕНТСКИЕ СМЕНЫ (НЕЗАВИСИМЫЕ) ====================
+
+model DepartmentShift {
+  id                 Int      @id @default(autoincrement())
+  userId             Int
+  departmentType     String   // police, ems, fire, sheriff, trooper, dispatch, corrections
+  characterId        Int?
+  departmentMemberId Int?
+  
+  // Статус смены
+  status             String   @default("Available") // Available, Busy, Offline, OnScene
+  callSign           String?
+  subdivision        String?
+  vehicleModel       String?
+  vehiclePlate       String?
+  
+  // Связанные вызовы
+  callId             Int?
+  
+  // Временные метки
+  startedAt          DateTime @default(now())
+  lastStatusAt       DateTime @default(now())
+  endedAt            DateTime?
+  
+  // Прогресс смены (для сохранения при принудительном переключении)
+  shiftProgress      Json?    // Сохраняемые данные о смене: callsHandled, timeOnScene, etc.
+  
+  // Принудительная смена
+  isForced           Boolean  @default(false)
+  previousShiftData  Json?    // Данные предыдущей смены при force-переключении
+  
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user               User              @relation("UserDepartmentShifts", fields: [userId], references: [id], onDelete: Cascade)
+  character          Character?        @relation("CharacterDepartmentShifts", fields: [characterId], references: [id], onDelete: SetNull)
+  departmentMember   DepartmentMember? @relation("DepartmentMemberShifts", fields: [departmentMemberId], references: [id], onDelete: SetNull)
+  call               Call911?          @relation("DepartmentShiftCalls", fields: [callId], references: [id], onDelete: SetNull)
+  activityLogs       ShiftActivityLog[]
+
+  @@unique([userId, departmentType])
+  @@index([userId])
+  @@index([departmentType])
+  @@index([status])
+  @@index([callId])
+  @@index([startedAt])
+}
+
+model ShiftActivityLog {
+  id               Int      @id @default(autoincrement())
+  departmentShiftId Int
+  userId           Int
+  action           String   // START_SHIFT, END_SHIFT, STATUS_CHANGE, CALL_ATTACHED, CALL_DETACHED, FORCE_SWITCH
+  description      String?
+  metadata         Json?    // Дополнительная информация
+  ipAddress        String?
+  
+  createdAt        DateTime @default(now())
+
+  departmentShift  DepartmentShift @relation(fields: [departmentShiftId], references: [id], onDelete: Cascade)
+
+  @@index([departmentShiftId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model ShiftHistory {
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  departmentType   String
+  characterId      Int?
+  departmentMemberId Int?
+  
+  startedAt        DateTime
+  endedAt          DateTime?
+  duration         Int?     // в секундах
+  
+  // Статистика смены
+  callsHandled     Int      @default(0)
+  timeOnScene      Int?     // в секундах
+  
+  // Причина завершения
+  endReason        String?  // normal, force_switch, timeout, kick
+  
+  // Сохраненные данные
+  shiftData        Json?
+  
+  createdAt        DateTime @default(now())
+
+  @@index([userId])
+  @@index([departmentType])
+  @@index([startedAt])
+  @@index([endedAt])
 }
 
 model CivilianVehicle {
