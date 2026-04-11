@@ -180,9 +180,7 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
                 if (callsRes.ok) {
                     const callsData = await callsRes.json();
                     if (callsData && callsData.calls) {
-                        // Filter to only show calls from the game
-                        const gameCalls = Array.isArray(callsData.calls) ? callsData.calls.filter((call: Call911) => !call.source || call.source === 'game') : [];
-                        setCalls(gameCalls);
+                        setCalls(Array.isArray(callsData.calls) ? callsData.calls : []);
                     }
                 } else {
                     console.error("Initial calls fetch error:", callsRes.status);
@@ -196,8 +194,7 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
         if (!socket) return;
         const blipHandler = (data: Blip[]) => setBlips(data);
         const callHandler = (data: Call911[]) => {
-            // Filter to only show calls from the game
-            const gameCalls = Array.isArray(data) ? data.filter(call => !call.source || call.source === 'game') : [];
+            const gameCalls = Array.isArray(data) ? data : [];
             setCalls(gameCalls);
             if (onCallsUpdate) onCallsUpdate(gameCalls);
         };

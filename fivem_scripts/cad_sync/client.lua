@@ -6,7 +6,7 @@ local playerDutyStatus = nil
 
 -- Функция для получения License ID
 function GetLicenseId(src)
-    local identifiers = GetPlayerIdentifiers(src or PlayerId())
+    local identifiers = GetPlayerIdentifiers()
     if identifiers then
         for _, id in ipairs(identifiers) do
             if string.match(id, "license:") then
