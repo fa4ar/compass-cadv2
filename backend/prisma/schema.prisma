@@ -903,7 +903,7 @@ enum VehicleStatus {
 model Unit {
   id                 Int      @id @default(autoincrement())
   userId             Int
-  departmentType     DepartmentType
+  departmentType     DepartmentType @default("police")
   departmentMemberId Int?     @unique
   characterId        Int?     @unique
   status             String   @default("Available")
