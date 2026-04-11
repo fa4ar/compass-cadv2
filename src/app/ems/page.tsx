@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { Flame, Truck, Ambulance, Heart, Activity, Stethoscope, Building, Siren, Search, MapPin, Phone, AlertTriangle, Users, FileText, RefreshCw, X, Send, User, LogOut, Loader2, Plus, CheckCircle, Clock, Map, Monitor, Navigation } from 'lucide-react';
-import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { EMSProtectedRoute } from '@/components/EMSProtectedRoute';
 
 const LiveMap = dynamic(() => import('@/components/Map/LiveMap'), { 
     ssr: false,
@@ -22,7 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
-import { useAuth } from '@/context/AuthContext';
+import { useEMSAuth } from '@/context/EMSAuthContext';
 import { useSocket } from '@/context/SocketContext';
 import { useSound } from '@/hooks/useSound';
 
@@ -150,14 +150,14 @@ const TRIAGE_ZONES = [
 
 export default function EMSPage() {
     return (
-        <ProtectedRoute allowedRoles={["ems", "fire", "admin"]}>
+        <EMSProtectedRoute allowedRoles={["ems", "fire", "admin"]}>
             <EMSPageContent />
-        </ProtectedRoute>
+        </EMSProtectedRoute>
     );
 }
 
 function EMSPageContent() {
-    const { user } = useAuth();
+    const { user } = useEMSAuth();
     const { socket, isConnected } = useSocket();
     const [units, setUnits] = useState<Unit[]>([]);
     const [calls, setCalls] = useState<Call[]>([]);
@@ -389,7 +389,7 @@ function EMSPageContent() {
 
     const checkActiveUnit = async () => {
         try {
-            const token = localStorage.getItem("accessToken");
+            const token = localStorage.getItem("emsAccessToken");
             if (!token) return;
 
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -417,7 +417,7 @@ function EMSPageContent() {
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            const token = localStorage.getItem("accessToken");
+            const token = localStorage.getItem("emsAccessToken");
             if (!token) return;
 
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -469,7 +469,7 @@ function EMSPageContent() {
     const handleDutyStart = async () => {
         setIsSubmitting(true);
         try {
-            const token = localStorage.getItem("accessToken");
+            const token = localStorage.getItem("emsAccessToken");
             if (!token) return;
 
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -529,7 +529,7 @@ function EMSPageContent() {
 
     const handleDutyEnd = async () => {
         try {
-            const token = localStorage.getItem("accessToken");
+            const token = localStorage.getItem("emsAccessToken");
             if (!token) return;
 
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -559,7 +559,7 @@ function EMSPageContent() {
         if (!onDuty) return;
 
         try {
-            const token = localStorage.getItem("accessToken");
+            const token = localStorage.getItem("emsAccessToken");
             if (!token) return;
 
             setCurrentUnit((prev) => (prev ? { ...prev, status } : null));
@@ -610,7 +610,7 @@ function EMSPageContent() {
 
         setIsSearchingPatients(true);
         try {
-            const token = localStorage.getItem("accessToken");
+            const token = localStorage.getItem("emsAccessToken");
             if (!token) return;
 
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -665,7 +665,7 @@ function EMSPageContent() {
         if (!confirm("Вы уверены, что хотите отметить пациента как мертвого?")) return;
 
         try {
-            const token = localStorage.getItem("accessToken");
+            const token = localStorage.getItem("emsAccessToken");
             if (!token) return;
 
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -716,7 +716,7 @@ function EMSPageContent() {
         if (!newCallNoteText.trim()) return;
 
         try {
-            const token = localStorage.getItem("accessToken");
+            const token = localStorage.getItem("emsAccessToken");
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
             const res = await fetch(`${apiUrl}/api/calls911/${callId}/notes`, {
