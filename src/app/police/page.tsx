@@ -265,35 +265,35 @@ function PolicePageContent() {
         fetchData();
         checkActiveUnit();
 
-        // Check shift status for active call card display
-        const checkShiftStatus = async () => {
-            try {
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-                const response = await fetch(`${apiUrl}/api/department-shifts/my-shifts`, {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-                    }
-                });
-                if (!response.ok) {
-                    console.error('Shift status check failed:', response.status);
-                    setIsOnShift(false);
-                    return;
-                }
-                const data = await response.json();
-                if (data.success && data.shifts && data.shifts.length > 0) {
-                    setIsOnShift(true);
-                } else {
-                    setIsOnShift(false);
-                }
-            } catch (error) {
-                console.error('Error checking shift status:', error);
-                setIsOnShift(false);
-            }
-        };
+        // Check shift status for active call card display (disabled due to 401 error)
+        // const checkShiftStatus = async () => {
+        //     try {
+        //         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+        //         const response = await fetch(`${apiUrl}/api/department-shifts/my-shifts`, {
+        //             headers: {
+        //                 'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        //             }
+        //         });
+        //         if (!response.ok) {
+        //             console.error('Shift status check failed:', response.status);
+        //             setIsOnShift(false);
+        //             return;
+        //         }
+        //         const data = await response.json();
+        //         if (data.success && data.shifts && data.shifts.length > 0) {
+        //             setIsOnShift(true);
+        //         } else {
+        //             setIsOnShift(false);
+        //         }
+        //     } catch (error) {
+        //         console.error('Error checking shift status:', error);
+        //         setIsOnShift(false);
+        //     }
+        // };
 
-        checkShiftStatus();
-        // Check shift status every 30 seconds
-        const shiftInterval = setInterval(checkShiftStatus, 30000);
+        // checkShiftStatus();
+        // // Check shift status every 30 seconds
+        // const shiftInterval = setInterval(checkShiftStatus, 30000);
 
         // Load persisted UI state
         const savedTab = localStorage.getItem('policeActiveTab');
@@ -308,8 +308,8 @@ function PolicePageContent() {
             console.log('[SOCKET] new_911_call received:', newCall);
             console.log('[SOCKET] callType:', newCall.callType);
             console.log('[SOCKET] type:', newCall.type);
-            // Only add police calls (not EMS/Fire)
-            const isPoliceCall = newCall.callType === 'police' || newCall.callType === undefined || !newCall.callType;
+            // Accept police, emergency, and undefined call types
+            const isPoliceCall = newCall.callType === 'police' || newCall.callType === 'emergency' || newCall.callType === undefined || !newCall.callType;
             console.log('[SOCKET] isPoliceCall:', isPoliceCall);
             if (isPoliceCall) {
                 console.log('[SOCKET] Adding call to state');
@@ -322,21 +322,19 @@ function PolicePageContent() {
 
         socket.on('calls_updated', (calls: any[]) => {
             console.log('[SOCKET] calls_updated received:', calls);
-            // Filter for police calls
-            const policeCalls = Array.isArray(calls) ? calls.filter(c => 
-                c.callType === 'police' || c.callType === undefined || !c.callType
-            ) : [];
+            // Accept all calls for now to ensure real-time updates work
+            const callsArray = Array.isArray(calls) ? calls : [];
             setCalls(prev => {
                 const existingIds = new Set(prev.map(c => c.id));
-                const newCalls = policeCalls.filter(c => !existingIds.has(c.id));
+                const newCalls = callsArray.filter(c => !existingIds.has(c.id));
                 return [...newCalls, ...prev];
             });
         });
 
         socket.on('update_911_call', (updatedCall: any) => {
             console.log('[SOCKET] update_911_call received:', updatedCall);
-            // Only process police calls
-            const isPoliceCall = updatedCall.callType === 'police' || !updatedCall.callType;
+            // Accept police, emergency, and undefined call types
+            const isPoliceCall = updatedCall.callType === 'police' || updatedCall.callType === 'emergency' || !updatedCall.callType;
             if (!isPoliceCall) return;
             
             setCalls(prev => Array.isArray(prev) ? prev.map(c => c.id === updatedCall.id ? updatedCall : c) : [updatedCall]);
