@@ -427,7 +427,7 @@ export default function MedicalReportPage() {
                                 <CardContent className="space-y-4">
                                     {/* Character Search */}
                                     <div className="relative">
-                                        <Label htmlFor="character-search">Поиск персонажа</Label>
+                                        <Label htmlFor="character-search" className="mb-2">Поиск персонажа</Label>
                                         <Input
                                             id="character-search"
                                             placeholder="Введите имя или фамилию..."
@@ -497,7 +497,7 @@ export default function MedicalReportPage() {
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
-                                            <Label htmlFor="name">ФИО пациента</Label>
+                                            <Label htmlFor="name" className="mb-2">ФИО пациента</Label>
                                             <Input
                                                 id="name"
                                                 value={report.patient.name}
@@ -510,7 +510,7 @@ export default function MedicalReportPage() {
                                             />
                                         </div>
                                         <div>
-                                            <Label htmlFor="age">Возраст</Label>
+                                            <Label htmlFor="age" className="mb-2">Возраст</Label>
                                             <Input
                                                 id="age"
                                                 type="number"
@@ -526,7 +526,7 @@ export default function MedicalReportPage() {
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
-                                            <Label htmlFor="gender">Пол</Label>
+                                            <Label htmlFor="gender" className="mb-2">Пол</Label>
                                             <Select
                                                 value={report.patient.gender}
                                                 onValueChange={(value: 'male' | 'female') => setReport({
@@ -545,7 +545,7 @@ export default function MedicalReportPage() {
                                             </Select>
                                         </div>
                                         <div>
-                                            <Label htmlFor="bloodType">Группа крови</Label>
+                                            <Label htmlFor="bloodType" className="mb-2">Группа крови</Label>
                                             <Select
                                                 value={report.patient.bloodType}
                                                 onValueChange={(value: BloodType) => setReport({
@@ -566,7 +566,7 @@ export default function MedicalReportPage() {
                                         </div>
                                     </div>
                                     <div>
-                                        <Label htmlFor="allergies" className="flex items-center gap-2">
+                                        <Label htmlFor="allergies" className="flex items-center gap-2 mb-2">
                                             Аллергии
                                             {report.patient.allergies && (
                                                 <AlertTriangle className="w-4 h-4 text-red-500" />
@@ -593,7 +593,7 @@ export default function MedicalReportPage() {
                                         </h4>
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                             <div>
-                                                <Label htmlFor="bp_systolic">АД (систолическое)</Label>
+                                                <Label htmlFor="bp_systolic" className="mb-2">АД (систолическое)</Label>
                                                 <Input
                                                     id="bp_systolic"
                                                     type="number"
@@ -612,7 +612,7 @@ export default function MedicalReportPage() {
                                                 />
                                             </div>
                                             <div>
-                                                <Label htmlFor="bp_diastolic">АД (диастолическое)</Label>
+                                                <Label htmlFor="bp_diastolic" className="mb-2">АД (диастолическое)</Label>
                                                 <Input
                                                     id="bp_diastolic"
                                                     type="number"
@@ -631,7 +631,7 @@ export default function MedicalReportPage() {
                                                 />
                                             </div>
                                             <div>
-                                                <Label htmlFor="pulse">Пульс (уд/мин)</Label>
+                                                <Label htmlFor="pulse" className="mb-2">Пульс (уд/мин)</Label>
                                                 <Input
                                                     id="pulse"
                                                     type="number"
@@ -644,7 +644,7 @@ export default function MedicalReportPage() {
                                                 />
                                             </div>
                                             <div>
-                                                <Label htmlFor="saturation">Сатурация (%)</Label>
+                                                <Label htmlFor="saturation" className="mb-2">Сатурация (%)</Label>
                                                 <Input
                                                     id="saturation"
                                                     type="number"
@@ -657,7 +657,7 @@ export default function MedicalReportPage() {
                                                 />
                                             </div>
                                             <div>
-                                                <Label htmlFor="respiratory">ЧД (вдохов/мин)</Label>
+                                                <Label htmlFor="respiratory" className="mb-2">ЧД (вдохов/мин)</Label>
                                                 <Input
                                                     id="respiratory"
                                                     type="number"
@@ -670,7 +670,7 @@ export default function MedicalReportPage() {
                                                 />
                                             </div>
                                             <div className="col-span-2 md:col-span-3">
-                                                <Label htmlFor="avpu">Уровень сознания (AVPU)</Label>
+                                                <Label htmlFor="avpu" className="mb-2">Уровень сознания (AVPU)</Label>
                                                 <Select
                                                     value={report.patient.avpu}
                                                     onValueChange={(value: AVPU) => setReport({
@@ -769,7 +769,7 @@ export default function MedicalReportPage() {
                             </DialogHeader>
                             <div className="space-y-4">
                                 <div>
-                                    <Label htmlFor="injuryType">Тип повреждения</Label>
+                                    <Label htmlFor="injuryType" className="mb-2">Тип повреждения</Label>
                                     <Select
                                         value={newInjury.type}
                                         onValueChange={(value: InjuryType) => setNewInjury({ ...newInjury, type: value })}
@@ -793,7 +793,7 @@ export default function MedicalReportPage() {
                                     </Select>
                                 </div>
                                 <div>
-                                    <Label htmlFor="severity">Степень тяжести</Label>
+                                    <Label htmlFor="severity" className="mb-2">Степень тяжести</Label>
                                     <Select
                                         value={newInjury.severity}
                                         onValueChange={(value: Severity) => setNewInjury({ ...newInjury, severity: value })}
@@ -817,7 +817,7 @@ export default function MedicalReportPage() {
                                     </Select>
                                 </div>
                                 <div>
-                                    <Label htmlFor="description">Описание травмы (минимум 50 символов)</Label>
+                                    <Label htmlFor="description" className="mb-2">Описание травмы (минимум 50 символов)</Label>
                                     <Textarea
                                         id="description"
                                         value={newInjury.description || ''}
@@ -920,36 +920,36 @@ function AnatomicalBody({
     const zones: Record<BodyZone, { path: string; label: string }> = {
         head: {
             path: view === 'front'
-                ? 'M 200 25 C 235 25, 260 45, 260 80 C 260 115, 235 140, 200 140 C 165 140, 140 115, 140 80 C 140 45, 165 25, 200 25'
-                : 'M 200 25 C 235 25, 260 45, 260 80 C 260 115, 235 140, 200 140 C 165 140, 140 115, 140 80 C 140 45, 165 25, 200 25',
+                ? 'M 200 25 L 260 25 L 260 140 L 200 140 L 140 140 L 140 25 L 200 25'
+                : 'M 200 25 L 260 25 L 260 140 L 200 140 L 140 140 L 140 25 L 200 25',
             label: 'Голова',
         },
         neck: {
-            path: 'M 175 140 C 175 140, 180 145, 180 155 L 180 165 C 180 165, 220 165, 220 165 L 220 155 C 220 145, 225 140, 225 140 C 225 140, 200 145, 175 140',
+            path: 'M 175 140 L 180 140 L 180 165 L 220 165 L 220 140 L 225 140 L 200 145 L 175 140',
             label: 'Шея',
         },
         torso: {
-            path: 'M 135 165 C 135 165, 125 180, 125 200 L 125 280 C 125 310, 140 330, 155 330 L 245 330 C 260 330, 275 310, 275 280 L 275 200 C 275 180, 265 165, 265 165 C 265 165, 240 160, 200 160 C 160 160, 135 165, 135 165',
+            path: 'M 135 165 L 125 165 L 125 330 L 275 330 L 275 165 L 265 165 L 200 160 L 135 165',
             label: 'Торс',
         },
         pelvis: {
-            path: 'M 140 330 C 140 330, 120 335, 115 360 L 110 400 C 110 415, 130 420, 145 420 L 255 420 C 270 420, 290 415, 290 400 L 285 360 C 280 335, 260 330, 260 330 C 260 330, 230 325, 200 325 C 170 325, 140 330, 140 330',
+            path: 'M 140 330 L 115 330 L 110 420 L 290 420 L 285 330 L 260 330 L 200 325 L 140 330',
             label: 'Таз',
         },
         left_arm: {
-            path: 'M 125 180 C 125 180, 95 185, 85 200 L 70 260 C 65 280, 75 295, 90 300 L 105 305 C 120 310, 135 305, 140 290 L 145 250 C 148 220, 145 190, 135 175 C 135 175, 130 180, 125 180',
+            path: 'M 125 165 L 85 165 L 70 300 L 140 290 L 145 250 L 135 165 L 125 165',
             label: 'Левая рука',
         },
         right_arm: {
-            path: 'M 275 180 C 275 180, 305 185, 315 200 L 330 260 C 335 280, 325 295, 310 300 L 295 305 C 280 310, 265 305, 260 290 L 255 250 C 252 220, 255 190, 265 175 C 265 175, 270 180, 275 180',
+            path: 'M 275 165 L 315 165 L 330 300 L 260 290 L 255 250 L 265 165 L 275 165',
             label: 'Правая рука',
         },
         left_leg: {
-            path: 'M 145 420 C 145 420, 125 425, 115 450 L 100 520 C 95 560, 110 590, 140 595 L 175 600 C 190 600, 195 585, 195 570 L 195 460 C 195 445, 185 430, 170 425 C 170 425, 155 420, 145 420',
+            path: 'M 145 420 L 115 420 L 100 600 L 195 600 L 195 425 L 170 420 L 145 420',
             label: 'Левая нога',
         },
         right_leg: {
-            path: 'M 255 420 C 255 420, 275 425, 285 450 L 300 520 C 305 560, 290 590, 260 595 L 225 600 C 210 600, 205 585, 205 570 L 205 460 C 205 445, 215 430, 230 425 C 230 425, 245 420, 255 420',
+            path: 'M 255 420 L 285 420 L 300 600 L 205 600 L 205 425 L 230 420 L 255 420',
             label: 'Правая нога',
         },
     };
@@ -959,7 +959,7 @@ function AnatomicalBody({
             <svg viewBox="0 0 400 650" className="w-full h-full">
                 {/* Body outline */}
                 <path
-                    d="M 200 25 C 235 25, 260 45, 260 80 C 260 115, 235 140, 200 140 C 165 140, 140 115, 140 80 C 140 45, 165 25, 200 25 M 175 140 C 175 140, 180 145, 180 155 L 180 165 C 180 165, 220 165, 220 165 L 220 155 C 220 145, 225 140, 225 140 C 225 140, 200 145, 175 140 M 125 180 C 125 180, 95 185, 85 200 L 70 260 C 65 280, 75 295, 90 300 L 105 305 C 120 310, 135 305, 140 290 L 145 250 C 148 220, 145 190, 135 175 C 135 175, 130 180, 125 180 M 275 180 C 275 180, 305 185, 315 200 L 330 260 C 335 280, 325 295, 310 300 L 295 305 C 280 310, 265 305, 260 290 L 255 250 C 252 220, 255 190, 265 175 C 265 175, 270 180, 275 180 M 135 165 C 135 165, 125 180, 125 200 L 125 280 C 125 310, 140 330, 155 330 L 245 330 C 260 330, 275 310, 275 280 L 275 200 C 275 180, 265 165, 265 165 C 265 165, 240 160, 200 160 C 160 160, 135 165, 135 165 M 140 330 C 140 330, 120 335, 115 360 L 110 400 C 110 415, 130 420, 145 420 L 255 420 C 270 420, 290 415, 290 400 L 285 360 C 280 335, 260 330, 260 330 C 260 330, 230 325, 200 325 C 170 325, 140 330, 140 330 M 145 420 C 145 420, 125 425, 115 450 L 100 520 C 95 560, 110 590, 140 595 L 175 600 C 190 600, 195 585, 195 570 L 195 460 C 195 445, 185 430, 170 425 C 170 425, 155 420, 145 420 M 255 420 C 255 420, 275 425, 285 450 L 300 520 C 305 560, 290 590, 260 595 L 225 600 C 210 600, 205 585, 205 570 L 205 460 C 205 445, 215 430, 230 425 C 230 425, 245 420, 255 420"
+                    d="M 200 25 L 260 25 L 260 140 L 200 140 L 140 140 L 140 25 L 200 25 M 175 140 L 180 140 L 180 165 L 220 165 L 220 140 L 225 140 L 200 145 L 175 140 M 125 165 L 85 165 L 70 300 L 140 290 L 145 250 L 135 165 L 125 165 M 275 165 L 315 165 L 330 300 L 260 290 L 255 250 L 265 165 L 275 165 M 135 165 L 125 165 L 125 330 L 275 330 L 275 165 L 265 165 L 200 160 L 135 165 M 140 330 L 115 330 L 110 420 L 290 420 L 285 330 L 260 330 L 200 325 L 140 330 M 145 420 L 115 420 L 100 600 L 195 600 L 195 425 L 170 420 L 145 420 M 255 420 L 285 420 L 300 600 L 205 600 L 205 425 L 230 420 L 255 420"
                     fill="#1f2937"
                     stroke="#374151"
                     strokeWidth="2"

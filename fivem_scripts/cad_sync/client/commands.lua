@@ -9,6 +9,10 @@ local function t(key, ...)
     return key
 end
 
+-- Cooldown tracking for 911 calls (in milliseconds)
+local CALL_COOLDOWN = 30000 -- 30 seconds
+local lastCallTime = 0
+
 -- Command: /cad-link [api_id]
 RegisterCommand('cad-link', function(source, args, rawCommand)
     local timer = GetGameTimer()
@@ -66,6 +70,15 @@ end, false)
 RegisterCommand('9111', function(source, args, rawCommand)
     local timer = GetGameTimer()
 
+    -- Check cooldown
+    local currentTime = GetGameTimer()
+    local timeSinceLastCall = currentTime - lastCallTime
+    if timeSinceLastCall < CALL_COOLDOWN then
+        local remainingTime = math.ceil((CALL_COOLDOWN - timeSinceLastCall) / 1000)
+        TriggerEvent('cad_sync:notification', 'error', string.format('Подождите %d сек. перед следующим вызовом', remainingTime))
+        return
+    end
+
     local callType = args[1] or 'emergency'
     local description = table.concat(args, ' ', 2)
 
@@ -81,6 +94,9 @@ RegisterCommand('9111', function(source, args, rawCommand)
     -- Get location name (street name)
     local street = GetStreetNameAtCoord(coords.x, coords.y, coords.z)
     local location = GetStreetNameFromHashKey(street)
+
+    -- Update last call time
+    lastCallTime = currentTime
 
     -- Send to server
     TriggerServerEvent('cad_sync:server:create911Call', callType, description, location, coords)
