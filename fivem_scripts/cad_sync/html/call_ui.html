@@ -178,8 +178,17 @@
                 suspicious: "Подозрительно", fire: "Пожар", medical: "Медицина",
                 accident: "Авария", other: "Другое"
             },
-            
+
+            callTypeLabels: {
+                police: "ПОЛИЦИЯ",
+                fire: "ПОЖАРНАЯ",
+                ems: "СКОРАЯ",
+                medical: "МЕДИЦИНА"
+            },
+
             getTypeLabel(type) { return this.typeLabels[type] || type || '-'; },
+
+            getCallTypeLabel(callType) { return this.callTypeLabels[callType] || callType?.toUpperCase() || '-'; },
             
             formatTime(ts) {
                 if (!ts) return '-';
@@ -195,7 +204,7 @@
                 document.getElementById('card-location').textContent = call.location || '-';
                 document.getElementById('card-description').textContent = call.description || '-';
                 document.getElementById('card-time').textContent = this.formatTime(call.createdAt);
-                document.getElementById('card-type').textContent = this.getTypeLabel(call.type);
+                document.getElementById('card-type').textContent = this.getCallTypeLabel(call.callType);
                 
                 const badge = document.getElementById('card-priority');
                 if (call.priority === 'high' || call.priority === 'emergency') {
@@ -220,7 +229,7 @@
             },
             
             showToast(call) {
-                document.getElementById('toast-type').textContent = this.getTypeLabel(call.type);
+                document.getElementById('toast-type').textContent = this.getCallTypeLabel(call.callType);
                 document.getElementById('toast-location').textContent = call.location || '-';
                 
                 const toast = document.getElementById('toast-notification');
