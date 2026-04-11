@@ -55,11 +55,12 @@ export class Calls911Service {
         userUsername?: string,
         userDiscordId?: string,
         userAvatarUrl?: string,
-        callType?: string
+        callType?: string,
+        source?: string
     }) {
         const emergency = data.isEmergency || data.priority === 'emergency' || data.priority === 'high';
         
-        return prisma.call911.create({
+        const call = await prisma.call911.create({
             data: {
                 callerId: data.callerId,
                 callerName: data.callerName,
@@ -76,9 +77,13 @@ export class Calls911Service {
                 userUsername: data.userUsername,
                 userDiscordId: data.userDiscordId,
                 userAvatarUrl: data.userAvatarUrl,
+                source: data.source || 'web',
                 status: 'pending'
             }
         });
+
+        console.log(`[Calls911Service] Call created with source: ${call.source}, ID: ${call.id}`);
+        return call;
     }
 
     static async getActiveCalls() {

@@ -124,33 +124,27 @@ function AtlasBackground() {
     const tiles = [
         { 
             url: '/map/minimap_sea_0_0.png', 
-            bounds: [[s, -s], [0, 0]] as L.LatLngBoundsLiteral,
-            lowQualityUrl: '/map/minimap_sea_0_0_low.png'
+            bounds: [[s, -s], [0, 0]] as L.LatLngBoundsLiteral
         },
         { 
             url: '/map/minimap_sea_0_1.png', 
-            bounds: [[s, 0], [0, s]] as L.LatLngBoundsLiteral,
-            lowQualityUrl: '/map/minimap_sea_0_1_low.png'
+            bounds: [[s, 0], [0, s]] as L.LatLngBoundsLiteral
         },
         { 
             url: '/map/minimap_sea_1_0.png', 
-            bounds: [[0, -s], [-s, 0]] as L.LatLngBoundsLiteral,
-            lowQualityUrl: '/map/minimap_sea_1_0_low.png'
+            bounds: [[0, -s], [-s, 0]] as L.LatLngBoundsLiteral
         },
         { 
             url: '/map/minimap_sea_1_1.png', 
-            bounds: [[0, 0], [-s, s]] as L.LatLngBoundsLiteral,
-            lowQualityUrl: '/map/minimap_sea_1_1_low.png'
+            bounds: [[0, 0], [-s, s]] as L.LatLngBoundsLiteral
         },
         { 
             url: '/map/minimap_sea_2_0.png', 
-            bounds: [[-s, -s], [-2 * s, 0]] as L.LatLngBoundsLiteral,
-            lowQualityUrl: '/map/minimap_sea_2_0_low.png'
+            bounds: [[-s, -s], [-2 * s, 0]] as L.LatLngBoundsLiteral
         },
         { 
             url: '/map/minimap_sea_2_1.png', 
-            bounds: [[-s, 0], [-2 * s, s]] as L.LatLngBoundsLiteral,
-            lowQualityUrl: '/map/minimap_sea_2_1_low.png'
+            bounds: [[-s, 0], [-2 * s, s]] as L.LatLngBoundsLiteral
         },
     ];
     return <>{tiles.map((tile, i) => (
@@ -159,8 +153,6 @@ function AtlasBackground() {
             url={tile.url} 
             bounds={tile.bounds} 
             opacity={1}
-            lowQualityUrl={tile.lowQualityUrl}
-            fallbackUrl="/map/minimap_fallback.png"
         />
     ))}</>;
 }
@@ -226,8 +218,11 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
         const blipHandler = (data: Blip[]) => setBlips(data);
         const callHandler = (data: Call911[]) => {
             const gameCalls = Array.isArray(data) ? data : [];
-            setCalls(gameCalls);
-            if (onCallsUpdate) onCallsUpdate(gameCalls);
+            // Filter to only show calls from CAD_SYNC (/911 command)
+            const cadSyncCalls = gameCalls.filter(call => call.source === 'cad_sync');
+            console.log(`[LiveMap] Filtered calls: ${gameCalls.length} total, ${cadSyncCalls.length} from CAD_SYNC`);
+            setCalls(cadSyncCalls);
+            if (onCallsUpdate) onCallsUpdate(cadSyncCalls);
         };
         socket.on('blips_updated', blipHandler);
         socket.on('calls_updated', callHandler);

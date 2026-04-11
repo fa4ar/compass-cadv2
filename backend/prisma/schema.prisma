@@ -521,6 +521,9 @@ model Call911 {
   userDiscordId String?
   userAvatarUrl String?
 
+  // Source of the call (cad_sync for /911 command, web for web interface)
+  source      String?    @default("web") // cad_sync, web
+
   // Прикрепленные юниты
   mainUnitId Int?
 
@@ -535,6 +538,7 @@ model Call911 {
   @@index([callerId])
   @@index([status])
   @@index([createdAt])
+  @@index([source])
 }
 
 model Call911Note {

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { authMiddleware, authOrApiKeyMiddleware } from '../middleware/auth.middleware';
+import { Calls911Service } from '../services/calls911/calls911.service';
 
 const router = Router();
 
@@ -207,6 +208,42 @@ router.post('/update-map', async (req, res) => {
         });
     } catch (error: any) {
         console.error('[CAD-SYNC] Error enrichment:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// POST /api/fivem/create-call
+// Создает вызов от FiveM сервера (через команду /911)
+router.post('/create-call', authOrApiKeyMiddleware, async (req: Request, res: Response) => {
+    try {
+        const { callerName, location, description, type, priority, x, y, z } = req.body;
+
+        if (!callerName || !location || !description) {
+            return res.status(400).json({ error: 'Missing required fields: callerName, location, description' });
+        }
+
+        const newCall = await Calls911Service.createCall({
+            callerName,
+            location,
+            description,
+            type: type || null,
+            priority: priority || null,
+            x: x || null,
+            y: y || null,
+            z: z || null,
+            source: 'cad_sync'
+        });
+
+        console.log(`[CAD-SYNC] Call created from FiveM: ID ${newCall.id}, source: ${newCall.source}`);
+
+        // Emit to all clients
+        const { getIO } = await import('../lib/socket');
+        const io = getIO();
+        io.emit('calls_updated', [newCall]);
+
+        res.json({ success: true, call: newCall });
+    } catch (error: any) {
+        console.error('[CAD-SYNC] Error creating call:', error);
         res.status(500).json({ error: error.message });
     }
 });
