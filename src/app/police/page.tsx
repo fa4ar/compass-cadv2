@@ -268,9 +268,19 @@ function PolicePageContent() {
         // Check shift status for active call card display
         const checkShiftStatus = async () => {
             try {
-                const response = await fetch('/api/department-shifts/my-shifts');
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+                const response = await fetch(`${apiUrl}/api/department-shifts/my-shifts`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+                    }
+                });
+                if (!response.ok) {
+                    console.error('Shift status check failed:', response.status);
+                    setIsOnShift(false);
+                    return;
+                }
                 const data = await response.json();
-                if (data.success && data.shifts.length > 0) {
+                if (data.success && data.shifts && data.shifts.length > 0) {
                     setIsOnShift(true);
                 } else {
                     setIsOnShift(false);
@@ -302,6 +312,19 @@ function PolicePageContent() {
                 setCalls(prev => Array.isArray(prev) ? [newCall, ...prev] : [newCall]);
                 playSound('new_call_911').then(() => console.log('[Police] Sound played')).catch(e => console.error('[Police] Sound error:', e));
             }
+        });
+
+        socket.on('calls_updated', (calls: any[]) => {
+            console.log('[SOCKET] calls_updated received:', calls);
+            // Filter for police calls
+            const policeCalls = Array.isArray(calls) ? calls.filter(c => 
+                c.callType === 'police' || c.callType === undefined || !c.callType
+            ) : [];
+            setCalls(prev => {
+                const existingIds = new Set(prev.map(c => c.id));
+                const newCalls = policeCalls.filter(c => !existingIds.has(c.id));
+                return [...newCalls, ...prev];
+            });
         });
 
         socket.on('update_911_call', (updatedCall: any) => {
@@ -451,6 +474,7 @@ function PolicePageContent() {
 
         return () => {
             socket.off('new_911_call');
+            socket.off('calls_updated');
             socket.off('update_911_call');
             socket.off('new_911_note');
             socket.off('delete_911_call');
