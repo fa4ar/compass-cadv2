@@ -55,6 +55,7 @@ export class UnitsService {
 
     static async goOnDuty(
         userId: number,
+        departmentType: string,
         characterId?: number | null, 
         departmentMemberId?: number | null, 
         callSign?: string,
@@ -62,12 +63,17 @@ export class UnitsService {
         vehicleModel?: string,
         vehiclePlate?: string
     ) {
-        console.log(`[UnitsService] Going on duty for userId: ${userId}`, { characterId, departmentMemberId, callSign });
+        console.log(`[UnitsService] Going on duty for userId: ${userId}, departmentType: ${departmentType}`, { characterId, departmentMemberId, callSign });
         
         try {
-            // Upsert unit session using userId as unique key
+            // Upsert unit session using userId + departmentType as composite unique key
             const unit = await (prisma as any).unit.upsert({
-                where: { userId },
+                where: { 
+                    userId_departmentType: {
+                        userId,
+                        departmentType
+                    }
+                },
                 update: {
                     characterId: characterId || null,
                     departmentMemberId: departmentMemberId || null,
@@ -80,13 +86,15 @@ export class UnitsService {
                 },
                 create: {
                     userId,
+                    departmentType,
                     characterId: characterId || null,
                     departmentMemberId: departmentMemberId || null,
                     status: "Available",
                     callSign,
                     subdivision,
                     vehicleModel,
-                    vehiclePlate
+                    vehiclePlate,
+                    partnerId: null
                 },
                 include: {
                     character: true,
@@ -103,6 +111,7 @@ export class UnitsService {
             if (io) {
                 io.emit('unit_on_duty', {
                     userId,
+                    departmentType,
                     unitCallSign: unit.callSign
                 });
             }
@@ -119,7 +128,8 @@ export class UnitsService {
                 characterId: unit.characterId,
                 subdivision: unit.subdivision,
                 vehicleModel: unit.vehicleModel,
-                vehiclePlate: unit.vehiclePlate
+                vehiclePlate: unit.vehiclePlate,
+                departmentType: unit.departmentType
             };
         } catch (error: any) {
             console.error(`[UnitsService] Error in goOnDuty:`, error);
@@ -127,9 +137,14 @@ export class UnitsService {
         }
     }
 
-    static async updateStatus(userId: number, status: string) {
+    static async updateStatus(userId: number, departmentType: string, status: string) {
         return await (prisma as any).unit.update({
-            where: { userId },
+            where: { 
+                userId_departmentType: {
+                    userId,
+                    departmentType
+                }
+            },
             data: { 
                 status,
                 lastStatusAt: new Date()
@@ -167,9 +182,14 @@ export class UnitsService {
         return { ...updatedUnit, characterId: unit.characterId, userId: unit.userId };
     }
 
-    static async getCurrentUnit(userId: number) {
+    static async getCurrentUnit(userId: number, departmentType: string) {
         const unit = await (prisma as any).unit.findUnique({
-            where: { userId },
+            where: { 
+                userId_departmentType: {
+                    userId,
+                    departmentType
+                }
+            },
             include: {
                 character: {
                     include: {
@@ -200,24 +220,36 @@ export class UnitsService {
             time: unit.lastStatusAt.toLocaleTimeString(),
             // Additional info for frontend state
             departmentMember: unit.departmentMember,
-            characterId: unit.characterId?.toString()
+            characterId: unit.characterId?.toString(),
+            departmentType: unit.departmentType
         };
     }
 
-    static async goOffDuty(userId: number) {
+    static async goOffDuty(userId: number, departmentType: string) {
         const unit = await (prisma as any).unit.findUnique({
-            where: { userId }
+            where: { 
+                userId_departmentType: {
+                    userId,
+                    departmentType
+                }
+            }
         });
 
         if (unit && io) {
             io.emit('unit_off_duty', {
                 userId,
+                departmentType,
                 unitCallSign: unit.callSign
             });
         }
 
         return await (prisma as any).unit.delete({
-            where: { userId }
+            where: { 
+                userId_departmentType: {
+                    userId,
+                    departmentType
+                }
+            }
         });
     }
 

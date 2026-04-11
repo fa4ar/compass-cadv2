@@ -538,7 +538,7 @@ function PolicePageContent() {
             if (!token) return;
 
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-            const res = await fetch(`${apiUrl}/api/units/me`, {
+            const res = await fetch(`${apiUrl}/api/units/current?departmentType=police`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
@@ -1297,7 +1297,7 @@ function PolicePageContent() {
             const token = localStorage.getItem('policeAccessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-            const res = await fetch(`${apiUrl}/api/units/message`, {
+            const res = await fetch(`${apiUrl}/api/units/current?departmentType=policessage`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
