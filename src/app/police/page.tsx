@@ -306,11 +306,17 @@ function PolicePageContent() {
 
         socket.on('new_911_call', (newCall: any) => {
             console.log('[SOCKET] new_911_call received:', newCall);
+            console.log('[SOCKET] callType:', newCall.callType);
+            console.log('[SOCKET] type:', newCall.type);
             // Only add police calls (not EMS/Fire)
-            const isPoliceCall = newCall.callType === 'police' || !newCall.callType;
+            const isPoliceCall = newCall.callType === 'police' || newCall.callType === undefined || !newCall.callType;
+            console.log('[SOCKET] isPoliceCall:', isPoliceCall);
             if (isPoliceCall) {
+                console.log('[SOCKET] Adding call to state');
                 setCalls(prev => Array.isArray(prev) ? [newCall, ...prev] : [newCall]);
                 playSound('new_call_911').then(() => console.log('[Police] Sound played')).catch(e => console.error('[Police] Sound error:', e));
+            } else {
+                console.log('[SOCKET] Skipping non-police call');
             }
         });
 
