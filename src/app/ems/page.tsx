@@ -825,6 +825,16 @@ function EMSPageContent() {
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                asChild
+                            >
+                                <a href="/ems/medical-report">
+                                    <FileText className="w-4 h-4 mr-2" />
+                                    Медицинский отчёт
+                                </a>
+                            </Button>
                             {onDuty && (
                                 <Button
                                     variant="outline"
