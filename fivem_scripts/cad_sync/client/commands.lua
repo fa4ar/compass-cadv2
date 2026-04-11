@@ -12,34 +12,15 @@ end
 -- Command: /cad-link [api_id]
 RegisterCommand('cad-link', function(source, args, rawCommand)
     local timer = GetGameTimer()
-    
-    if source == 0 then
-        print('^3[CAD Sync]^7 This command can only be used by players')
-        return
-    end
-    
+
     local apiId = args[1]
-    
+
     if not apiId then
         TriggerEvent('cad_sync:notification', 'warn', t('cad_link_usage'))
         return
     end
-    
-    -- Validate format
-    local isValidFormat = ValidateApiIdFormat(apiId)
-    if not isValidFormat then
-        TriggerEvent('cad_sync:notification', 'error', t('cad_link_invalid'))
-        return
-    end
-    
-    -- Check if already linked
-    local license = GetPlayerIdentifierByType(source, 'license')
-    if CADSync.LinkedPlayers and CADSync.LinkedPlayers[license] then
-        TriggerEvent('cad_sync:notification', 'warn', t('cad_link_already'))
-        return
-    end
-    
-    -- Send to server for validation
+
+    -- Send to server for validation (server handles format validation)
     TriggerServerEvent('cad_sync:server:linkAccount', apiId)
     
     local elapsed = GetGameTimer() - timer
@@ -51,12 +32,7 @@ end, false)
 -- Command: /cad-unlink
 RegisterCommand('cad-unlink', function(source, args, rawCommand)
     local timer = GetGameTimer()
-    
-    if source == 0 then
-        print('^3[CAD Sync]^7 This command can only be used by players')
-        return
-    end
-    
+
     -- Send to server
     TriggerServerEvent('cad_sync:server:unlinkAccount')
     
@@ -69,51 +45,56 @@ end, false)
 -- Command: /accept-call [id]
 RegisterCommand('accept-call', function(source, args, rawCommand)
     local timer = GetGameTimer()
-    
-    if source == 0 then
-        print('^3[CAD Sync]^7 This command can only be used by players')
-        return
-    end
-    
+
     local callId = tonumber(args[1])
-    
+
     if not callId then
         TriggerEvent('cad_sync:notification', 'warn', 'Usage: /accept-call [call_id]')
         return
     end
-    
-    -- Check if player has required role
-    local hasRole = false
-    for _, role in ipairs(Config.Notifications.AllowedRoles) do
-        if IsPlayerAceAllowed(source, role) then
-            hasRole = true
-            break
-        end
-    end
-    
-    if not hasRole then
-        TriggerEvent('cad_sync:notification', 'error', t('error_permission'))
-        return
-    end
-    
+
     -- Send to server
     TriggerServerEvent('cad_sync:server:attachToCall', callId)
-    
+
     local elapsed = GetGameTimer() - timer
     if elapsed > 5 then
         print(string.format('^3[CAD Sync]^7 Command /accept-call took %0.3fms', elapsed))
     end
 end, false)
 
+-- Command: /9111 [type] [description]
+RegisterCommand('9111', function(source, args, rawCommand)
+    local timer = GetGameTimer()
+
+    local callType = args[1] or 'emergency'
+    local description = table.concat(args, ' ', 2)
+
+    if not description or description == '' then
+        TriggerEvent('cad_sync:notification', 'warn', 'Usage: /9111 [type] [description]')
+        return
+    end
+
+    -- Get player coordinates
+    local ped = PlayerPedId()
+    local coords = GetEntityCoords(ped)
+
+    -- Get location name (street name)
+    local street = GetStreetNameAtCoord(coords.x, coords.y, coords.z)
+    local location = GetStreetNameFromHashKey(street)
+
+    -- Send to server
+    TriggerServerEvent('cad_sync:server:create911Call', callType, description, location, coords)
+
+    local elapsed = GetGameTimer() - timer
+    if elapsed > 5 then
+        print(string.format('^3[CAD Sync]^7 Command /9111 took %0.3fms', elapsed))
+    end
+end, false)
+
 -- Command: /detach-call
 RegisterCommand('detach-call', function(source, args, rawCommand)
     local timer = GetGameTimer()
-    
-    if source == 0 then
-        print('^3[CAD Sync]^7 This command can only be used by players')
-        return
-    end
-    
+
     -- Send to server with current call
     if ClientState and ClientState.CurrentCall then
         TriggerServerEvent('cad_sync:server:detachFromCall', ClientState.CurrentCall.id)
@@ -130,12 +111,7 @@ end, false)
 -- Command: /close-call
 RegisterCommand('close-call', function(source, args, rawCommand)
     local timer = GetGameTimer()
-    
-    if source == 0 then
-        print('^3[CAD Sync]^7 This command can only be used by players')
-        return
-    end
-    
+
     -- Send to server with current call
     if ClientState and ClientState.CurrentCall then
         TriggerServerEvent('cad_sync:server:closeCall', ClientState.CurrentCall.id)

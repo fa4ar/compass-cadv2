@@ -204,10 +204,12 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
                 
                 if (callsRes.ok) {
                     const callsData = await callsRes.json();
-                    // Filter to only show calls from CAD_SYNC (/911 command)
-                    const cadSyncCalls = (callsData || []).filter((call: Call911) => call.source === 'cad_sync');
-                    setCalls(cadSyncCalls);
-                    if (onCallsUpdate) onCallsUpdate(cadSyncCalls);
+                    // Filter to show calls from CAD_SYNC and FiveM
+                    const validCalls = (callsData || []).filter((call: Call911) => 
+                        call.source === 'cad_sync' || call.source === 'fivem'
+                    );
+                    setCalls(validCalls);
+                    if (onCallsUpdate) onCallsUpdate(validCalls);
                 } else {
                     console.error("Initial calls fetch error:", callsRes.status);
                 }
@@ -221,9 +223,9 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
         const blipHandler = (data: UnitBlip[]) => {
             // Validate and filter invalid blips and only show units on active shift
             const validBlips = data.filter(blip => {
-                const validation = validateGameCoordinates({ x: blip.x, y: blip.y, z: blip.z, heading: blip.heading });
-                if (!validation.isValid) {
-                    console.warn(`[LiveMap] Invalid blip coordinates for ${blip.identifier}:`, validation.errors);
+                // Allow coordinates even if they have warnings
+                if (typeof blip.x !== 'number' || typeof blip.y !== 'number' || isNaN(blip.x) || isNaN(blip.y)) {
+                    console.warn(`[LiveMap] Missing or invalid coordinates for ${blip.identifier}`);
                     return false;
                 }
                 
@@ -240,19 +242,18 @@ export default function LiveMap({ selectedCall, onCallSelect, onCallsUpdate }: L
             const gameCalls = Array.isArray(data) ? data : [];
             // Filter to only show calls from CAD_SYNC (/911 command) and validate coordinates
             const cadSyncCalls = gameCalls.filter(call => {
-                if (call.source !== 'cad_sync') return false;
+                if (call.source !== 'cad_sync' && call.source !== 'fivem') return false;
                 
-                // Validate coordinates if present
-                if (call.x !== undefined && call.y !== undefined && call.z !== undefined) {
-                    const validation = validateGameCoordinates({ x: call.x, y: call.y, z: call.z });
-                    if (!validation.isValid) {
-                        console.warn(`[LiveMap] Invalid call coordinates for call #${call.id}:`, validation.errors);
+                // Allow coordinates even if they have warnings
+                if (call.x !== undefined && call.y !== undefined) {
+                    if (typeof call.x !== 'number' || typeof call.y !== 'number' || isNaN(call.x) || isNaN(call.y)) {
+                        console.warn(`[LiveMap] Invalid coordinates for call #${call.id}`);
                         return false;
                     }
                 }
                 return true;
             });
-            console.log(`[LiveMap] Filtered calls: ${gameCalls.length} total, ${cadSyncCalls.length} from CAD_SYNC`);
+            console.log(`[LiveMap] Filtered calls: ${gameCalls.length} total, ${cadSyncCalls.length} from CAD_SYNC/FiveM`);
             setCalls(cadSyncCalls);
             if (onCallsUpdate) onCallsUpdate(cadSyncCalls);
         };

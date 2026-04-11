@@ -1,4 +1,4 @@
-Locales['en'] = {
+return {
     -- Commands
     ['cad_link_usage'] = 'Usage: /cad-link [api_id]',
     ['cad_link_success'] = 'Successfully linked your account. API ID: %s',
@@ -28,7 +28,7 @@ Locales['en'] = {
     ['error_database'] = 'Database error occurred.',
     ['error_api'] = 'API request failed.',
     ['error_permission'] = 'You do not have permission for this action.',
-    
+}    
     -- System
     ['system_loaded'] = 'CAD Sync system loaded successfully.',
     ['system_error'] = 'CAD Sync system error: %s',

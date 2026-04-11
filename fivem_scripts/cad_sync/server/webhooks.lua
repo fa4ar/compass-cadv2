@@ -1,11 +1,13 @@
--- CAD Sync Webhooks Module
--- Handles incoming webhooks from CAD system for 911 calls
+-- CAD Sync Polling Module
+-- Polls CAD backend for new 911 calls
+
+print('^2[CAD Sync]^7 Polling module loading...')
 
 local function log(level, message)
     if Config.Logging.Enabled then
         local timestamp = os.date('%Y-%m-%d %H:%M:%S')
         local logPath = Config.Logging.LogPath:gsub('%[date%]', os.date('%Y-%m-%d'))
-        local logLine = string.format('[%s] [%s] [WEBHOOK] %s\n', timestamp, string.upper(level), message)
+        local logLine = string.format('[%s] [%s] [POLLING] %s\n', timestamp, string.upper(level), message)
         local file = io.open(GetResourcePath(GetCurrentResourceName()) .. '/' .. logPath, 'a')
         if file then
             file:write(logLine)
@@ -14,261 +16,108 @@ local function log(level, message)
     end
 end
 
--- Setup HTTP endpoint for 911 call webhooks
+-- Poll for active calls from CAD
 Citizen.CreateThread(function()
-    Wait(3000)
-    
-    -- Register webhook endpoint
-    SetHttpHandler(function(req, res)
-        local path = req.path
+    log('info', 'Polling thread starting...')
+    Wait(5000)
+    log('info', 'Polling thread ready, beginning loop')
+
+    while true do
+        Wait(Config.OneSync.SyncInterval)
         
-        if path == '/webhook/911-call' then
-            if req.method == 'POST' then
-                Handle911Webhook(req, res)
+        if not Config.OneSync.CoordinateSync then
+            goto continue
+        end
+        
+        local url = Config.API.BaseURL .. '/api/calls911/active'
+
+        PerformHttpRequest(url, function(code, body, headers)
+            log('info', string.format('Polling active calls: HTTP %d', code))
+            if code == 200 then
+                local success, data = pcall(json.decode, body)
+                if success and data then
+                    log('info', string.format('Received %d active calls from CAD', #data))
+                    -- Update active calls
+                    for _, call in ipairs(data) do
+                        if not CADSync.ActiveCalls[call.id] then
+                            -- New call
+                            CADSync.ActiveCalls[call.id] = {
+                                id = call.id,
+                                type = call.type,
+                                address = call.location,
+                                description = call.description,
+                                priority = call.priority,
+                                coordinates = { x = call.x or 0, y = call.y or 0, z = call.z or 0 },
+                                status = call.status,
+                                created_at = call.createdAt,
+                                units = {},
+                            }
+                            CADSync.AttachedUnits[call.id] = {}
+
+                            log('info', string.format('New 911 call #%d: %s at %s', call.id, call.type, call.location))
+
+                            -- Broadcast to all players with required roles
+                            local players = GetPlayers()
+                            for _, playerId in ipairs(players) do
+                                local hasRole = false
+                                for _, role in ipairs(Config.Notifications.AllowedRoles) do
+                                    if IsPlayerAceAllowed(playerId, role) then
+                                        hasRole = true
+                                        break
+                                    end
+                                end
+                                if hasRole then
+                                    TriggerClientEvent('cad_sync:newCall', playerId, CADSync.ActiveCalls[call.id])
+                                end
+                            end
+                        else
+                            -- Update existing call
+                            CADSync.ActiveCalls[call.id].status = call.status
+                            CADSync.ActiveCalls[call.id].priority = call.priority
+
+                            -- Sync attached units from CAD
+                            if call.units then
+                                log('info', string.format('Call %d has %d units from CAD', call.id, #call.units))
+                                CADSync.AttachedUnits[call.id] = {}
+                                CADSync.ActiveCalls[call.id].units = {}
+
+                                for _, unit in ipairs(call.units) do
+                                    log('info', string.format('Unit from CAD: %s', json.encode(unit)))
+                                    -- Find player by license
+                                    local players = GetPlayers()
+                                    for _, playerId in ipairs(players) do
+                                        local license = GetPlayerIdentifierByType(playerId, 'license')
+                                        log('info', string.format('Player %d has license: %s', playerId, license or 'nil'))
+                                        if license and unit.user and unit.user.license == license then
+                                            table.insert(CADSync.AttachedUnits[call.id], playerId)
+                                            table.insert(CADSync.ActiveCalls[call.id].units, playerId)
+
+                                            -- Show UI to attached player
+                                            log('info', string.format('Showing UI to player %d for call %d (synced from CAD)', playerId, call.id))
+                                            TriggerClientEvent('cad_sync:showCallCard', playerId, call.id, CADSync.ActiveCalls[call.id])
+                                        end
+                                    end
+                                end
+                            else
+                                log('info', string.format('Call %d has no units from CAD', call.id))
+                            end
+                        end
+                    end
+                else
+                    log('error', string.format('Failed to parse active calls response: %s', body))
+                end
             else
-                res.writeHead(405)
-                res.send('Method Not Allowed')
+                log('warn', string.format('Failed to fetch active calls: HTTP %d', code))
             end
-        else
-            res.writeHead(404)
-            res.send('Not Found')
-        end
-    end)
-    
-    log('info', 'Webhook HTTP handler registered on /webhook/911-call')
-end)
-
--- Handle incoming 911 call webhook
--- @param req table - HTTP request
--- @param res table - HTTP response
-function Handle911Webhook(req, res)
-    local body = req.body
-    local headers = req.headers
-    
-    log('info', 'Received 911 call webhook')
-    
-    -- Validate API key
-    local apiKey = headers['X-API-Key'] or headers['x-api-key']
-    if apiKey ~= Config.API.APIKey then
-        log('warn', 'Invalid API key in webhook request')
-        res.writeHead(401)
-        res.send(json.encode({ error = 'Unauthorized' }))
-        return
-    end
-    
-    -- Parse and validate call data
-    local success, callData = pcall(json.decode, body)
-    if not success or not callData then
-        log('error', 'Failed to parse webhook body')
-        res.writeHead(400)
-        res.send(json.encode({ error = 'Invalid JSON' }))
-        return
-    end
-    
-    -- Validate required fields
-    if not callData.id or not callData.type or not callData.address then
-        log('error', 'Missing required fields in webhook data')
-        res.writeHead(400)
-        res.send(json.encode({ error = 'Missing required fields' }))
-        return
-    end
-    
-    -- Store call in active calls
-    local callId = callData.id
-    CADSync.ActiveCalls[callId] = {
-        id = callId,
-        type = callData.type,
-        address = callData.address,
-        description = callData.description or '',
-        priority = callData.priority or 'normal',
-        coordinates = callData.coordinates or { x = 0, y = 0, z = 0 },
-        status = callData.status or 'active',
-        created_at = callData.created_at or os.time(),
-        units = {},
-    }
-    
-    CADSync.AttachedUnits[callId] = {}
-    
-    log('info', string.format('New 911 call #%d registered: %s at %s', callId, callData.type, callData.address))
-    
-    -- Send success response
-    res.writeHead(200)
-    res.send(json.encode({ success = true, call_id = callId }))
-    
-    -- Broadcast call to all online PD/EMS players
-    BroadcastCallToUnits(callId, CADSync.ActiveCalls[callId])
-end
-
--- Broadcast call notification to all online PD/EMS units
--- @param callId number - Call ID
--- @param callData table - Call data
-function BroadcastCallToUnits(callId, callData)
-    local players = GetPlayers()
-    local notifiedCount = 0
-    
-    for _, playerId in ipairs(players) do
-        -- Check if player has required role
-        local hasRole = false
-        for _, role in ipairs(Config.Notifications.AllowedRoles) do
-            if IsPlayerAceAllowed(playerId, role) then
-                hasRole = true
-                break
-            end
-        end
+        end, 'GET', nil, {
+            ['Content-Type'] = 'application/json',
+        }, {
+            timeout = Config.API.Timeout
+        })
         
-        if hasRole then
-            TriggerClientEvent('cad_sync:newCall', playerId, callData)
-            notifiedCount = notifiedCount + 1
-        end
+        ::continue::
     end
-    
-    log('info', string.format('Call #%d broadcasted to %d units', callId, notifiedCount))
-end
-
--- Event: Unit attaches to call
-RegisterNetEvent('cad_sync:server:attachToCall', function(callId)
-    local source = source
-    local license = GetPlayerIdentifierByType(source, 'license')
-    
-    -- Verify player is linked
-    if not CADSync.LinkedPlayers[license] then
-        TriggerClientEvent('cad_sync:notification', source, 'error', 'You must link your CAD account first')
-        return
-    end
-    
-    -- Verify call exists
-    if not CADSync.ActiveCalls[callId] then
-        TriggerClientEvent('cad_sync:notification', source, 'error', 'Call not found')
-        return
-    end
-    
-    -- Check if already attached
-    for _, unitId in ipairs(CADSync.AttachedUnits[callId]) do
-        if unitId == source then
-            TriggerClientEvent('cad_sync:notification', source, 'warn', 'You are already attached to this call')
-            return
-        end
-    end
-    
-    -- Attach unit
-    table.insert(CADSync.AttachedUnits[callId], source)
-    table.insert(CADSync.ActiveCalls[callId].units, source)
-    
-    log('info', string.format('Unit %d attached to call %d', source, callId))
-    
-    -- Notify CAD system
-    UpdateUnitAttachmentInCAD(callId, source, 'attach')
-    
-    -- Show UI card to player
-    TriggerClientEvent('cad_sync:showCallCard', source, callId, CADSync.ActiveCalls[callId])
-    
-    -- Update all clients
-    TriggerClientEvent('cad_sync:callUpdated', -1, callId, CADSync.ActiveCalls[callId])
 end)
 
--- Event: Unit detaches from call
-RegisterNetEvent('cad_sync:server:detachFromCall', function(callId)
-    local source = source
-    
-    if not CADSync.ActiveCalls[callId] or not CADSync.AttachedUnits[callId] then
-        return
-    end
-    
-    -- Remove unit from call
-    for i, unitId in ipairs(CADSync.AttachedUnits[callId]) do
-        if unitId == source then
-            table.remove(CADSync.AttachedUnits[callId], i)
-            break
-        end
-    end
-    
-    for i, unitId in ipairs(CADSync.ActiveCalls[callId].units) do
-        if unitId == source then
-            table.remove(CADSync.ActiveCalls[callId].units, i)
-            break
-        end
-    end
-    
-    log('info', string.format('Unit %d detached from call %d', source, callId))
-    
-    -- Notify CAD system
-    UpdateUnitAttachmentInCAD(callId, source, 'detach')
-    
-    -- Hide UI card
-    TriggerClientEvent('cad_sync:hideCallCard', source)
-    
-    -- Update all clients
-    TriggerClientEvent('cad_sync:callUpdated', -1, callId, CADSync.ActiveCalls[callId])
-end)
-
--- Event: Unit marks as arrived
-RegisterNetEvent('cad_sync:server:markArrived', function(callId)
-    local source = source
-    
-    if not CADSync.ActiveCalls[callId] then
-        return
-    end
-    
-    -- Check if unit is attached
-    local isAttached = false
-    for _, unitId in ipairs(CADSync.AttachedUnits[callId]) do
-        if unitId == source then
-            isAttached = true
-            break
-        end
-    end
-    
-    if not isAttached then
-        TriggerClientEvent('cad_sync:notification', source, 'error', 'You must be attached to this call')
-        return
-    end
-    
-    log('info', string.format('Unit %d marked arrived at call %d', source, callId))
-    
-    -- Notify CAD system
-    UpdateCallStatusInCAD(callId, 'unit_arrived', source)
-    
-    -- Update UI
-    TriggerClientEvent('cad_sync:notification', source, 'success', 'Marked as arrived')
-end)
-
--- Event: Unit closes call
-RegisterNetEvent('cad_sync:server:closeCall', function(callId)
-    local source = source
-    
-    if not CADSync.ActiveCalls[callId] then
-        return
-    end
-    
-    -- Check if unit is attached
-    local isAttached = false
-    for _, unitId in ipairs(CADSync.AttachedUnits[callId]) do
-        if unitId == source then
-            isAttached = true
-            break
-        end
-    end
-    
-    if not isAttached then
-        TriggerClientEvent('cad_sync:notification', source, 'error', 'You must be attached to this call')
-        return
-    end
-    
-    log('info', string.format('Unit %d closed call %d', source, callId))
-    
-    -- Update call status
-    CADSync.ActiveCalls[callId].status = 'closed'
-    
-    -- Notify CAD system
-    UpdateCallStatusInCAD(callId, 'closed', source)
-    
-    -- Hide UI for all attached units
-    for _, unitId in ipairs(CADSync.AttachedUnits[callId]) do
-        TriggerClientEvent('cad_sync:hideCallCard', unitId)
-    end
-    
-    -- Update all clients
-    TriggerClientEvent('cad_sync:callUpdated', -1, callId, CADSync.ActiveCalls[callId])
-end)
-
-log('info', 'Webhooks module loaded')
+log('info', 'Polling module loaded')
+print('^2[CAD Sync]^7 Polling module loaded')

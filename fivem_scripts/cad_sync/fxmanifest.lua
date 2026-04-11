@@ -11,7 +11,6 @@ shared_script 'config.lua'
 
 server_script 'server/main.lua'
 server_script 'server/api.lua'
-server_script 'server/webhooks.lua'
 
 client_script 'client/main.lua'
 client_script 'client/commands.lua'
@@ -28,10 +27,4 @@ files {
     'nui/script.js',
     'nui/sounds/*.mp3',
     'locales/*.lua'
-}
-
-dependencies {
-    '/server:5181',
-    'oxmysql',
-    'ox_lib'
 }

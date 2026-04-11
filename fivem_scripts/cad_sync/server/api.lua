@@ -19,12 +19,34 @@ end
 -- @return boolean isValid
 function ValidateApiIdFormat(apiId)
     if not apiId or type(apiId) ~= 'string' then
+        log('error', 'API ID is nil or not a string')
         return false
     end
-    
-    -- API ID should be alphanumeric with possible hyphens/underscores, 8-64 characters
-    local pattern = '^[%w%-_]{8,64}$'
-    return string.match(apiId, pattern) ~= nil
+
+    local len = #apiId
+    log('info', string.format('API ID validation: "%s" (len: %d)', apiId, len))
+
+    -- Basic checks
+    if len < 8 or len > 64 then
+        log('warn', string.format('API ID length %d is outside valid range (8-64)', len))
+        return false
+    end
+
+    -- Check for valid characters (alphanumeric, hyphen, underscore)
+    for i = 1, len do
+        local char = string.sub(apiId, i, i)
+        local isAlnum = string.match(char, '[A-Za-z0-9]') ~= nil
+        local isHyphen = char == '-'
+        local isUnderscore = char == '_'
+        
+        if not isAlnum and not isHyphen and not isUnderscore then
+            log('warn', string.format('Invalid character at position %d: "%s"', i, char))
+            return false
+        end
+    end
+
+    log('info', 'API ID format is valid')
+    return true
 end
 
 -- Validate API ID through CAD endpoint
@@ -35,21 +57,25 @@ function ValidateApiIdWithCAD(apiId, license)
     local url = Config.API.BaseURL .. Config.API.ValidateEndpoint
     
     local payload = {
-        api_id = apiId,
+        apiId = apiId,
         license = license,
     }
     
     log('info', string.format('Validating API ID %s with CAD endpoint', apiId))
-    
+
     -- Perform HTTP request
     local response = nil
     local errorCode = nil
-    
+
     PerformHttpRequest(url, function(code, body, headers)
+        log('info', string.format('HTTP Response: Code %d, Body: %s', code, body))
         response = { code = code, body = body, headers = headers }
     end, 'POST', json.encode(payload), {
         ['Content-Type'] = 'application/json',
-    }, Config.API.Timeout)
+        ['X-API-Key'] = Config.API.APIKey,
+    }, {
+        timeout = Config.API.Timeout
+    })
     
     -- Wait for response
     local timeout = Config.API.Timeout / 10
@@ -63,19 +89,23 @@ function ValidateApiIdWithCAD(apiId, license)
         log('error', 'API validation request timed out')
         return false, nil
     end
-    
+
+    log('info', string.format('API validation response: code=%d, body=%s', response.code, response.body))
+
     if response.code >= 200 and response.code < 300 then
         local data = json.decode(response.body)
-        if data and data.valid then
+        log('info', string.format('Parsed data: %s', json.encode(data)))
+        -- Check if response indicates success (either valid=true or success message)
+        if data and (data.valid == true or (data.message and (string.find(data.message, 'success') or string.find(data.message, 'linked')))) then
             log('info', string.format('API ID %s validated successfully', apiId))
             return true, data
         else
-            log('warn', string.format('API ID %s validation failed: %s', apiId, data and data.message or 'Unknown reason'))
-            return false, data
+            log('error', string.format('API ID %s validation failed: %s', apiId, data and data.message or 'Unknown error'))
+            return false, { message = data and data.message or 'Validation failed' }
         end
     else
-        log('error', string.format('API validation request failed with code %d', response.code))
-        return false, { code = response.code, body = response.body }
+        log('error', string.format('API validation request failed with code %d: %s', response.code, response.body))
+        return false, { message = string.format('HTTP %d: %s', response.code, response.body) }
     end
 end
 

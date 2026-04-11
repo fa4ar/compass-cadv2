@@ -1,7 +1,22 @@
 -- CAD Sync Client Main
 -- Core client-side logic
 
+-- Load locale files
 local locale = Config.Locale or 'en'
+Locales = {}
+
+-- Load English locale
+local enLocale = load(LoadResourceFile(GetCurrentResourceName(), 'locales/en.lua'))
+if enLocale then
+    Locales['en'] = enLocale()
+end
+
+-- Load Russian locale
+local ruLocale = load(LoadResourceFile(GetCurrentResourceName(), 'locales/ru.lua'))
+if ruLocale then
+    Locales['ru'] = ruLocale()
+end
+
 local function t(key, ...)
     if Locales[locale] and Locales[locale][key] then
         return string.format(Locales[locale][key], ...)
@@ -9,8 +24,8 @@ local function t(key, ...)
     return key
 end
 
--- Client state
-local ClientState = {
+-- Client state (global for access by other client scripts)
+ClientState = {
     CurrentCall = nil,
     IsCardVisible = false,
     LastUpdate = 0,
@@ -39,6 +54,35 @@ Citizen.CreateThread(function()
     print('^2[CAD Sync]^7 Client initialized')
 end)
 
+-- NUI Callback: Mark arrived
+RegisterNUICallback('markArrived', function(data, cb)
+    if ClientState.CurrentCall then
+        TriggerServerEvent('cad_sync:server:markArrived', ClientState.CurrentCall.id)
+    end
+    cb({})
+end)
+
+-- NUI Callback: Detach
+RegisterNUICallback('detach', function(data, cb)
+    if ClientState.CurrentCall then
+        TriggerServerEvent('cad_sync:server:detachFromCall', ClientState.CurrentCall.id)
+    end
+    cb({})
+end)
+
+-- NUI Callback: Close call
+RegisterNUICallback('closeCall', function(data, cb)
+    if ClientState.CurrentCall then
+        TriggerServerEvent('cad_sync:server:closeCall', ClientState.CurrentCall.id)
+    end
+    cb({})
+end)
+
+-- NUI Callback: UI ready
+RegisterNUICallback('uiReady', function(data, cb)
+    cb({})
+end)
+
 -- Event: Show notification from server
 RegisterNetEvent('cad_sync:notification', function(type, message)
     local timer = startPerfTimer()
@@ -46,7 +90,7 @@ RegisterNetEvent('cad_sync:notification', function(type, message)
     if type == 'success' then
         -- Use framework notification or custom
         SetNotificationTextEntry('STRING')
-        AddTextComponentString(message)
+        AddTextComponentString('~g~' .. message)
         DrawNotification(false, false)
     elseif type == 'error' then
         SetNotificationTextEntry('STRING')
@@ -68,11 +112,15 @@ end)
 -- Event: Show call card
 RegisterNetEvent('cad_sync:showCallCard', function(callId, callData)
     local timer = startPerfTimer()
-    
+
+    print('^2[CAD Sync]^7 Received showCallCard event for call #' .. callId)
+
     ClientState.CurrentCall = callData
     ClientState.IsCardVisible = true
     ClientState.LastUpdate = GetGameTimer()
-    
+
+    print('^2[CAD Sync]^7 ClientState updated: IsCardVisible=' .. tostring(ClientState.IsCardVisible))
+
     -- Send data to NUI
     SendNUIMessage({
         type = 'showCard',
@@ -107,10 +155,16 @@ end)
 -- Event: Hide call card
 RegisterNetEvent('cad_sync:hideCallCard', function()
     local timer = startPerfTimer()
-    
-    ClientState.CurrentCall = nil
+
+    print('^2[CAD Sync]^7 Received hideCallCard event')
     ClientState.IsCardVisible = false
-    
+    ClientState.CurrentCall = nil
+
+    print('^2[CAD Sync]^7 ClientState updated: IsCardVisible=' .. tostring(ClientState.IsCardVisible))
+
+    SendNUIMessage({
+        type = 'hideCard',
+    })
     -- Hide NUI
     SendNUIMessage({
         type = 'hideCard',

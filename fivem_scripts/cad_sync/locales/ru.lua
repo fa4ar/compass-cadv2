@@ -1,4 +1,4 @@
-Locales['ru'] = {
+return {
     -- Commands
     ['cad_link_usage'] = 'Использование: /cad-link [api_id]',
     ['cad_link_success'] = 'Аккаунт успешно привязан. API ID: %s',

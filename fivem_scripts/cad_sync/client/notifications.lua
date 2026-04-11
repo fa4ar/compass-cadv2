@@ -79,7 +79,9 @@ end
 -- Event: New call notification (enhanced)
 RegisterNetEvent('cad_sync:newCall', function(callData)
     local timer = GetGameTimer()
-    
+
+    print('^2[CAD Sync]^7 Received newCall event for call #' .. callData.id)
+
     -- Play sound
     PlayNotificationSound()
     

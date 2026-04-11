@@ -17,6 +17,40 @@ end
 -- In-memory storage for CAD links
 local CADLinks = {}
 
+-- File path for persistence
+local LINKS_FILE = 'cad_links.json'
+
+-- Load links from file on startup
+local function LoadLinksFromFile()
+    local file = io.open(LINKS_FILE, 'r')
+    if file then
+        local content = file:read('*all')
+        file:close()
+        if content and content ~= '' then
+            local success, data = pcall(json.decode, content)
+            if success and data then
+                CADLinks = data
+                log('info', string.format('Loaded %d CAD links from file', #CADLinks or 0))
+            end
+        end
+    else
+        log('info', 'No existing links file found, starting fresh')
+    end
+end
+
+-- Save links to file
+local function SaveLinksToFile()
+    local file = io.open(LINKS_FILE, 'w')
+    if file then
+        file:write(json.encode(CADLinks))
+        file:close()
+        log('info', string.format('Saved %d CAD links to file', #CADLinks or 0))
+    end
+end
+
+-- Load links on startup
+LoadLinksFromFile()
+
 -- Create a new CAD link
 -- @param license string - Player's FiveM license
 -- @param apiId string - Player's CAD API ID
@@ -43,7 +77,10 @@ function CreateCADLink(license, apiId)
     
     -- Update local cache
     CADSync.LinkedPlayers[license] = CADLinks[license]
-    
+
+    -- Save to file
+    SaveLinksToFile()
+
     return true
 end
 
@@ -76,7 +113,10 @@ function DeleteCADLink(license)
         
         -- Update local cache
         CADSync.LinkedPlayers[license] = nil
-        
+
+        -- Save to file
+        SaveLinksToFile()
+
         return true
     end
     

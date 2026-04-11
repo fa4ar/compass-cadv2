@@ -1,14 +1,15 @@
 Config = {}
 
+-- Locales table (must be defined before loading locale files)
+Locales = {}
+
 -- API Configuration
 Config.API = {
     -- CAD API endpoint for validation
-    BaseURL = 'http://localhost:3000/api',
-    ValidateEndpoint = '/validate-link',
-    WebhookEndpoint = '/webhook/911-call',
-    
-    -- Request timeout in milliseconds
+    BaseURL = 'https://api.california-travel.ru',
+    ValidateEndpoint = '/api/fivem/link',
     Timeout = 10000,
+    APIKey = 'compass-cad-fivem-secret-key',
 }
 
 -- Notification Configuration
@@ -17,22 +18,31 @@ Config.Notifications = {
     SoundEnabled = true,
     SoundFile = 'alert.mp3',
     SoundVolume = 0.5,
-    
+
     -- Blip settings
     BlipEnabled = true,
     BlipSprite = 359, -- Emergency blip
     BlipColor = 1, -- Red
     BlipScale = 1.0,
     BlipDuration = 30000, -- 30 seconds
-    
+
     -- Notification duration (ms)
     Duration = 15000,
-    
-    -- Roles that receive 911 notifications
+
+    -- Allowed roles for call notifications
     AllowedRoles = {
+        'dispatcher',
         'police',
-        'ambulance',
+        'ems',
     },
+}
+
+-- CAD Browser Configuration (DUI-based in-game browser)
+Config.CADBrowser = {
+    Enabled = false, -- Disabled by default, requires FiveM build 5181+
+    URL = 'https://cad.california-travel.ru/',
+    Key = 'F10',
+    CloseOnEscape = true,
 }
 
 -- UI Configuration
@@ -66,19 +76,4 @@ Config.OneSync = {
     Enabled = true,
     CoordinateSync = true,
     SyncInterval = 500, -- ms
-}
-
--- CAD Browser Configuration
-Config.CADBrowser = {
-    -- CAD web URL
-    URL = 'http://localhost:3000',
-    
-    -- Key to open CAD browser (default: F10)
-    Key = 'F10',
-    
-    -- Enable browser
-    Enabled = true,
-    
-    -- Auto-close on Escape
-    CloseOnEscape = true,
 }

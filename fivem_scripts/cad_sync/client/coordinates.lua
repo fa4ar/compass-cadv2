@@ -19,13 +19,11 @@ local CoordState = {
 -- Check if player is linked
 Citizen.CreateThread(function()
     Wait(2000)
-    
+
     while true do
         Wait(1000)
-        
-        local license = GetPlayerIdentifierByType(PlayerId(), 'license')
-        
-        -- Check if linked via export
+
+        -- Check if linked via KVP
         local isLinked = GetResourceKvpString('cad_linked') == 'true'
         if isLinked and not CoordState.IsLinked then
             CoordState.IsLinked = true
@@ -41,16 +39,14 @@ end)
 Citizen.CreateThread(function()
     while true do
         Wait(CoordState.SyncInterval)
-        
+
         if CoordState.IsLinked then
             local ped = PlayerPedId()
             local coords = GetEntityCoords(ped)
             local heading = GetEntityHeading(ped)
-            local license = GetPlayerIdentifierByType(PlayerId(), 'license')
-            
-            -- Send to server
+
+            -- Send to server (server will handle license lookup)
             TriggerServerEvent('cad_sync:server:syncCoordinates', {
-                license = license,
                 x = coords.x,
                 y = coords.y,
                 z = coords.z,

@@ -69,7 +69,7 @@ end
 -- Helper: Format status
 local function FormatStatus(status)
     local statuses = {
-        active = { text: 'Active', color = '#4ade80' },
+        active = { text = 'Active', color = '#4ade80' },
         in_progress = { text = 'In Progress', color = '#60a5fa' },
         unit_arrived = { text = 'Unit Arrived', color = '#f59e0b' },
         closed = { text = 'Closed', color = '#6b7280' },

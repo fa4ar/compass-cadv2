@@ -21,11 +21,17 @@ local function CreateCADBrowser()
     if BrowserState.Browser then
         return
     end
-    
+
+    -- Check if DUI functions are available
+    if not CreateBrowserDui then
+        print('^3[CAD Sync]^7 DUI functions not available, using NUI instead')
+        return
+    end
+
     -- Create browser using DUI
     BrowserState.Browser = CreateBrowserDui(Config.CADBrowser.URL, 1920, 1080, false)
     BrowserState.Scaleform = CreateDui(BrowserState.Browser, 1920, 1080)
-    
+
     -- Hide initially
     SetDuiVisible(BrowserState.Scaleform, false)
 end
@@ -35,7 +41,13 @@ local function ToggleCADBrowser()
     if not Config.CADBrowser.Enabled then
         return
     end
-    
+
+    -- Check if DUI is available
+    if not CreateBrowserDui then
+        print('^3[CAD Sync]^7 DUI not available, CAD browser disabled')
+        return
+    end
+
     if BrowserState.IsOpen then
         -- Close browser
         if BrowserState.Scaleform then
@@ -48,7 +60,7 @@ local function ToggleCADBrowser()
         if not BrowserState.Browser then
             CreateCADBrowser()
         end
-        
+
         -- Show browser
         if BrowserState.Scaleform then
             SetDuiVisible(BrowserState.Scaleform, true)

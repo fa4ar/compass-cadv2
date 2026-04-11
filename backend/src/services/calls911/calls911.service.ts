@@ -90,7 +90,7 @@ export class Calls911Service {
         return prisma.call911.findMany({
             where: {
                 status: {
-                    in: ['pending', 'dispatched', 'enroute', 'on_scene']
+                    in: ['pending', 'dispatched', 'enroute', 'on_scene', 'resolving']
                 }
             },
             include: {
