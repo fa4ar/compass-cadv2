@@ -22,7 +22,8 @@ local LINKS_FILE = 'cad_links.json'
 
 -- Load links from file on startup
 local function LoadLinksFromFile()
-    local file = io.open(LINKS_FILE, 'r')
+    local filePath = GetResourcePath(GetCurrentResourceName()) .. '/' .. LINKS_FILE
+    local file = io.open(filePath, 'r')
     if file then
         local content = file:read('*all')
         file:close()
@@ -30,21 +31,28 @@ local function LoadLinksFromFile()
             local success, data = pcall(json.decode, content)
             if success and data then
                 CADLinks = data
+                -- Update CADSync.LinkedPlayers cache
+                if CADSync then
+                    CADSync.LinkedPlayers = CADLinks
+                end
                 log('info', string.format('Loaded %d CAD links from file', #CADLinks or 0))
             end
         end
     else
-        log('info', 'No existing links file found, starting fresh')
+        log('info', string.format('No existing links file found: %s', filePath))
     end
 end
 
 -- Save links to file
 local function SaveLinksToFile()
-    local file = io.open(LINKS_FILE, 'w')
+    local filePath = GetResourcePath(GetCurrentResourceName()) .. '/' .. LINKS_FILE
+    local file = io.open(filePath, 'w')
     if file then
         file:write(json.encode(CADLinks))
         file:close()
         log('info', string.format('Saved %d CAD links to file', #CADLinks or 0))
+    else
+        log('error', string.format('Failed to open file for writing: %s', filePath))
     end
 end
 
