@@ -590,6 +590,52 @@ end)
 
 log('info', 'Server main.lua loaded')
 
+-- Periodic coordinate sync for all active units
+Citizen.CreateThread(function()
+    while true do
+        Wait(Config.OneSync.SyncInterval)
+
+        if not Config.OneSync.CoordinateSync then
+            goto continue
+        end
+
+        -- Sync coordinates for all online players
+        local players = GetPlayers()
+        for _, playerId in ipairs(players) do
+            local ped = GetPlayerPed(playerId)
+            if DoesEntityExist(ped) then
+                local coords = GetEntityCoords(ped)
+                local license = GetPlayerIdentifierByType(playerId, 'license')
+                
+                -- Send coordinates to CAD for all players (not just attached units)
+                SendBlipsToCAD({
+                    identifier = license or 'unknown',
+                    x = coords.x,
+                    y = coords.y,
+                    z = coords.z,
+                    heading = GetEntityHeading(ped),
+                    inVehicle = IsPedInVehicle(ped),
+                })
+            end
+        end
+
+        -- Also sync coordinates for attached units specifically
+        for callId, attachedUnits in pairs(CADSync.AttachedUnits) do
+            for _, playerId in ipairs(attachedUnits) do
+                if CADSync.ActiveCalls[callId] then
+                    local ped = GetPlayerPed(playerId)
+                    if DoesEntityExist(ped) then
+                        local coords = GetEntityCoords(ped)
+                        SendCoordinatesToCAD(playerId, callId, coords)
+                    end
+                end
+            end
+        end
+
+        ::continue::
+    end
+end)
+
 -- Periodic coordinate sync for attached units
 Citizen.CreateThread(function()
     while true do
