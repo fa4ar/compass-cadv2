@@ -420,11 +420,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         socket.on('voice', handleVoice);
         socket.on('playGunshot', (data: any) => {
             console.log('[RadioContext] Gunshot received:', data);
-            playGunshotSound(data.volume || 0.8, {
-                x: data.x,
-                y: data.y,
-                z: data.z
-            });
+            playGunshotSound(data.volume || 0.8);
         });
         
         socket.on('channelAlert', (data: any) => {
@@ -605,52 +601,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
-    const playGunshotSound = useCallback((vol: number = 0.8, position?: { x: number; y: number; z: number }) => {
-        try {
-            const soundPath = '/audio/bgShot.wav';
-            
-            if (gunshotSoundRef.current) {
-                gunshotSoundRef.current.stop();
-                gunshotSoundRef.current.unload();
-            }
-            
-            const sound = new Howl({
-                src: [soundPath],
-                format: ['wav'],
-                volume: Math.min(1, Math.max(0, vol)),
-                onload: () => {
-                    console.log('[RadioContext] Gunshot sound loaded');
-                },
-                onloaderror: (id, error) => {
-                    console.error('[RadioContext] Failed to load gunshot sound:', error);
-                    const altSound = new Howl({
-                        src: ['/sounds/bgShot.wav', '/radios/default/sounds/bgShot.wav'],
-                        format: ['wav'],
-                        volume: Math.min(1, Math.max(0, vol))
-                    });
-                    gunshotSoundRef.current = altSound;
-                    altSound.play();
-                }
-            });
-            
-            if (position && (window as any).Howler) {
-                const soundId = sound.play();
-                sound.pos(position.x, position.y, position.z, soundId);
-                sound.pannerAttr({
-                    panningModel: 'HRTF',
-                    rolloffFactor: 3,
-                    distanceModel: 'inverse',
-                    refDistance: 0.25
-                }, soundId);
-            } else {
-                sound.play();
-            }
-            
-            gunshotSoundRef.current = sound;
-            
-        } catch (error) {
-            console.error('[RadioContext] Failed to play gunshot:', error);
-        }
+    const playGunshotSound = useCallback((volume: number = 0.8) => {
+        const sound = new Howl({
+            src: ['/audio/bgShot.wav'],
+            format: ['wav'],
+            volume: Math.min(1, Math.max(0, volume))
+        });
+        sound.play();
     }, []);
 
     const enableMicrophone = useCallback(async () => {

@@ -7,29 +7,25 @@ export async function POST(req: NextRequest) {
         
         console.log('[API] play-tone request:', body);
         
-        // Собираем все заголовки авторизации
-        const headers: Record<string, string> = {
-            'Content-Type': 'application/json',
-        };
-        
-        // Добавляем X-Session-Id если есть
         const sessionId = req.headers.get('X-Session-Id');
-        if (sessionId) {
-            headers['X-Session-Id'] = sessionId;
+        if (!sessionId) {
+            return NextResponse.json(
+                { success: false, error: 'No session ID provided' },
+                { status: 401 }
+            );
         }
         
-        // Добавляем Authorization если есть
-        const authHeader = req.headers.get('Authorization');
-        if (authHeader) {
-            headers['Authorization'] = authHeader;
-        }
-        
-        console.log('[API] Forwarding headers:', headers);
-        
-        const response = await fetch(`${radioUrl}/api/play-tone`, {
+        const response = await fetch(`${radioUrl}/radio/dispatch/tone`, {
             method: 'POST',
-            headers: headers,
-            body: JSON.stringify(body)
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Session-Id': sessionId,
+                'Authorization': 'Bearer changeme'
+            },
+            body: JSON.stringify({
+                frequency: body.frequency,
+                tone: body.tone
+            })
         });
         
         const data = await response.json();
