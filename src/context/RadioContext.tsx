@@ -419,8 +419,25 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         socket.on('serverTone', handleServerTone);
         socket.on('voice', handleVoice);
         socket.on('playGunshot', (data: any) => {
-            console.log('[RadioContext] Gunshot received:', data);
-            playGunshotSound(data.volume || 0.8);
+            console.log('[RadioContext] 🔫 Gunshot received:', data);
+            
+            // Рассчитываем громкость из дистанции (как в Lua)
+            let volume = 0.8;
+            const distance = data.distance;
+            
+            if (distance <= 10) {
+                volume = 1.0;
+            } else if (distance <= 25) {
+                volume = 1.0 - ((distance - 10) / 15) * 0.99;
+            } else if (distance <= 100) {
+                volume = 0.01 * (1.0 - ((distance - 25) / 75) * 0.9);
+            } else {
+                volume = 0;
+            }
+            
+            if (volume > 0) {
+                playGunshotSound(volume);
+            }
         });
         
         socket.on('channelAlert', (data: any) => {
@@ -609,6 +626,16 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         });
         sound.play();
     }, []);
+
+    // Debug useEffect для проверки статуса радио системы
+    useEffect(() => {
+        console.log('=== RADIO STATUS ===');
+        console.log('Connected:', isConnected);
+        console.log('Current channel:', currentChannel);
+        console.log('Microphone enabled:', microphoneEnabled);
+        console.log('Is recording:', isRecording);
+        console.log('Dispatch session:', dispatchSessionId);
+    }, [isConnected, currentChannel, microphoneEnabled, isRecording, dispatchSessionId]);
 
     const enableMicrophone = useCallback(async () => {
         try {

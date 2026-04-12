@@ -8,20 +8,19 @@ export async function POST(req: NextRequest) {
         console.log('[API] play-tone request:', body);
         
         const sessionId = req.headers.get('X-Session-Id');
-        if (!sessionId) {
-            return NextResponse.json(
-                { success: false, error: 'No session ID provided' },
-                { status: 401 }
-            );
+        
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer changeme'
+        };
+        
+        if (sessionId) {
+            headers['X-Session-Id'] = sessionId;
         }
         
         const response = await fetch(`${radioUrl}/radio/dispatch/tone`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Session-Id': sessionId,
-                'Authorization': 'Bearer changeme'
-            },
+            headers: headers,
             body: JSON.stringify({
                 frequency: body.frequency,
                 tone: body.tone
