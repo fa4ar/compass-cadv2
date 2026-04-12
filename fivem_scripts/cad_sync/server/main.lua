@@ -17,6 +17,12 @@ if ruLocale then
     Locales['ru'] = ruLocale()
 end
 
+-- Load database functions
+local databaseFile = LoadResourceFile(GetCurrentResourceName(), 'server/database.lua')
+if databaseFile then
+    load(databaseFile)()
+end
+
 local function t(key, ...)
     if Locales[locale] and Locales[locale][key] then
         return string.format(Locales[locale][key], ...)

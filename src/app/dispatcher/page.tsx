@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { Radio, Users, FileSearch, Laptop, Map, Phone, AlertTriangle, Search, Navigation, MapPinned, CheckCircle, BarChart3, MessageCircle, PlusSquare, Ambulance, Clock, Car, Footprints, Siren, FileText, MapPin, Send, User, Building2, Car as CarIcon, Package, X, RefreshCw, Trash2, LogOut, ChevronDown, Receipt } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Radio, Users, FileSearch, Laptop, Map, Phone, AlertTriangle, Search, Navigation, MapPinned, CheckCircle, BarChart3, MessageCircle, PlusSquare, Ambulance, Clock, Car, Footprints, Siren, FileText, MapPin, Send, User, Building2, Car as CarIcon, Package, X, RefreshCw, Trash2, LogOut, ChevronDown, Receipt, Eye, EyeOff } from 'lucide-react';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +18,8 @@ import { DutyModal } from '@/components/police-dispatcher/DutyModal';
 import { MessageModal } from '@/components/police-dispatcher/MessageModal';
 import { PairCreationModal } from '@/components/police-dispatcher/PairCreationModal';
 import type { Call911 } from '@/types/coordinates';
+import api from '@/lib/axios';
+
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -78,9 +81,30 @@ export default function DispatcherPage() {
 function DispatcherPageContent() {
     const { user } = useAuth();
     const { socket, isConnected } = useSocket();
-    const [units, setUnits] = useState<Unit[]>([]);
-    const [calls, setCalls] = useState<Call911[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const queryClient = useQueryClient();
+
+    // Tanstack Query для units
+    const { data: units = [], isLoading: unitsLoading, refetch: refetchUnits } = useQuery({
+        queryKey: ['units'],
+        queryFn: async () => {
+            const res = await api.get('/api/units');
+            return Array.isArray(res.data) ? res.data : [];
+        },
+        refetchInterval: false,
+    });
+
+    // Tanstack Query для calls
+    const { data: calls = [], isLoading: callsLoading, refetch: refetchCalls } = useQuery({
+        queryKey: ['calls911', 'active'],
+        queryFn: async () => {
+            const res = await api.get('/api/calls911/active');
+            return Array.isArray(res.data) ? res.data : [];
+        },
+        refetchInterval: false,
+    });
+
+    const isLoading = unitsLoading || callsLoading;
+
     const [selectedCall, setSelectedCall] = useState<Call911 | null>(null);
     const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
     const [newNoteText, setNewNoteText] = useState("");
@@ -125,6 +149,20 @@ function DispatcherPageContent() {
         z: 0
     });
 
+    // BOLO system
+    const [bolos, setBolos] = useState<any[]>([]);
+    const [showBoloModal, setShowBoloModal] = useState(false);
+    const [showBoloList, setShowBoloList] = useState(false);
+    const [newBoloData, setNewBoloData] = useState({
+        type: 'vehicle',
+        description: '',
+        plate: '',
+        color: '',
+        model: '',
+        priority: 'medium',
+        expiresAt: ''
+    });
+
     // Sounds
     const { playSound } = useSound();
 
@@ -158,6 +196,77 @@ function DispatcherPageContent() {
 
     const displayUnits = React.useMemo(() => groupUnits(units), [units]);
 
+    // ========== UPDATE UNIT STATUS ==========
+    const updateUnitStatusMutation = useMutation({
+        mutationFn: async ({ characterId, userId, status }: { characterId?: number; userId?: number; status: string }) => {
+            if (!characterId && !userId) {
+                throw new Error('Нет данных о юните');
+            }
+            const res = await api.post('/api/units/status', { characterId, userId, status });
+            return res.data;
+        },
+        onSuccess: () => {
+            toast({ title: 'Статус обновлен', description: 'Статус юнита изменен' });
+            queryClient.invalidateQueries({ queryKey: ['units'] });
+        },
+        onError: (error: any) => {
+            toast({ title: 'Ошибка', description: error.response?.data?.error || 'Не удалось обновить статус', variant: 'destructive' });
+        }
+    });
+
+    const handleUpdateUnitStatus = useCallback((characterId: number | undefined, userId: number | undefined, status: string) => {
+        if (!characterId && !userId) {
+            toast({ title: 'Ошибка', description: 'Нет данных о юните', variant: 'destructive' });
+            return;
+        }
+        updateUnitStatusMutation.mutate({ characterId, userId, status });
+    }, [updateUnitStatusMutation]);
+
+    // ========== UPDATE CALL STATUS ==========
+    const updateCallStatusMutation = useMutation({
+        mutationFn: async ({ callId, status }: { callId: number; status: string }) => {
+            const res = await api.patch(`/api/calls911/${callId}/status`, { status });
+            return res.data;
+        },
+        onSuccess: (data, variables) => {
+            toast({ title: 'Статус обновлен', description: `Статус вызова #${variables.callId} изменен` });
+            queryClient.invalidateQueries({ queryKey: ['calls911', 'active'] });
+            if (selectedCall?.id === variables.callId) {
+                setSelectedCall(data);
+            }
+        },
+        onError: (error: any) => {
+            toast({ title: 'Ошибка', description: error.response?.data?.error || 'Не удалось обновить статус', variant: 'destructive' });
+        }
+    });
+
+    const handleUpdateCallStatus = useCallback((callId: number, status: string) => {
+        updateCallStatusMutation.mutate({ callId, status });
+    }, [updateCallStatusMutation]);
+
+    // ========== DELETE CALL ==========
+    const deleteCallMutation = useMutation({
+        mutationFn: async (callId: number) => {
+            const res = await api.delete(`/api/calls911/${callId}`);
+            return res.data;
+        },
+        onSuccess: (_, callId) => {
+            toast({ title: 'Вызов удален', description: `Вызов #${callId} удален` });
+            queryClient.invalidateQueries({ queryKey: ['calls911', 'active'] });
+            if (selectedCall?.id === callId) {
+                setSelectedCall(null);
+            }
+        },
+        onError: (error: any) => {
+            toast({ title: 'Ошибка', description: error.response?.data?.error || 'Не удалось удалить вызов', variant: 'destructive' });
+        }
+    });
+
+    const handleDeleteCall = useCallback((callId: number) => {
+        if (!confirm('Вы уверены, что хотите удалить этот вызов?')) return;
+        deleteCallMutation.mutate(callId);
+    }, [deleteCallMutation, selectedCall]);
+
     // PERSISTENCE: Load from localStorage on mount
     useEffect(() => {
         const savedCallSign = localStorage.getItem('dispatcherCallSign');
@@ -180,274 +289,161 @@ function DispatcherPageContent() {
         }
     }, [onDuty, callSign]);
 
+    // Socket connection handlers
     useEffect(() => {
-        fetchData();
+        if (!socket || !isConnected) return;
 
-        // Socket connection handled by SocketProvider
-
-        socket.on('new_911_call', (newCall: Call911) => {
-            setCalls(prev => Array.isArray(prev) ? [newCall, ...prev] : [newCall]);
-            playSound('new_call_911').then(() => console.log('[Dispatcher] Sound played')).catch(e => console.error('[Dispatcher] Sound error:', e));
-            toast({ title: 'Новый вызов!', description: `${newCall.callerName}: ${newCall.description}` });
-        });
-
-        socket.on('update_911_call', (updatedCall: Call911) => {
-            setCalls(prev => Array.isArray(prev) ? prev.map(c => c.id === updatedCall.id ? updatedCall : c) : [updatedCall]);
-            if (selectedCall?.id === updatedCall.id) {
-                setSelectedCall(updatedCall);
-            }
-        });
-
-        socket.on('new_911_note', ({ callId, note }: { callId: number, note: CallNote }) => {
-            setCalls(prev => Array.isArray(prev) ? prev.map(c => {
-                if (c.id === callId) {
-                    return { ...c, notes: [...(c.notes || []), note] };
+        const handlers = {
+            new_911_call: (newCall: Call911) => {
+                queryClient.setQueryData(['calls911', 'active'], (prev: Call911[] = []) => [newCall, ...prev]);
+                playSound('new_call_911').catch(e => console.error('[Dispatcher] Sound error:', e));
+                toast({ title: 'Новый вызов!', description: `${newCall.callerName}: ${newCall.description}` });
+            },
+            update_911_call: (updatedCall: Call911) => {
+                queryClient.setQueryData(['calls911', 'active'], (prev: Call911[] = []) => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
+                if (selectedCall?.id === updatedCall.id) {
+                    setSelectedCall(updatedCall);
                 }
-                return c;
-            }) : []);
-            if (selectedCall?.id === callId) {
-                setSelectedCall(prev => prev ? { ...prev, notes: Array.isArray(prev.notes) ? [...prev.notes, note] : [note] } : null);
+            },
+            new_911_note: ({ callId, note }: { callId: number, note: CallNote }) => {
+                queryClient.setQueryData(['calls911', 'active'], (prev: Call911[] = []) => prev.map(c => {
+                    if (c.id === callId) {
+                        return { ...c, notes: [...(c.notes || []), note] };
+                    }
+                    return c;
+                }));
+                if (selectedCall?.id === callId) {
+                    setSelectedCall(prev => prev ? { ...prev, notes: Array.isArray(prev.notes) ? [...prev.notes, note] : [note] } : null);
+                }
+            },
+            delete_911_call: ({ id }: { id: number }) => {
+                queryClient.setQueryData(['calls911', 'active'], (prev: Call911[] = []) => prev.filter(c => c.id !== id));
+                if (selectedCall?.id === id) setSelectedCall(null);
+            },
+            supervisor_request: (data: { unit: string; message: string }) => {
+                playSound('supervisor_request');
+                toast({ title: 'Запрос супервайзера!', description: `Юнит ${data.unit}: ${data.message}`, variant: 'destructive' });
+            },
+            dispatcher_message: (data: { message: string; from: string }) => {
+                playSound('message_received');
+                toast({ title: 'Сообщение от супервайзера', description: `${data.from}: ${data.message}` });
+            },
+            supervisor_message: (data: { message: string; from: string }) => {
+                playSound('message_received');
+                toast({ title: 'Сообщение от супервайзера', description: `${data.from}: ${data.message}` });
+            },
+            pair_formed: () => {
+                refetchUnits();
+                toast({ title: 'Пара создана', description: 'Новая патрульная пара создана' });
+            },
+            pair_disbanded: () => {
+                refetchUnits();
+                toast({ title: 'Пара расформирована', description: 'Патрульная пара была разделена' });
+            },
+            unit_pair_update: () => {
+                refetchUnits();
+            },
+            unit_status_changed: (data: { userId: number; status: string; unit?: string }) => {
+                queryClient.setQueryData(['units'], (prev: Unit[] = []) => prev.map(u =>
+                    u.userId === data.userId ? { ...u, status: data.status } : u
+                ));
+            },
+            unit_attached_to_call: (data: any) => {
+                console.log('[SOCKET] unit_attached_to_call:', data);
+                playSound('notification');
+                toast({ title: data.isLeadUnit ? 'Новый главный юнит' : 'Юнит прикреплен', description: `${data.unitCallSign} прикреплен к вызову #${data.callId}${data.isLeadUnit ? ' (ГЛАВНЫЙ)' : ''}` });
+                refetchUnits();
+            },
+            unit_detached_from_call: (data: any) => {
+                console.log('[SOCKET] unit_detached_from_call:', data);
+                playSound('notification');
+                toast({ title: 'Юнит откреплен', description: `${data.unitCallSign} откреплен от вызова #${data.callId}` });
+                refetchUnits();
+            },
+            lead_unit_changed: (data: any) => {
+                console.log('[SOCKET] lead_unit_changed:', data);
+                playSound('notification');
+                toast({ title: 'Новый главный юнит', description: `Главный юнит на вызове #${data.callId} изменен` });
+                refetchUnits();
+            },
+            unit_on_duty: () => {
+                refetchUnits();
+            },
+            unit_off_duty: (data: { userId: number }) => {
+                queryClient.setQueryData(['units'], (prev: Unit[] = []) => prev.filter(u => u.userId !== data.userId));
+            },
+            bolo_created: (bolo: any) => {
+                setBolos(prev => [bolo, ...prev]);
+                toast({ title: 'Новый BOLO', description: `${bolo.type}: ${bolo.description}` });
+            },
+            bolo_updated: (bolo: any) => {
+                setBolos(prev => Array.isArray(prev) ? prev.map(b => b.id === bolo.id ? bolo : b) : []);
+            },
+            bolo_closed: (bolo: any) => {
+                setBolos(prev => Array.isArray(prev) ? prev.map(b => b.id === bolo.id ? bolo : b) : []);
             }
-        });
+        };
 
-        socket.on('delete_911_call', ({ id }: { id: number }) => {
-            setCalls(prev => Array.isArray(prev) ? prev.filter(c => c.id !== id) : []);
-            if (selectedCall?.id === id) setSelectedCall(null);
-        });
-
-        socket.on('supervisor_request', (data: { unit: string; message: string }) => {
-            playSound('supervisor_request');
-            toast({ title: 'Запрос супервайзера!', description: `Юнит ${data.unit}: ${data.message}`, variant: 'destructive' });
-            // ...
-        });
-
-        socket.on('dispatcher_message', (data: { message: string; from: string }) => {
-            playSound('message_received');
-            toast({ title: 'Сообщение от супервайзера', description: `${data.from}: ${data.message}` });
-        });
-
-        socket.on('supervisor_message', (data: { message: string; from: string }) => {
-            playSound('message_received');
-            toast({ title: 'Сообщение от супервайзера', description: `${data.from}: ${data.message}` });
-        });
-
-        socket.on('pair_formed', () => {
-            fetchData();
-            toast({ title: 'Пара создана', description: 'Новая патрульная пара создана' });
-        });
-
-        socket.on('pair_disbanded', () => {
-            fetchData();
-            toast({ title: 'Пара расформирована', description: 'Патрульная пара была разделена' });
-        });
-
-        socket.on('unit_pair_update', () => {
-            fetchData();
-        });
-
-        socket.on('unit_status_changed', (data: { userId: number; status: string; unit?: string }) => {
-            setUnits(prev => Array.isArray(prev) ? prev.map(u => 
-                u.userId === data.userId ? { ...u, status: data.status } : u
-            ) : []);
-        });
-
-        socket.on('call_assigned_to_unit', (data: { userId: number; call: any }) => {
-            // Deprecated - now using unit_attached_to_call
-            // Keeping for backwards compatibility but no action needed
-        });
-
-        socket.on('unit_attached_to_call', (data: any) => {
-            console.log('[SOCKET] unit_attached_to_call:', data);
-            playSound('notification');
-            toast({ title: data.isLeadUnit ? 'Новый главный юнит' : 'Юнит прикреплен', description: `${data.unitCallSign} прикреплен к вызову #${data.callId}${data.isLeadUnit ? ' (ГЛАВНЫЙ)' : ''}` });
-            fetchData();
-            if (selectedCall?.id === data.callId && data.call) {
-                setSelectedCall(prev => prev ? { 
-                    ...prev, status: data.call.status, mainUnitId: data.call.mainUnitId, units: data.call.units || prev.units 
-                } : null);
-            }
-        });
-
-        socket.on('unit_detached_from_call', (data: any) => {
-            console.log('[SOCKET] unit_detached_from_call:', data);
-            playSound('notification');
-            toast({ title: 'Юнит откреплен', description: `${data.unitCallSign} откреплен от вызова #${data.callId}` });
-            fetchData();
-            if (selectedCall?.id === data.callId && data.call) {
-                setSelectedCall(prev => prev ? {
-                    ...prev, status: data.call.status, mainUnitId: data.newMainUnitId, units: data.call.units || []
-                } : null);
-            }
-        });
-
-        socket.on('lead_unit_changed', (data: any) => {
-            console.log('[SOCKET] lead_unit_changed:', data);
-            playSound('notification');
-            toast({ title: 'Новый главный юнит', description: 'Главный юнит на вызове #${data.callId} изменен' });
-            fetchData();
-            if (selectedCall?.id === data.callId && data.call) {
-                setSelectedCall(prev => prev ? {
-                    ...prev, mainUnitId: data.newLeadUserId, units: Array.isArray(data.call.units) ? data.call.units.map((u: any) => ({ ...u, isLead: u.userId === data.newLeadUserId })) : []
-                } : null);
-            }
-        });
-
-        socket.on('unit_on_duty', () => {
-            fetchData();
-        });
-
-        socket.on('unit_off_duty', (data: { userId: number }) => {
-            setUnits(prev => Array.isArray(prev) ? prev.filter(u => u.userId !== data.userId) : []);
+        // Register all handlers
+        Object.entries(handlers).forEach(([event, handler]) => {
+            socket.on(event, handler);
         });
 
         return () => {
-            socket.off('new_911_call');
-            socket.off('update_911_call');
-            socket.off('new_911_note');
-            socket.off('delete_911_call');
-            socket.off('supervisor_request');
-            socket.off('dispatcher_message');
-            socket.off('supervisor_message');
-            socket.off('pair_formed');
-            socket.off('pair_disbanded');
-            socket.off('unit_pair_update');
-            socket.off('unit_status_changed');
-            socket.off('unit_unassigned');
-            socket.off('unit_on_duty');
-            socket.off('unit_off_duty');
+            Object.entries(handlers).forEach(([event, handler]) => {
+                socket.off(event, handler);
+            });
         };
-    }, [selectedCall?.id]);
+    }, [socket, isConnected, playSound, refetchUnits, selectedCall, queryClient]);
 
-    const fetchData = async () => {
-        console.log('[DISPATCHER] fetchData called');
-        try {
-            const token = localStorage.getItem('accessToken');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    // Separate effect for call-specific socket listeners that depend on selectedCall
+    useEffect(() => {
+        if (!socket || !isConnected) return;
 
-            const [unitsRes, callsRes] = await Promise.all([
-                fetch(`${apiUrl}/api/units`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Cache-Control': 'no-store, no-cache, must-revalidate',
-                        'Pragma': 'no-cache'
-                    }
-                }),
-                fetch(`${apiUrl}/api/calls911/active`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Cache-Control': 'no-store, no-cache, must-revalidate',
-                        'Pragma': 'no-cache'
-                    }
-                })
-            ]);
-
-            if (unitsRes.ok) {
-                const data = await unitsRes.json();
-                setUnits(Array.isArray(data) ? data : []);
-            } else {
-                console.error('[DISPATCHER] Units fetch failed:', unitsRes.status);
-                setUnits([]);
+        const handleUnitAttached = (data: any) => {
+            if (selectedCall?.id === data.callId && data.call) {
+                setSelectedCall(prev => prev ? { 
+                    ...prev, 
+                    status: data.call.status, 
+                    mainUnitId: data.call.mainUnitId, 
+                    units: data.call.units || prev.units 
+                } : null);
             }
-            if (callsRes.ok) {
-                const data = await callsRes.json();
-                const callsArray = Array.isArray(data) ? data : (data.calls || []);
-                setCalls(callsArray);
-            } else {
-                console.error('[DISPATCHER] Calls fetch failed:', callsRes.status);
-                setCalls([]);
+        };
+
+        const handleUnitDetached = (data: any) => {
+            if (selectedCall?.id === data.callId && data.call) {
+                setSelectedCall(prev => prev ? {
+                    ...prev, 
+                    status: data.call.status, 
+                    mainUnitId: data.newMainUnitId, 
+                    units: data.call.units || []
+                } : null);
             }
-        } catch (err) {
-            console.error('Failed to fetch dispatcher data', err);
-            setUnits([]);
-            setCalls([]);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+        };
 
-    const handleUpdateUnitStatus = async (characterId: number | undefined, userId: number | undefined, status: string) => {
-        try {
-            const token = localStorage.getItem('accessToken');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-            const body: any = { status };
-            if (characterId) body.characterId = characterId;
-            if (userId) body.userId = userId;
-
-            const res = await fetch(`${apiUrl}/api/units/status`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                    'Cache-Control': 'no-store, no-cache, must-revalidate',
-                    'Pragma': 'no-cache'
-                },
-                body: JSON.stringify(body)
-            });
-
-            if (res.ok) {
-                toast({ title: 'Статус юнита обновлен', description: `Юнит теперь ${status}` });
-                fetchData();
-            } else {
-                const data = await res.json();
-                console.error('Update failed:', data);
+        const handleLeadUnitChanged = (data: any) => {
+            if (selectedCall?.id === data.callId && data.call) {
+                setSelectedCall(prev => prev ? {
+                    ...prev, 
+                    mainUnitId: data.newLeadUserId, 
+                    units: Array.isArray(data.call.units) 
+                        ? data.call.units.map((u: any) => ({ ...u, isLead: u.userId === data.newLeadUserId })) 
+                        : []
+                } : null);
             }
-        } catch (err) {
-            console.error('Failed to update unit status', err);
-        }
-    };
+        };
 
-    const handleUpdateCallStatus = async (callId: number, status: string) => {
-        try {
-            const token = localStorage.getItem('accessToken');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+        socket.on('unit_attached_to_call', handleUnitAttached);
+        socket.on('unit_detached_from_call', handleUnitDetached);
+        socket.on('lead_unit_changed', handleLeadUnitChanged);
 
-            const res = await fetch(`${apiUrl}/api/calls911/${callId}`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                    'Cache-Control': 'no-store, no-cache, must-revalidate',
-                    'Pragma': 'no-cache'
-                },
-                body: JSON.stringify({ status })
-            });
-
-            if (res.ok) {
-                toast({ title: 'Вызов обновлен', description: `Вызов #${callId} переведен в статус ${status}` });
-                setSelectedCall(null);
-                fetchData();
-            }
-        } catch (err) {
-            console.error('Failed to update call status', err);
-        }
-    };
-
-    const handleDeleteCall = async (callId: number) => {
-        if (!confirm('Вы уверены, что хотите удалить этот вызов?')) return;
-
-        try {
-            const token = localStorage.getItem('accessToken');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-            const res = await fetch(`${apiUrl}/api/calls911/${callId}`, {
-                method: 'DELETE',
-                headers: { 
-                    'Authorization': `Bearer ${token}`,
-                    'Cache-Control': 'no-store, no-cache, must-revalidate',
-                    'Pragma': 'no-cache'
-                }
-            });
-
-            if (res.ok) {
-                toast({ title: 'Вызов удален', description: 'Экстренный вызов был удален.' });
-                setSelectedCall(null);
-                fetchData();
-            }
-        } catch (err) {
-            console.error('Failed to delete call', err);
-        }
-    };
+        return () => {
+            socket.off('unit_attached_to_call', handleUnitAttached);
+            socket.off('unit_detached_from_call', handleUnitDetached);
+            socket.off('lead_unit_changed', handleLeadUnitChanged);
+        };
+    }, [socket, isConnected, selectedCall]);
 
     const handleDutyStart = () => {
         if (!callSign.trim()) {
@@ -467,19 +463,16 @@ function DispatcherPageContent() {
         toast({ title: 'Статус диспетчера', description: 'Вы вышли со смены.' });
     };
 
-    // Drag and drop handlers for pair creation - use original units array
+    // Drag and drop handlers for pair creation
     const handleDragStart = (unit: Unit) => {
-        if (!unit.userId || unit.partnerUserId) return; // Can't drag paired units
+        if (!unit.userId || unit.partnerUserId) return;
         setDraggedUnit(unit);
     };
 
     const handleDragOver = (e: React.DragEvent, unit: Unit) => {
         e.preventDefault();
         if (!draggedUnit || draggedUnit.unit === unit.unit) return;
-        
-        // Only allow dropping on non-paired units
         if (!unit.userId || unit.partnerUserId) return;
-        
         setDropTargetUnit(unit);
     };
 
@@ -491,7 +484,6 @@ function DispatcherPageContent() {
         if (!draggedUnit || !targetUnit) return;
         if (draggedUnit.unit === targetUnit.unit) return;
         
-        // Create pair with these two units
         setCreatePairData({
             unit1: draggedUnit,
             unit2: targetUnit,
@@ -508,188 +500,123 @@ function DispatcherPageContent() {
         setDropTargetUnit(null);
     };
 
-    const handleCreatePair = async () => {
-        if (!createPairData?.unit1 || !createPairData?.unit2) return;
-        
-        try {
-            const token = localStorage.getItem('accessToken');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-            
-            const res = await fetch(`${apiUrl}/api/units/create-pair`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({
-                    userId1: createPairData.unit1.userId,
-                    userId2: createPairData.unit2.userId,
-                    pairName: createPairData.pairName || `${createPairData.unit1.unit}-${createPairData.unit2.unit}`,
-                    customCallSign: createPairData.customCallSign || undefined
-                })
-            });
-            
-            if (res.ok) {
-                const data = await res.json();
-                toast({ title: 'Пара создана', description: `Патрульная пара "${data.pairName || createPairData.pairName || 'Без названия'}" создана` });
-                setShowCreatePairModal(false);
-                setCreatePairData(null);
-                fetchData();
-            } else {
-                const data = await res.json();
-                toast({ title: 'Ошибка', description: data.error || 'Не удалось создать пару', variant: 'destructive' });
-            }
-        } catch (err) {
-            console.error('Failed to create pair', err);
-            toast({ title: 'Ошибка', description: 'Не удалось создать пару', variant: 'destructive' });
+    const createPairMutation = useMutation({
+        mutationFn: async (pairData: { userId1: number; userId2: number; pairName: string; customCallSign?: string }) => {
+            const res = await api.post('/api/units/create-pair', pairData);
+            return res.data;
+        },
+        onSuccess: (data, variables) => {
+            toast({ title: 'Пара создана', description: `Патрульная пара "${data.pairName || variables.pairName || 'Без названия'}" создана` });
+            setShowCreatePairModal(false);
+            setCreatePairData(null);
+            refetchUnits();
+        },
+        onError: (error: any) => {
+            toast({ title: 'Ошибка', description: error.response?.data?.error || 'Не удалось создать пару', variant: 'destructive' });
         }
+    });
+
+    const handleCreatePair = () => {
+        if (!createPairData?.unit1 || !createPairData?.unit2) return;
+        createPairMutation.mutate({
+            userId1: createPairData.unit1.userId!,
+            userId2: createPairData.unit2.userId!,
+            pairName: createPairData.pairName || `${createPairData.unit1.unit}-${createPairData.unit2.unit}`,
+            customCallSign: createPairData.customCallSign || undefined
+        });
     };
 
-    const handleCreateCall = async () => {
+    const createCallMutation = useMutation({
+        mutationFn: async (callData: typeof newCallData) => {
+            const res = await api.post('/api/calls911', callData);
+            return res.data;
+        },
+        onSuccess: (data) => {
+            toast({ title: 'Вызов создан', description: `Вызов #${data.id} создан` });
+            setShowCreateCallModal(false);
+            setNewCallData({
+                callerName: '',
+                phoneNumber: '',
+                location: '',
+                description: '',
+                type: 'other',
+                priority: 'routine',
+                isEmergency: false,
+                x: 0,
+                y: 0,
+                z: 0
+            });
+            refetchCalls();
+        },
+        onError: (error: any) => {
+            toast({ title: 'Ошибка', description: error.response?.data?.error || 'Не удалось создать вызов', variant: 'destructive' });
+        }
+    });
+
+    const handleCreateCall = () => {
         if (!newCallData.callerName || !newCallData.location || !newCallData.description) {
             toast({ title: 'Ошибка', description: 'Заполните обязательные поля', variant: 'destructive' });
             return;
         }
-        
-        try {
-            const token = localStorage.getItem('accessToken');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-            
-            const res = await fetch(`${apiUrl}/api/calls911`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify(newCallData)
-            });
-            
-            if (res.ok) {
-                const data = await res.json();
-                toast({ title: 'Вызов создан', description: `Вызов #${data.id} создан` });
-                setShowCreateCallModal(false);
-                setNewCallData({
-                    callerName: '',
-                    phoneNumber: '',
-                    location: '',
-                    description: '',
-                    type: 'other',
-                    priority: 'routine',
-                    isEmergency: false,
-                    x: 0,
-                    y: 0,
-                    z: 0
-                });
-                fetchData();
-            } else {
-                const data = await res.json();
-                toast({ title: 'Ошибка', description: data.error || 'Не удалось создать вызов', variant: 'destructive' });
-            }
-        } catch (err) {
-            console.error('Failed to create call', err);
-            toast({ title: 'Ошибка', description: 'Не удалось создать вызов', variant: 'destructive' });
-        }
+        createCallMutation.mutate(newCallData);
     };
 
-    const handleNoteSubmit = async (callId: number) => {
-        if (!newNoteText.trim()) return;
-
-        try {
-            const token = localStorage.getItem('accessToken');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-            const res = await fetch(`${apiUrl}/api/calls911/${callId}/notes`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                    'Cache-Control': 'no-store, no-cache, must-revalidate',
-                    'Pragma': 'no-cache'
-                },
-                body: JSON.stringify({ 
-                    text: newNoteText,
-                    author: callSign // Use dispatcher callsign
-                })
-            });
-
-            if (res.ok) {
-                setNewNoteText("");
-                fetchData();
-                const updatedCallRes = await fetch(`${apiUrl}/api/calls911/active`, { 
-                    headers: { 
-                        'Authorization': `Bearer ${token}`,
-                        'Cache-Control': 'no-store, no-cache, must-revalidate',
-                        'Pragma': 'no-cache'
-                    } 
-                });
-                if (updatedCallRes.ok) {
-                    const data = await updatedCallRes.json();
-                    const current = data.find((c: any) => c.id === callId);
-                    if (current) setSelectedCall(current);
-                }
-            }
-        } catch (err) {
-            console.error('Failed to add note', err);
+    const addNoteMutation = useMutation({
+        mutationFn: async ({ callId, text, author }: { callId: number; text: string; author: string }) => {
+            const res = await api.post(`/api/calls911/${callId}/notes`, { text, author });
+            return res.data;
+        },
+        onSuccess: async (_, variables) => {
+            setNewNoteText("");
+            await refetchCalls();
+            const calls = queryClient.getQueryData(['calls911', 'active']) as Call911[];
+            const current = calls?.find((c: any) => c.id === variables.callId);
+            if (current) setSelectedCall(current);
+        },
+        onError: (error: any) => {
+            console.error('Failed to add note', error);
+            toast({ title: 'Ошибка', description: 'Не удалось добавить заметку', variant: 'destructive' });
         }
+    });
+
+    const handleNoteSubmit = (callId: number) => {
+        if (!newNoteText.trim()) return;
+        addNoteMutation.mutate({ callId, text: newNoteText, author: callSign });
     };
 
     const handleSearch = async () => {
         if (!searchQuery.trim()) return;
-        
+
         setIsSearching(true);
         setSearchError(null);
-        
-        const searchId = 'search_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        console.log('[DISPATCHER SEARCH] ' + searchId + ' Starting search');
-        
+
         try {
-            const token = localStorage.getItem('accessToken');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-            
             let endpoint = '';
             const body: any = {};
-            
+
             if (searchType === 'person') {
                 const parts = searchQuery.split(' ');
-                endpoint = `${apiUrl}/api/dispatcher/search/person`;
+                endpoint = '/api/dispatcher/search/person';
                 body.firstName = parts[0] || '';
                 body.lastName = parts[1] || '';
                 body.ssn = parts[2] || '';
             } else if (searchType === 'vehicle') {
-                endpoint = `${apiUrl}/api/dispatcher/search/vehicle`;
+                endpoint = '/api/dispatcher/search/vehicle';
                 body.plate = searchQuery;
             } else if (searchType === 'weapon') {
-                endpoint = `${apiUrl}/api/dispatcher/search/weapon`;
+                endpoint = '/api/dispatcher/search/weapon';
                 body.serialNumber = searchQuery;
             }
-            
-            console.log('[DISPATCHER SEARCH] endpoint:', endpoint);
-            
-            const res = await fetch(endpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + token,
-                    'X-Request-ID': searchId
-                },
-                body: JSON.stringify(body)
-            });
-            
-            console.log('[DISPATCHER SEARCH] ' + searchId + ' Response status:', res.status);
-            console.log('[DISPATCHER SEARCH] ' + searchId + ' Response headers:', 
-                Object.fromEntries([...res.headers.entries()]));
-            
-            if (res.ok) {
-                const data = await res.json();
-                console.log('[DISPATCHER SEARCH] ' + searchId + ' Data received:', data);
-                setSearchResults(Array.isArray(data) ? data : [data]);
-                if (data && data.length > 0) {
-                    playSound('search_success');
-                    setSearchError(null);
-                } else {
-                    playSound('search_error');
-                    setSearchError('Ничего не найдено');
-                }
+
+            const res = await api.post(endpoint, body);
+
+            setSearchResults(Array.isArray(res.data) ? res.data : [res.data]);
+            if (res.data && res.data.length > 0) {
+                playSound('search_success');
+                setSearchError(null);
             } else {
-                const errorText = await res.text();
-                console.error('[DISPATCHER SEARCH] error:', errorText);
-                setSearchResults([]);
-                setSearchError('Ошибка поиска: ' + res.status);
                 playSound('search_error');
+                setSearchError('Ничего не найдено');
             }
         } catch (err) {
             console.error('[DISPATCHER SEARCH] exception:', err);
@@ -697,50 +624,31 @@ function DispatcherPageContent() {
             setSearchError('Ошибка поиска');
         } finally {
             setIsSearching(false);
-            console.log('[DISPATCHER SEARCH] completed');
         }
     };
 
     const handleSendMessageToUnit = async () => {
         if (!messageText.trim() || !messageUnit) return;
-        
+
         try {
-            const token = localStorage.getItem('accessToken');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-            
-            const res = await fetch(`${apiUrl}/api/dispatcher/message-unit`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + token,
-                    'Cache-Control': 'no-store, no-cache, must-revalidate',
-                    'Pragma': 'no-cache'
-                },
-                body: JSON.stringify({
-                    characterId: messageUnit.characterId || null,
-                    userId: messageUnit.userId || null,
-                    message: messageText,
-                    from: callSign
-                })
+            await api.post('/api/dispatcher/message-unit', {
+                characterId: messageUnit.characterId || null,
+                userId: messageUnit.userId || null,
+                message: messageText,
+                from: callSign
             });
-            
-            if (res.ok) {
-                toast({ title: 'Сообщение отправлено', description: 'Сообщение отправлено юниту ' + messageUnit.unit });
-                playSound('notification');
-                setMessageText("");
-                setShowMessageModal(false);
-                setMessageUnit(null);
-            } else {
-                const data = await res.json();
-                toast({ title: 'Ошибка', description: data.error || 'Не удалось отправить сообщение', variant: 'destructive' });
-            }
+
+            toast({ title: 'Сообщение отправлено', description: 'Сообщение отправлено юниту ' + messageUnit.unit });
+            playSound('notification');
+            setMessageText("");
+            setShowMessageModal(false);
+            setMessageUnit(null);
         } catch (err) {
             console.error('Failed to send message', err);
             toast({ title: 'Ошибка', description: 'Не удалось отправить сообщение', variant: 'destructive' });
         }
     };
 
-    // Helper function to render status badge
     const renderStatusBadge = (status: string) => {
         const statusConfig: Record<string, { label: string; color: string }> = {
             'pending': { label: 'ОЖИДАЕТ', color: 'bg-amber-500/20 text-amber-500' },
@@ -756,7 +664,6 @@ function DispatcherPageContent() {
         return <span className="px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-zinc-500/20 text-zinc-500">{status}</span>;
     };
 
-    // Helper function to render unit status badge
     const renderUnitStatusBadge = (status: string) => {
         const statusClasses: Record<string, string> = {
             'Available': 'bg-green-500/20 text-green-400',
@@ -793,7 +700,7 @@ function DispatcherPageContent() {
                                 Консоль Диспетчера {callSign ? `[${callSign}]` : ''} - {units.filter(u => u.status === 'Available').length} Активных Юнитов / {calls.length} Вызовов
                             </span>
                             <div className="flex gap-2">
-                                <Button variant="outline" size="sm" onClick={fetchData} className="h-8 bg-zinc-800/50 border-zinc-700">
+                                <Button variant="outline" size="sm" onClick={() => { refetchUnits(); refetchCalls(); }} className="h-8 bg-zinc-800/50 border-zinc-700">
                                     <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
                                 </Button>
                                 <Button variant="outline" size="sm" onClick={handleGoOffDuty} className="h-8 bg-zinc-800/50 border-red-900/50 text-red-400 hover:bg-red-950/30">
@@ -966,7 +873,7 @@ function DispatcherPageContent() {
                                                                                         <div className="flex flex-col">
                                                                                             <span className="text-xs font-bold text-white">{u.partnerOfficer}</span>
                                                                                             <span className="text-[10px] text-zinc-500">@{u.partnerUser?.username || 'user'}</span>
-                                                                        </div>
+                                                                                        </div>
                                                                                     </div>
                                                                                 </div>
                                                                             </TooltipContent>
@@ -1049,7 +956,6 @@ function DispatcherPageContent() {
                                                     </div>
                                                 </div>
 
-                                                {/* Assigned Units */}
                                                 {selectedCall.units && selectedCall.units.length > 0 && (
                                                     <div className="space-y-2 pt-2 border-t border-zinc-800">
                                                         <Label className="text-[10px] uppercase text-zinc-500">Прикреплённые юниты</Label>
@@ -1085,7 +991,7 @@ function DispatcherPageContent() {
                                                         </div>
                                                     </div>
                                                 )}
-                                                {/* Status Selector */}
+                                                
                                                 <div className="pt-2 relative">
                                                     <Label className="text-[10px] uppercase text-zinc-500">Статус</Label>
                                                     <div className="relative">
@@ -1213,6 +1119,7 @@ function DispatcherPageContent() {
                                         <p className="text-xs text-zinc-600 italic">Выберите юнит для управления</p>
                                     )}
                                 </div>
+                                
                                 <div className="rounded-lg border border-zinc-700 p-3 bg-zinc-900/40">
                                     <span className="text-xs font-medium text-zinc-400 block mb-2">Быстрый поиск NCIC</span>
                                     <div className="space-y-2">
@@ -1555,9 +1462,8 @@ function DispatcherPageContent() {
                                     </div>
                                 </div>
                             )}
-
-                            <Button variant="outline" className="w-full" onClick={() => setSelectedCharacter(null)}>Закрыть</Button>
                         </div>
+                        <Button variant="outline" className="w-full" onClick={() => setSelectedCharacter(null)}>Закрыть</Button>
                     </div>
                 </div>
             )}
@@ -1576,7 +1482,6 @@ function DispatcherPageContent() {
                             </div>
                             
                             <div className="flex items-center justify-center gap-0">
-                                {/* Unit 1 */}
                                 <div className="flex flex-col items-center">
                                     <div className="w-20 h-20 rounded-full overflow-hidden bg-zinc-800 border-2 border-blue-500/50 mb-2">
                                         {createPairData.unit1?.user?.avatarUrl ? (
@@ -1590,14 +1495,12 @@ function DispatcherPageContent() {
                                     <p className="text-xs text-blue-400 font-bold mt-1">{createPairData.unit1?.unit}</p>
                                 </div>
                                 
-                                {/* Plus */}
                                 <div className="mx-4 -mt-8">
                                     <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
                                         <span className="text-white font-bold text-xl">+</span>
                                     </div>
                                 </div>
                                 
-                                {/* Unit 2 */}
                                 <div className="flex flex-col items-center">
                                     <div className="w-20 h-20 rounded-full overflow-hidden bg-zinc-800 border-2 border-blue-500/50 mb-2">
                                         {createPairData.unit2?.user?.avatarUrl ? (

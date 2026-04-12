@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/utils";
@@ -236,7 +236,7 @@ export function UISettingsProvider({ children }: { children: React.ReactNode }) 
         }, 700);
     }, [hydrated, isAuthenticated, profiles]);
 
-    const setSettings = (next: Partial<UISettings>) => {
+    const setSettings = useCallback((next: Partial<UISettings>) => {
         setProfiles((prev) => ({
             ...prev,
             [profileKey]: {
@@ -244,9 +244,9 @@ export function UISettingsProvider({ children }: { children: React.ReactNode }) 
                 settings: { ...activeProfile.settings, ...next },
             },
         }));
-    };
+    }, [profileKey, activeProfile.settings]);
 
-    const setEnabled = (next: boolean) => {
+    const setEnabled = useCallback((next: boolean) => {
         setProfiles((prev) => ({
             ...prev,
             [profileKey]: {
@@ -254,15 +254,15 @@ export function UISettingsProvider({ children }: { children: React.ReactNode }) 
                 settings: activeProfile.settings,
             },
         }));
-    };
+    }, [profileKey, activeProfile.settings]);
 
-    const reset = () => {
+    const reset = useCallback(() => {
         setProfiles((prev) => {
             const copy = { ...prev };
             delete copy[profileKey];
             return copy;
         });
-    };
+    }, [profileKey]);
 
     const value = useMemo(
         () => ({
@@ -273,7 +273,7 @@ export function UISettingsProvider({ children }: { children: React.ReactNode }) 
             reset,
             profileKey,
         }),
-        [activeProfile, profileKey, setSettings, setEnabled, reset]
+        [activeProfile, profileKey]
     );
 
     return <UISettingsContext.Provider value={value}>{children}</UISettingsContext.Provider>;

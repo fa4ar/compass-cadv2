@@ -240,6 +240,20 @@ router.post('/create-call', validateCallCoordinates, async (req: Request, res: R
         // Emit to all clients
         const { getIO } = await import('../lib/socket');
         const io = getIO();
+        io.emit('new_911_call', {
+            ...newCall,
+            type: newCall.type || 'other',
+            callType: newCall.callType || 'police',
+            priority: newCall.priority || 'routine',
+            isEmergency: newCall.isEmergency,
+            createdAt: newCall.createdAt.getTime(),
+            phoneNumber: newCall.phoneNumber,
+            x: newCall.x,
+            y: newCall.y,
+            z: newCall.z,
+            units: [],
+            mainUnitId: null
+        });
         io.emit('calls_updated', [newCall]);
 
         res.json({ success: true, call: newCall });

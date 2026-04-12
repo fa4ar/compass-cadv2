@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api } from '@/lib/axios';
 import {
   User,
   RefreshCw,
@@ -126,20 +128,31 @@ export default function CitizenPage() {
     isLoading: authLoading,
   } = useAuth();
   const router = useRouter();
-  const [characters, setCharacters] = useState<Character[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  // Tanstack Query для characters
+  const { data: characters = [], isLoading: charactersLoading, refetch: refetchCharacters } = useQuery({
+    queryKey: ['characters'],
+    queryFn: async () => {
+      const res = await api.get('/api/characters');
+      return Array.isArray(res.data) ? res.data : [];
+    },
+    refetchInterval: false,
+  });
+
+  // Tanstack Query для departments
+  const { data: departments = [], isLoading: departmentsLoading, refetch: refetchDepartments } = useQuery({
+    queryKey: ['departments'],
+    queryFn: async () => {
+      const res = await api.get('/api/departments');
+      return Array.isArray(res.data) ? res.data : [];
+    },
+    refetchInterval: false,
+  });
+
+  const isLoading = charactersLoading || departmentsLoading;
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (isLoading) {
-        setIsLoading(false);
-        setError("Превышен таймаут загрузки данных");
-      }
-    }, 10000);
-    return () => clearTimeout(timeout);
-  }, [isLoading]);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showCallModal, setShowCallModal] = useState(false);
@@ -151,7 +164,6 @@ export default function CitizenPage() {
   const [showDepartmentModal, setShowDepartmentModal] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [showViewVehicleModal, setShowViewVehicleModal] = useState(false);
-  const [departments, setDepartments] = useState<Department[]>([]);
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -276,62 +288,6 @@ export default function CitizenPage() {
     }
   };
 
-  const fetchCharacters = async () => {
-    try {
-      const token = localStorage.getItem("accessToken");
-      if (!token) {
-        router.replace("/auth/login");
-        return;
-      }
-
-      const apiUrl = getApiUrl();
-
-      const res = await fetchWithTimeout(`${apiUrl}/api/characters`, {
-        headers: { Authorization: `Bearer ${token}` },
-        timeout: 8000,
-        retries: 2,
-        retryDelay: 1000,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setCharacters(data);
-        setError(null);
-      } else if (res.status === 401) {
-        localStorage.removeItem("accessToken");
-        router.replace("/auth/login");
-        return;
-      } else {
-        setError(`Ошибка загрузки персонажей (${res.status})`);
-      }
-    } catch (err: any) {
-      setError(`Ошибка сети: ${err.message}`);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  };
-
-  const fetchDepartments = async () => {
-    try {
-      const token = localStorage.getItem("accessToken");
-      if (!token) return;
-
-      const apiUrl = getApiUrl();
-
-      const res = await fetchWithTimeout(`${apiUrl}/api/departments`, {
-        headers: { Authorization: `Bearer ${token}` },
-        timeout: 5000,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setDepartments(data);
-      }
-    } catch (err) {
-      console.error("Failed to load departments", err);
-    }
-  };
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
@@ -355,8 +311,8 @@ export default function CitizenPage() {
       return;
     }
 
-    fetchCharacters();
-    fetchDepartments();
+    refetchCharacters();
+    refetchDepartments();
   }, [authLoading, isAuthenticated, user?.isBanned]);
 
   useEffect(() => {
@@ -367,7 +323,9 @@ export default function CitizenPage() {
 
   const handleRefresh = () => {
     setIsRefreshing(true);
-    fetchCharacters();
+    refetchCharacters();
+    refetchDepartments();
+    setTimeout(() => setIsRefreshing(false), 500);
   };
 
   const handleInputChange = (
@@ -380,24 +338,9 @@ export default function CitizenPage() {
   const handleCreateSubmit = async () => {
     setIsSubmitting(true);
     try {
-      const token = localStorage.getItem("accessToken");
-      if (!token) {
-        router.replace("/auth/login");
-        return;
-      }
+      const res = await api.post('/api/characters/create', formData);
 
-      const apiUrl = getApiUrl();
-
-      const res = await fetch(`${apiUrl}/api/characters/create`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (res.ok) {
+      if (res.status === 201) {
         toast({
           title: "Персонаж создан",
           description: `${formData.firstName} ${formData.lastName}`,
@@ -416,12 +359,18 @@ export default function CitizenPage() {
           description: "",
           photoUrl: "",
         });
-        fetchCharacters();
+        refetchCharacters();
       } else if (res.status === 401) {
         localStorage.removeItem("accessToken");
         router.replace("/auth/login");
+      } else {
+        toast({
+          title: "Ошибка",
+          description: res.data?.error || "Не удалось создать персонажа",
+          variant: "destructive",
+        });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to create character", err);
       toast({
         title: "Ошибка",
@@ -433,27 +382,12 @@ export default function CitizenPage() {
     }
   };
 
-  const handleCall911Submit = async () => {
+  const handleCallSubmit = async () => {
     setIsSubmitting(true);
     try {
-      const token = localStorage.getItem("accessToken");
-      if (!token) {
-        router.replace("/auth/login");
-        return;
-      }
+      const res = await api.post('/api/calls911/create', callForm);
 
-      const apiUrl = getApiUrl();
-
-      const res = await fetch(`${apiUrl}/api/calls911/create`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(callForm),
-      });
-
-      if (res.ok) {
+      if (res.status === 201) {
         toast({
           title: "Вызов отправлен",
           description: "Вызов 911 успешно размещен",
@@ -471,10 +405,9 @@ export default function CitizenPage() {
         localStorage.removeItem("accessToken");
         router.replace("/auth/login");
       } else {
-        const data = await res.json();
         toast({
           title: "Ошибка",
-          description: data.error || "Не удалось отправить вызов 911",
+          description: res.data?.error || "Не удалось отправить вызов 911",
           variant: "destructive",
         });
       }
@@ -876,7 +809,7 @@ export default function CitizenPage() {
           variant: "success",
         });
         setShowEditModal(false);
-        fetchCharacters();
+        refetchCharacters();
       } else if (res.status === 401) {
         localStorage.removeItem("accessToken");
         router.replace("/auth/login");
@@ -929,7 +862,7 @@ export default function CitizenPage() {
           variant: "success",
         });
         setShowViewModal(false);
-        fetchCharacters();
+        refetchCharacters();
       } else if (res.status === 401) {
         localStorage.removeItem("accessToken");
         router.replace("/auth/login");
@@ -1012,7 +945,7 @@ export default function CitizenPage() {
           variant: "success",
         });
         setShowDepartmentModal(false);
-        fetchCharacters();
+        refetchCharacters();
       } else if (res.status === 401) {
         localStorage.removeItem("accessToken");
         router.replace("/auth/login");
@@ -1062,8 +995,7 @@ export default function CitizenPage() {
                 variant="outline"
                 onClick={() => {
                   setError(null);
-                  setIsLoading(true);
-                  fetchCharacters();
+                  refetchCharacters();
                 }}
                 className="bg-zinc-900/50 border-zinc-700 hover:bg-zinc-800"
               >
@@ -1410,18 +1342,12 @@ export default function CitizenPage() {
               <Button
                 variant="ghost"
                 onClick={() => setShowCallModal(false)}
-                className="text-zinc-400"
+                className="bg-zinc-800 hover:bg-zinc-700 px-6"
               >
-                Cancel
+                Отмена
               </Button>
               <Button
-                onClick={handleCall911Submit}
-                disabled={
-                  isSubmitting ||
-                  !callForm.callerName ||
-                  !callForm.location ||
-                  !callForm.description
-                }
+                onClick={handleCallSubmit}
                 className="bg-red-600 hover:bg-red-500 px-6"
               >
                 {isSubmitting && (

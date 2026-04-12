@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api } from '@/lib/axios';
 import { Shield, Users, FileSearch, Laptop, Map, AlertTriangle, Search, Navigation, MapPinned, ArrowRightLeft, CheckCircle, BarChart3, MessageCircle, PlusSquare, Ambulance, Clock, Car, Footprints, Siren, X, User, LogOut, MapPin, Send, Loader2, UserPlus, UserMinus, Receipt, AlertCircle, DollarSign, RefreshCw, Settings2, Maximize2, Move } from 'lucide-react';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
@@ -113,10 +115,45 @@ export default function PolicePage() {
 function PolicePageContent() {
     const { user } = useAuth();
     const { socket, isConnected } = useSocket();
-    const [units, setUnits] = useState<Unit[]>([]);
-    const [calls, setCalls] = useState<any[]>([]);
-    const [characters, setCharacters] = useState<Character[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const queryClient = useQueryClient();
+
+    // Tanstack Query для units
+    const { data: units = [], isLoading: unitsLoading, refetch: refetchUnits } = useQuery({
+        queryKey: ['units'],
+        queryFn: async () => {
+            const res = await api.get('/api/units');
+            return Array.isArray(res.data) ? res.data : [];
+        },
+        refetchInterval: false,
+    });
+
+    // Tanstack Query для calls
+    const { data: allCalls = [], isLoading: callsLoading, refetch: refetchCalls } = useQuery({
+        queryKey: ['calls911', 'active'],
+        queryFn: async () => {
+            const res = await api.get('/api/calls911/active');
+            const callsArray = Array.isArray(res.data) ? res.data : (res.data.calls || []);
+            return callsArray.filter((c: any) =>
+                c.callType === 'police' || c.callType === undefined || !c.callType
+            );
+        },
+        refetchInterval: false,
+    });
+
+    // Tanstack Query для characters
+    const { data: allCharacters = [], isLoading: charactersLoading, refetch: refetchCharacters } = useQuery({
+        queryKey: ['characters'],
+        queryFn: async () => {
+            const res = await api.get('/api/characters');
+            const chars = Array.isArray(res.data) ? res.data : [];
+            return chars.filter((c: Character) =>
+                c.departmentMembers?.some(m => m.isActive && m.department?.type === 'police')
+            );
+        },
+        refetchInterval: false,
+    });
+
+    const isLoading = unitsLoading || callsLoading || charactersLoading;
     const [activeTab, setActiveTab] = useState<string>("Статус юнитов");
     const [notes, setNotes] = useState<string>("");
     const [showDutyModal, setShowDutyModal] = useState(false);
@@ -236,7 +273,7 @@ function PolicePageContent() {
     const [isEditMode, setIsEditMode] = useState(false);
     const [layout, setLayout] = useState<any>({
         unitsTable: { x: 0, y: 0, width: 800, height: 400 },
-        callsTable: { x: 0, y: 410, width: 800, height: 300 },
+        allCallsTable: { x: 0, y: 410, width: 800, height: 300 },
         actionsPanel: { x: 810, y: 0, width: 224, height: 500 }
     });
 
@@ -262,7 +299,9 @@ function PolicePageContent() {
     };
 
     useEffect(() => {
-        fetchData();
+        refetchUnits();
+        refetchCalls();
+        refetchCharacters();
         checkActiveUnit();
 
         // Check shift status for active call card display (disabled due to 401 error)
@@ -313,20 +352,20 @@ function PolicePageContent() {
             console.log('[SOCKET] isPoliceCall:', isPoliceCall);
             if (isPoliceCall) {
                 console.log('[SOCKET] Adding call to state');
-                setCalls(prev => Array.isArray(prev) ? [newCall, ...prev] : [newCall]);
+                queryClient.setQueryData(['calls911', 'active'], (prev: any[] = []) => [newCall, ...prev]);
                 playSound('new_call_911').then(() => console.log('[Police] Sound played')).catch(e => console.error('[Police] Sound error:', e));
             } else {
                 console.log('[SOCKET] Skipping non-police call');
             }
         });
 
-        socket.on('calls_updated', (calls: any[]) => {
-            console.log('[SOCKET] calls_updated received:', calls);
-            // Accept all calls for now to ensure real-time updates work
-            const callsArray = Array.isArray(calls) ? calls : [];
-            setCalls(prev => {
+        socket.on('allCalls_updated', (allCalls: any[]) => {
+            console.log('[SOCKET] allCalls_updated received:', allCalls);
+            // Accept all allCalls for now to ensure real-time updates work
+            const allCallsArray = Array.isArray(allCalls) ? allCalls : [];
+            queryClient.setQueryData(['calls911', 'active'], (prev: any[] = []) => {
                 const existingIds = new Set(prev.map(c => c.id));
-                const newCalls = callsArray.filter(c => !existingIds.has(c.id));
+                const newCalls = allCallsArray.filter(c => !existingIds.has(c.id));
                 return [...newCalls, ...prev];
             });
         });
@@ -336,14 +375,14 @@ function PolicePageContent() {
             // Accept police, emergency, and undefined call types
             const isPoliceCall = updatedCall.callType === 'police' || updatedCall.callType === 'emergency' || !updatedCall.callType;
             if (!isPoliceCall) return;
-            
-            setCalls(prev => Array.isArray(prev) ? prev.map(c => c.id === updatedCall.id ? updatedCall : c) : [updatedCall]);
+
+            queryClient.setQueryData(['calls911', 'active'], (prev: any[] = []) => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
             // Update selected call modal with units if present
             setSelectedCallForNotes((prev: any) => {
                 if (prev?.id === updatedCall.id) {
-                    return { 
-                        ...updatedCall, 
-                        units: updatedCall.units || prev.units 
+                    return {
+                        ...updatedCall,
+                        units: updatedCall.units || prev.units
                     };
                 }
                 return prev;
@@ -351,12 +390,12 @@ function PolicePageContent() {
         });
 
         socket.on('new_911_note', ({ callId, note }: { callId: number, note: any }) => {
-            setCalls(prev => Array.isArray(prev) ? prev.map(c => {
+            queryClient.setQueryData(['calls911', 'active'], (prev: any[] = []) => prev.map(c => {
                 if (c.id === callId) {
                     return { ...c, notes: [...(c.notes || []), note] };
                 }
                 return c;
-            }) : []);
+            }));
             setSelectedCallForNotes((prev: any) => {
                 if (prev?.id === callId) {
                     return { ...prev, notes: [...(prev.notes || []), note] };
@@ -366,7 +405,7 @@ function PolicePageContent() {
         });
 
         socket.on('delete_911_call', ({ id }: { id: number }) => {
-            setCalls(prev => Array.isArray(prev) ? prev.filter(c => c.id !== id) : []);
+            queryClient.setQueryData(['calls911', 'active'], (prev: any[] = []) => prev.filter(c => c.id !== id));
             setSelectedCallForNotes((prev: any) => (prev?.id === id ? null : prev));
         });
 
@@ -381,12 +420,13 @@ function PolicePageContent() {
         });
 
         socket.on('unit_unassigned', () => {
-            fetchData();
+            refetchUnits();
+            refetchCalls();
         });
 
         const handleCallUpdate = (data: any) => {
             if (!data || !data.callId) return;
-            setCalls(prev => Array.isArray(prev) ? prev.map(c => c.id === data.callId ? { ...c, ...data.call } : c) : []);
+            queryClient.setQueryData(['calls911', 'active'], (prev: any[] = []) => prev.map(c => c.id === data.callId ? { ...c, ...data.call } : c));
             if (selectedCallForNotes?.id === data.callId) {
                 setSelectedCallForNotes(prev => prev ? { ...prev, ...data.call } : null);
             }
@@ -397,10 +437,10 @@ function PolicePageContent() {
             console.log('[SOCKET] unit_attached_to_call:', data);
             playSound('notification');
             toast({ title: data.isLeadUnit ? 'Новый главный юнит' : 'Юнит прикреплен', description: `${data.unitCallSign} прикреплен к вызову #${data.callId}${data.isLeadUnit ? ' (ГЛАВНЫЙ)' : ''}` });
-            
+
             handleCallUpdate({ callId: data.callId, call: { status: data.call?.status, mainUnitId: data.call.mainUnitId, units: data.call.units } });
 
-            setCalls(prev => Array.isArray(prev) ? prev.map(c => {
+            queryClient.setQueryData(['calls911', 'active'], (prev: any[] = []) => prev.map(c => {
                 if (c.id === data.callId) {
                     return {
                         ...c,
@@ -410,8 +450,8 @@ function PolicePageContent() {
                     };
                 }
                 return c;
-            }) : []);
-            
+            }));
+
             // Update currentUnit.callId if the attached unit is the current user
             if (currentUnit?.userId === data.userId) {
                 setCurrentUnit(prev => prev ? { ...prev, callId: data.callId } : null);
@@ -421,7 +461,8 @@ function PolicePageContent() {
         socket.on('unit_assigned', (data: { userId: number; callId: number; unitCallSign: string }) => {
             playSound('notification');
             toast({ title: 'Прикреплен к вызову', description: `Юнит ${data.unitCallSign} прикреплен к вызову #${data.callId}` });
-            fetchData();
+            refetchUnits();
+            refetchCalls();
         });
 
         socket.on('call_assigned_to_unit', (data: { userId: number; call: any }) => {
@@ -430,7 +471,7 @@ function PolicePageContent() {
         });
 
         socket.on('unit_status_changed', (data: { userId: number; status: string; unitCallSign: string }) => {
-            setUnits(prev => prev.map(u => u.userId === data.userId ? { ...u, status: data.status } : u));
+            queryClient.setQueryData(['units'], (prev: Unit[] = []) => prev.map(u => u.userId === data.userId ? { ...u, status: data.status } : u));
             setCurrentUnit(prev => {
                 if (prev?.userId === data.userId) {
                     return { ...prev, status: data.status };
@@ -440,11 +481,11 @@ function PolicePageContent() {
         });
 
         socket.on('unit_on_duty', () => {
-            fetchData();
+            refetchUnits();
         });
 
         socket.on('unit_off_duty', (data: { userId: number }) => {
-            fetchData();
+            refetchUnits();
             if (user?.id === data.userId) {
                 setOnDuty(false);
                 setCurrentUnit(null);
@@ -452,44 +493,49 @@ function PolicePageContent() {
         });
 
         socket.on('unit_pair_update', () => {
-            fetchData();
+            refetchUnits();
         });
 
         socket.on('pair_invite', (data: { fromUserId: number; fromCallSign: string }) => {
             playSound('notification');
             setPairInviteData(data);
             setShowPairInviteModal(true);
-            toast({ 
-                title: 'Приглашение в пару', 
+            toast({
+                title: 'Приглашение в пару',
                 description: `${data.fromCallSign} пригласил вас в патрульную пару.`,
-                duration: 10000 
+                duration: 10000
             });
         });
 
         socket.on('pair_formed', () => {
-            fetchData();
+            refetchUnits();
+            refetchCalls();
+            refetchCharacters();
             toast({ title: 'Пара создана', description: 'Вы теперь в патрульной паре' });
         });
 
         socket.on('pair_disbanded', () => {
-            fetchData();
+            refetchUnits();
+            refetchCalls();
+            refetchCharacters();
             toast({ title: 'Пара расформирована', description: 'Патрульная пара была разделена' });
         });
 
         return () => {
             socket.off('new_911_call');
-            socket.off('calls_updated');
+            socket.off('allCalls_updated');
             socket.off('update_911_call');
             socket.off('new_911_note');
             socket.off('delete_911_call');
             socket.off('dispatcher_message');
             socket.off('supervisor_message');
             socket.off('unit_unassigned');
-            socket.off('unit_assigned');
             socket.off('unit_attached_to_call');
-            socket.off('unit_detached_from_call');
-            socket.off('lead_unit_changed');
+            socket.off('unit_assigned');
+            socket.off('call_assigned_to_unit');
             socket.off('unit_status_changed');
+            socket.off('unit_on_duty');
+            socket.off('unit_off_duty');
             socket.off('unit_pair_update');
             socket.off('pair_invite');
             socket.off('pair_formed');
@@ -508,127 +554,33 @@ function PolicePageContent() {
         localStorage.setItem('policeNotes', val);
     };
 
-    const checkActiveUnit = async () => {
-        try {
-            const token = localStorage.getItem('accessToken');
-            if (!token) return;
-
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-            const res = await fetch(`${apiUrl}/api/units/me`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-
-            if (res.ok) {
-                const unitData = await res.json();
-                if (unitData) {
-                    setCurrentUnit(unitData);
-                    setSelectedCharacter(unitData.characterId);
-                    setCurrentMember(unitData.departmentMember);
-                    setCallSign(unitData.callSign || "");
-                    setSubdivision(unitData.subdivision || "");
-                    setOnDuty(true);
-                }
-            }
-        } catch (err) {
-            console.error('Failed to check active unit', err);
-        }
-    };
-
-    const fetchData = async () => {
-        const currentSelectedId = selectedCallForNotes?.id;
-        setIsLoading(true);
-        try {
-            const token = localStorage.getItem('accessToken');
-            if (!token) return;
-
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-            const [unitsRes, callsRes, charsRes] = await Promise.all([
-                fetch(`${apiUrl}/api/units`, { headers: { 'Authorization': `Bearer ${token}` } }),
-                fetch(`${apiUrl}/api/calls911/active`, { headers: { 'Authorization': `Bearer ${token}` } }),
-                fetch(`${apiUrl}/api/characters`, { headers: { 'Authorization': `Bearer ${token}` } })
-            ]);
-
-            if (unitsRes.ok) {
-                const data = await unitsRes.json();
-                setUnits(data);
-            }
-            if (callsRes.ok) {
-                const data = await callsRes.json();
-                const callsArray = Array.isArray(data) ? data : (data.calls || []);
-                const policeCalls = callsArray.filter((c: any) =>
-                    c.callType === 'police' || c.callType === undefined || !c.callType
-                );
-                setCalls(policeCalls);
-                if (currentSelectedId) {
-                    const updatedCall = callsArray.find((c: any) => c.id === currentSelectedId);
-                    if (updatedCall) {
-                        setSelectedCallForNotes(updatedCall);
-                    }
-                }
-            }
-            if (charsRes.ok) {
-                const data = await charsRes.json();
-                const policeChars = data.filter((c: Character) =>
-                    c.departmentMembers?.some(m => m.isActive && m.department?.type === 'police')
-                );
-                setCharacters(policeChars);
-                
-                // Auto-select if only one character exists
-                if (policeChars.length === 1 && !selectedCharacter) {
-                    setSelectedCharacter(String(policeChars[0].id));
-                }
-            }
-        } catch (err) {
-            console.error('Failed to fetch data', err);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
     const handleDutyStart = async () => {
         setIsSubmitting(true);
         try {
             const token = localStorage.getItem('accessToken');
             if (!token) return;
 
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-            const char = characters.find(c => String(c.id) === String(selectedCharacter));
+            const char = allCharacters.find(c => String(c.id) === String(selectedCharacter));
             const member = char?.departmentMembers?.find(m => m.isActive && m.department?.type === 'police');
 
-            const res = await fetch(`${apiUrl}/api/units`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    characterId: selectedCharacter ? parseInt(selectedCharacter) : null,
-                    departmentMemberId: member?.id || null,
-                    callSign,
-                    subdivision
-                })
+            const res = await api.post('/api/units', {
+                characterId: selectedCharacter ? parseInt(selectedCharacter) : null,
+                callSign,
+                subdivision
             });
 
-            if (res.ok) {
-                const unitData = await res.json();
-                setCurrentUnit(unitData);
+            setCurrentUnit(res.data);
 
-                // Find and set the member that went on duty
-                const activeChar = characters.find(c => String(c.id) === String(selectedCharacter));
-                const activeMember = activeChar?.departmentMembers?.find(m => m.isActive && m.department?.type === 'police');
-                if (activeMember) setCurrentMember(activeMember);
+            // Find and set the member that went on duty
+            const activeChar = allCharacters.find(c => String(c.id) === String(selectedCharacter));
+            const activeMember = activeChar?.departmentMembers?.find(m => m.isActive && m.department?.type === 'police');
+            if (activeMember) setCurrentMember(activeMember);
 
-                setOnDuty(true);
-                setShowDutyModal(false);
-                playSound('notification');
-                toast({ title: 'На смене', description: `Вы вышли на смену как ${unitData.unit}` });
-                fetchData();
-            } else {
-                const data = await res.json();
-                toast({ title: 'Ошибка', description: data.error || 'Не удалось начать смену', variant: 'destructive' });
-            }
+            setOnDuty(true);
+            setShowDutyModal(false);
+            playSound('notification');
+            toast({ title: 'На смене', description: `Вы вышли на смену как ${res.data.unit}` });
+            refetchUnits(); refetchCalls(); refetchCharacters();
         } catch (err) {
             console.error('Failed to start duty', err);
             toast({ title: 'Ошибка', description: 'Не удалось начать смену', variant: 'destructive' });
@@ -637,42 +589,51 @@ function PolicePageContent() {
         }
     };
 
+    const checkActiveUnit = async () => {
+        try {
+            const token = localStorage.getItem('accessToken');
+            if (!token) return;
+
+            const res = await api.get('/api/units/me');
+            setCurrentUnit(res.data);
+
+            if (res.data) {
+                setOnDuty(true);
+                const char = allCharacters.find(c => String(c.id) === String(res.data.characterId));
+                const member = char?.departmentMembers?.find(m => m.isActive && m.department?.type === 'police');
+                if (member) setCurrentMember(member);
+                setCallSign(res.data.callSign || '');
+                setSubdivision(res.data.subdivision || '');
+            }
+        } catch (err) {
+            console.error('Failed to check active unit', err);
+        }
+    };
+
     const handleCallNoteSubmit = async (callId: number) => {
         if (!newCallNoteText.trim()) return;
 
         try {
-            const token = localStorage.getItem('accessToken');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-            const res = await fetch(`${apiUrl}/api/calls911/${callId}/notes`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    text: newCallNoteText,
-                    author: callSign // Use callsign as author
-                })
+            const res = await api.post(`/api/calls911/${callId}/notes`, {
+                text: newCallNoteText,
+                author: callSign
             });
 
-            if (res.ok) {
-                const newNote = await res.json();
-                setNewCallNoteText("");
-                // Update local state immediately for instant feedback
-                setSelectedCallForNotes((prev: any) => {
-                    if (prev?.id === callId) {
-                        return { ...prev, notes: [...(prev.notes || []), newNote] };
-                    }
-                    return prev;
-                });
-                setCalls(prev => Array.isArray(prev) ? prev.map(c => {
-                    if (c.id === callId) {
-                        return { ...c, notes: [...(c.notes || []), newNote] };
-                    }
-                    return c;
-                }) : []);
-            }
+            const newNote = res.data;
+            setNewCallNoteText("");
+            // Update local state immediately for instant feedback
+            setSelectedCallForNotes((prev: any) => {
+                if (prev?.id === callId) {
+                    return { ...prev, notes: [...(prev.notes || []), newNote] };
+                }
+                return prev;
+            });
+            queryClient.setQueryData(['calls911', 'active'], (prev: any[] = []) => prev.map(c => {
+                if (c.id === callId) {
+                    return { ...c, notes: [...(c.notes || []), newNote] };
+                }
+                return c;
+            }));
         } catch (err) {
             console.error('Failed to add call note', err);
         }
@@ -699,7 +660,7 @@ function PolicePageContent() {
 
             // Update local state immediately for instant feedback
             setCurrentUnit(prev => prev ? { ...prev, status } : null);
-            setUnits(prev => prev.map(u => u.userId === (charId ? parseInt(String(charId)) : currentUnit?.userId || user?.id) ? { ...u, status } : u));
+            queryClient.setQueryData(['units'], (prev: Unit[] = []) => prev.map(u => u.userId === (charId ? parseInt(String(charId)) : currentUnit?.userId || user?.id) ? { ...u, status } : u));
             
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
             console.log('[handleUpdateStatus] Sending request with targetId:', charId || user?.id, 'status:', status);
@@ -728,7 +689,7 @@ function PolicePageContent() {
                 const errData = await res.json();
                 console.log('[handleUpdateStatus] Error:', errData);
                 // Revert on error
-                fetchData();
+                refetchUnits(); refetchCalls(); refetchCharacters();
                 toast({ title: 'Ошибка', description: errData.error || 'Не удалось обновить статус', variant: 'destructive' });
             }
         } catch (err) {
@@ -755,7 +716,7 @@ function PolicePageContent() {
             if (res.ok) {
                 toast({ title: 'Вызов закрыт', description: `Вызов #${callId} успешно закрыт и перенесен в архив.` });
                 setSelectedCallForNotes(null);
-                fetchData();
+                refetchUnits(); refetchCalls(); refetchCharacters();
             } else {
                 toast({ title: 'Ошибка', description: 'Не удалось закрыть вызов', variant: 'destructive' });
             }
@@ -785,11 +746,11 @@ function PolicePageContent() {
                 const updatedCall = await res.json();
                 toast({ title: 'Прикреплено', description: `Вы прикреплены к вызову #${callId}` });
                 setSelectedCallForNotes(updatedCall);
-                setCalls(prev => Array.isArray(prev) ? prev.map(c => c.id === updatedCall.id ? updatedCall : c) : [updatedCall]);
+                queryClient.setQueryData(['calls911', 'active'], (prev: any[] = []) => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
                 // Update currentUnit with callId for real-time badge update
                 setCurrentUnit(prev => prev ? { ...prev, callId } : null);
                 addSystemNote(callId, `${callSign} прикрепился к вызову`);
-                fetchData();
+                refetchUnits(); refetchCalls(); refetchCharacters();
             }
         } catch (err) {
             console.error('Failed to attach to call', err);
@@ -814,14 +775,14 @@ function PolicePageContent() {
                 const updatedCall = await res.json();
                 toast({ title: 'Откреплено', description: 'Вы откреплены от вызова' });
                 if (updatedCall) {
-                    setCalls(prev => Array.isArray(prev) ? prev.map(c => c.id === updatedCall.id ? updatedCall : c) : [updatedCall]);
+                    queryClient.setQueryData(['calls911', 'active'], (prev: any[] = []) => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
                     if (selectedCallForNotes?.id === updatedCall.id) {
                         setSelectedCallForNotes(updatedCall);
                     }
                 }
                 // Clear callId from currentUnit for real-time badge update
                 setCurrentUnit(prev => prev ? { ...prev, callId: undefined } : null);
-                fetchData();
+                refetchUnits(); refetchCalls(); refetchCharacters();
             }
         } catch (err) {
             console.error('Failed to detach from call', err);
@@ -846,9 +807,9 @@ function PolicePageContent() {
                 const updatedCall = await res.json();
                 toast({ title: 'Главный назначен', description: 'Новый главный юнит назначен' });
                 setSelectedCallForNotes(updatedCall);
-                setCalls(prev => Array.isArray(prev) ? prev.map(c => c.id === updatedCall.id ? updatedCall : c) : [updatedCall]);
+                queryClient.setQueryData(['calls911', 'active'], (prev: any[] = []) => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
                 addSystemNote(callId, `Главный юнит изменен на юнит #${targetUserId}`);
-                fetchData();
+                refetchUnits(); refetchCalls(); refetchCharacters();
             }
         } catch (err) {
             console.error('Failed to set main unit', err);
@@ -874,9 +835,9 @@ function PolicePageContent() {
                 const priorityLabels = { low: 'Низкий', medium: 'Средний', high: 'Высокий', critical: 'Критический' };
                 toast({ title: 'Приоритет обновлен', description: `Приоритет изменен на ${priorityLabels[priority as keyof typeof priorityLabels]}` });
                 setSelectedCallForNotes(updatedCall);
-                setCalls(prev => Array.isArray(prev) ? prev.map(c => c.id === updatedCall.id ? updatedCall : c) : [updatedCall]);
+                queryClient.setQueryData(['calls911', 'active'], (prev: any[] = []) => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
                 addSystemNote(callId, `Приоритет изменен на ${priorityLabels[priority as keyof typeof priorityLabels]}`);
-                fetchData();
+                refetchUnits(); refetchCalls(); refetchCharacters();
             }
         } catch (err) {
             console.error('Failed to update priority', err);
@@ -922,7 +883,7 @@ function PolicePageContent() {
                 setOnDuty(false);
                 setCurrentUnit(null);
                 setCurrentMember(null);
-                fetchData();
+                refetchUnits(); refetchCalls(); refetchCharacters();
             }
         } catch (err) {
             console.error('Failed to end duty', err);
@@ -1219,7 +1180,7 @@ function PolicePageContent() {
                 toast({ title: 'Вызов DOT создан', description: 'Вызов был успешно отправлен.' });
                 setShowDotModal(false);
                 setDotForm({ location: '', description: '' });
-                fetchData();
+                refetchUnits(); refetchCalls(); refetchCharacters();
             }
         } catch (err) {
             console.error('Failed to create DOT call:', err);
@@ -1256,7 +1217,7 @@ function PolicePageContent() {
                 toast({ title: 'Вызов 2HR создан', description: 'Вызов был успешно отправлен.' });
                 setShow2hrModal(false);
                 setTwoHrForm({ location: '', description: '' });
-                fetchData();
+                refetchUnits(); refetchCalls(); refetchCharacters();
             }
         } catch (err) {
             console.error('Failed to create 2HR call:', err);
@@ -1313,7 +1274,7 @@ function PolicePageContent() {
                 playSound('notification');
                 toast({ title: 'Юнит снят', description: `${selectedUnit.unit} снят с текущего вызова` });
                 setSelectedUnit(null);
-                fetchData();
+                refetchUnits(); refetchCalls(); refetchCharacters();
             }
         } catch (err) {
             console.error('Failed to unassign unit', err);
@@ -1351,7 +1312,7 @@ function PolicePageContent() {
             const res = await fetch(`${apiUrl}/api/units/leave`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
             if (res.ok) {
                 toast({ title: 'Выход из пары', description: 'Вы покинули патрульную пару' });
-                fetchData();
+                refetchUnits(); refetchCalls(); refetchCharacters();
             }
         } catch (err) {
             console.error('Failed to leave pair', err);
@@ -1368,7 +1329,7 @@ function PolicePageContent() {
                 toast({ title: 'Принято', description: 'Вы присоединились к патрульной паре' });
                 setShowPairInviteModal(false);
                 setPairInviteData(null);
-                fetchData();
+                refetchUnits(); refetchCalls(); refetchCharacters();
             }
         } catch (err) {
             console.error('Failed to accept pair invite', err);
@@ -1399,7 +1360,7 @@ function PolicePageContent() {
                 setCreatePairData(null);
                 setDraggedUnit(null);
                 setDropTargetUnit(null);
-                fetchData();
+                refetchUnits(); refetchCalls(); refetchCharacters();
             } else {
                 const data = await res.json();
                 toast({ title: 'Ошибка', description: data.error || 'Не удалось создать пару', variant: 'destructive' });
@@ -1458,7 +1419,7 @@ function PolicePageContent() {
                         <CardTitle className="text-lg font-bold text-zinc-100 flex items-center justify-between">
                             <span className="flex items-center gap-2">
                                 <Shield className="w-5 h-5 text-blue-500" />
-                                Статус юнитов - {units.length} Активно / {calls.length} Ожидающих вызовов
+                                Статус юнитов - {units.length} Активно / {allCalls.length} Ожидающих вызовов
                             </span>
                         </CardTitle>
                     </CardHeader>
@@ -1492,7 +1453,7 @@ function PolicePageContent() {
                                     </Button>
                                 );
                             })}
-                            <Button variant="outline" size="sm" onClick={fetchData} className="bg-zinc-800/50 border-zinc-700 ml-auto">
+                            <Button variant="outline" size="sm" onClick={() => { refetchUnits(); refetchCalls(); refetchCharacters(); }} className="bg-zinc-800/50 border-zinc-700 ml-auto">
                                 <Clock className="w-4 h-4 mr-1.5" />
                                 Обновить
                             </Button>
@@ -1624,7 +1585,7 @@ function PolicePageContent() {
                                         <div className="overflow-auto flex-1">
                                             {isLoading ? (
                                                 <div className="flex items-center justify-center h-32 text-zinc-500">Загрузка...</div>
-                                            ) : calls.length === 0 ? (
+                                            ) : allCalls.length === 0 ? (
                                                 <div className="flex items-center justify-center h-32 text-zinc-500">Нет активных вызовов</div>
                                             ) : (
                                                 <table className="w-full text-sm">
@@ -1642,7 +1603,7 @@ function PolicePageContent() {
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        {calls.map((row: any) => (
+                                                        {allCalls.map((row: any) => (
                                                             <tr
                                                                 key={row.id}
                                                                 className="bg-yellow-950/10 border-b border-yellow-900/10 hover:bg-yellow-900/20 cursor-pointer transition-colors"
@@ -2282,7 +2243,7 @@ function PolicePageContent() {
                 isOpen={showDutyModal}
                 onClose={() => setShowDutyModal(false)}
                 onStart={handleDutyStart}
-                characters={characters}
+                characters={allCharacters}
                 isLoading={isSubmitting}
                 callSign={callSign}
                 setCallSign={setCallSign}

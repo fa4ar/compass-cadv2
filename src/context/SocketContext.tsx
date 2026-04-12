@@ -15,12 +15,11 @@ interface SocketContextType {
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
-const subscribedEvents = new Set<string>();
-
 export function SocketProvider({ children }: { children: ReactNode }) {
     const [isConnected, setIsConnected] = useState(false);
     const [isInitialized, setIsInitialized] = useState(false);
     const cleanupRef = useRef<(() => void)[]>([]);
+    const subscribedEventsRef = useRef<Set<string>>(new Set());
 
     useEffect(() => {
         if (isInitialized) return;
@@ -84,13 +83,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const on = useCallback((event: string, callback: (...args: any[]) => void) => {
-        if (subscribedEvents.has(event)) {
+        if (subscribedEventsRef.current.has(event)) {
             console.log(`[SocketContext] Event ${event} already subscribed, skipping duplicate`);
             return;
         }
-        
+
         socket?.on(event, callback);
-        subscribedEvents.add(event);
+        subscribedEventsRef.current.add(event);
     }, []);
 
     const off = useCallback((event: string, callback?: (...args: any[]) => void) => {
@@ -102,7 +101,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     }, []);
 
     return (
-        <SocketContext.Provider value={{ socket, isConnected, emit, on, off, subscribedEvents }}>
+        <SocketContext.Provider value={{ socket, isConnected, emit, on, off, subscribedEvents: subscribedEventsRef.current }}>
             {children}
         </SocketContext.Provider>
     );

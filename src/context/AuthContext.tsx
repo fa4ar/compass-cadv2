@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { socket } from '../lib/socket';
 import { getApiUrl } from '../lib/utils';
 
@@ -32,8 +32,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [socketConnected, setSocketConnected] = useState(false);
+    const userIdRef = useRef<number | null>(null);
 
-    const getCookieOptions = (days = 7) => {
+    const getCookieOptions = useCallback((days = 7) => {
         const expires = new Date();
         expires.setDate(expires.getDate() + days);
         const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
@@ -52,9 +53,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         return `; path=/; expires=${expires.toUTCString()}${domain}${isSecure ? '; Secure; SameSite=None' : ''}`;
-    };
+    }, []);
 
-    const clearAuthState = () => {
+    const clearAuthState = useCallback(() => {
         console.log('🧹 [AUTH] Clearing auth state (localStorage & Cookies)');
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
@@ -68,9 +69,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         document.cookie = `refreshToken=${domainOptions}`;
 
         setUser(null);
-    };
+    }, [getCookieOptions]);
 
-    const redirectBannedUser = (reason?: string | null, clearSession = true) => {
+    const redirectBannedUser = useCallback((reason?: string | null, clearSession = true) => {
         console.log('🚫 [AUTH] Redirecting banned user, clearSession:', clearSession);
 
         // ВАЖНО: Используем window.location.pathname для проверки, чтобы избежать циклов
@@ -93,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.log('🚀 [AUTH] Executing window.location.replace to:', bannedUrl.toString());
             window.location.replace(bannedUrl.toString());
         }
-    };
+    }, [clearAuthState]);
 
     const fetchUser = async (skipRefresh = false) => {
         let token = localStorage.getItem('accessToken');
@@ -246,15 +247,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         navigator.serviceWorker.register('/sw.js').catch(() => undefined);
     }, []);
 
-    const hasRole = (requiredRoles: string[]): boolean => {
+    const hasRole = useCallback((requiredRoles: string[]): boolean => {
         if (!user || !user.roles || user.roles.length === 0) return false;
         return requiredRoles.some(role => user.roles.includes(role));
-    };
+    }, [user?.roles]);
 
-    const logout = () => {
+    const logout = useCallback(() => {
         clearAuthState();
         window.location.replace('/auth/login');
-    };
+    }, [clearAuthState]);
 
     // ✅ МГНОВЕННАЯ СИНХРОНИЗАЦИЯ: Слушаем сокет для обновления ролей
     useEffect(() => {
@@ -295,7 +296,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             };
 
             const handleUserBanned = (data: { userId: number; isBanned: boolean; reason: string | null }) => {
-                if (user?.id === data.userId) {
+                if (userIdRef.current === data.userId) {
                     const userRoles = (user?.roles || []).map((r: string) => r.toLowerCase());
                     const isAdmin = userRoles.includes('admin') || userRoles.includes('supervisor');
 
@@ -338,11 +339,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 socket.off('user_updated', handleUserUpdated);
             };
         }
+    }, []);
+
+    // Обновляем userIdRef при изменении user.id
+    useEffect(() => {
+        if (user?.id !== undefined) {
+            userIdRef.current = user.id;
+        }
     }, [user?.id]);
 
-    const refreshUser = async () => {
+    const refreshUser = useCallback(async () => {
         await fetchUser();
-    };
+    }, []);
 
     const [showDebug, setShowDebug] = useState(false);
 

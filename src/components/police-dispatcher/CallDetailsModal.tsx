@@ -77,7 +77,7 @@ export const CallDetailsModal: React.FC<CallDetailsModalProps> = ({
         { value: 'critical', label: 'Критический', color: 'bg-red-600' }
     ];
 
-    const handleNoteSubmit = () => {
+                        const handleNoteSubmit = () => {
         if (!newNoteText.trim() || !call || !onAddNote) return;
         onAddNote(call.id, newNoteText);
         setNewNoteText('');

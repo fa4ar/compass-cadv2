@@ -17,6 +17,7 @@ import roleplayDocsRoutes from "./roleplay-docs.routes";
 import uploadRoutes from './upload.routes';
 import patientRoutes from './patient.routes';
 import departmentShiftsRoutes from './department-shifts.routes';
+import bolosRoutes from './bolos.routes';
 
 const router = Router();
 
@@ -92,6 +93,7 @@ router.use('/roleplay', roleplayDocsRoutes);
 router.use('/upload', uploadRoutes);
 router.use('/patient', patientRoutes);
 router.use('/department-shifts', departmentShiftsRoutes);
+router.use('/bolos', bolosRoutes);
 
 // Корневой эндпоинт API
 router.get('/', (req: Request, res: Response) => {

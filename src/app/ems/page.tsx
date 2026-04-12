@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api } from '@/lib/axios';
 import { Flame, Truck, Ambulance, Heart, Activity, Stethoscope, Building, Siren, Search, MapPin, Phone, AlertTriangle, Users, FileText, RefreshCw, X, Send, User, LogOut, Loader2, Plus, CheckCircle, Clock, Map, Monitor, Navigation } from 'lucide-react';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
@@ -159,10 +161,52 @@ export default function EMSPage() {
 function EMSPageContent() {
     const { user } = useAuth();
     const { socket, isConnected } = useSocket();
-    const [units, setUnits] = useState<Unit[]>([]);
-    const [calls, setCalls] = useState<Call[]>([]);
+    const queryClient = useQueryClient();
+
+    // Tanstack Query для units
+    const { data: units = [], isLoading: unitsLoading, refetch: refetchUnits } = useQuery({
+        queryKey: ['units'],
+        queryFn: async () => {
+            const res = await api.get('/api/units');
+            const data = Array.isArray(res.data) ? res.data : [];
+            // Filter for EMS/Fire units only
+            return data.filter((u: any) =>
+                u.departmentMember?.department?.type === 'ems' || u.departmentMember?.department?.type === 'fire'
+            );
+        },
+        refetchInterval: false,
+    });
+
+    // Tanstack Query для calls
+    const { data: calls = [], isLoading: callsLoading, refetch: refetchCalls } = useQuery({
+        queryKey: ['calls911', 'active'],
+        queryFn: async () => {
+            const res = await api.get('/api/calls911/active');
+            const data = Array.isArray(res.data) ? res.data : (res.data.calls || []);
+            // Show all calls (EMS can see all calls)
+            return data;
+        },
+        refetchInterval: false,
+    });
+
+    // Tanstack Query для characters
+    const { data: characters = [], isLoading: charactersLoading, refetch: refetchCharacters } = useQuery({
+        queryKey: ['characters'],
+        queryFn: async () => {
+            const res = await api.get('/api/characters');
+            const data = Array.isArray(res.data) ? res.data : [];
+            // Filter for EMS/Fire characters
+            return data.filter((c: Character) =>
+                c.departmentMembers?.some(
+                    (m) => m.isActive && m.department?.type === "ems" || m.department?.type === "fire",
+                ),
+            );
+        },
+        refetchInterval: false,
+    });
+
     const [patients, setPatients] = useState<Patient[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const isLoading = unitsLoading || callsLoading || charactersLoading;
     const [activeTab, setActiveTab] = useState<string>("Статус юнитов");
     const [notes, setNotes] = useState<string>("");
     const [showDutyModal, setShowDutyModal] = useState(false);
@@ -210,7 +254,9 @@ function EMSPageContent() {
     const { playSound } = useSound();
 
     useEffect(() => {
-        fetchData();
+        refetchUnits();
+        refetchCalls();
+        refetchCharacters();
         checkActiveUnit();
 
         const savedTab = localStorage.getItem("emsActiveTab");
@@ -223,14 +269,14 @@ function EMSPageContent() {
         socket.on('new_911_call', (newCall: any) => {
             console.log('[SOCKET] new_911_call received:', newCall);
             // Add all calls (EMS can see all calls)
-            setCalls(prev => Array.isArray(prev) ? [newCall, ...prev] : [newCall]);
+            queryClient.setQueryData(['calls911', 'active'], (prev: any[] = []) => [newCall, ...prev]);
             playSound('new_call_911').then(() => console.log('[EMS] Sound played')).catch(e => console.error('[EMS] Sound error:', e));
         });
 
         socket.on('update_911_call', (updatedCall: any) => {
             console.log('[SOCKET] update_911_call received:', updatedCall);
             // Update all calls (EMS can see all calls)
-            setCalls(prev => Array.isArray(prev) ? prev.map(c => c.id === updatedCall.id ? updatedCall : c) : [updatedCall]);
+            queryClient.setQueryData(['calls911', 'active'], (prev: any[] = []) => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
             setSelectedCall((prev) => {
                 if (prev?.id === updatedCall.id) {
                     return updatedCall;
@@ -240,7 +286,7 @@ function EMSPageContent() {
         });
 
         socket.on('delete_911_call', ({ id }: { id: number }) => {
-            setCalls(prev => Array.isArray(prev) ? prev.filter(c => c.id !== id) : []);
+            queryClient.setQueryData(['calls911', 'active'], (prev: any[] = []) => prev.filter(c => c.id !== id));
             setSelectedCall((prev: any) => (prev?.id === id ? null : prev));
         });
 
@@ -250,7 +296,7 @@ function EMSPageContent() {
             toast({ title: data.isLeadUnit ? 'Новый главный юнит' : 'Юнит прикреплен', description: `${data.unitCallSign} прикреплен к вызову #${data.callId}${data.isLeadUnit ? ' (ГЛАВНЫЙ)' : ''}` });
 
             // Update calls immediately without full refetch
-            setCalls(prev => Array.isArray(prev) ? prev.map(c => {
+            queryClient.setQueryData(['calls911', 'active'], (prev: any[] = []) => prev.map(c => {
                 if (c.id === data.callId) {
                     return {
                         ...c,
@@ -260,7 +306,7 @@ function EMSPageContent() {
                     };
                 }
                 return c;
-            }) : []);
+            }));
 
             // Update selected call if it's the one being modified
             setSelectedCall((prev: any) => {
@@ -282,7 +328,7 @@ function EMSPageContent() {
             toast({ title: 'Юнит откреплен', description: `${data.unitCallSign} откреплен от вызова #${data.callId}` });
 
             // Update calls immediately without full refetch
-            setCalls(prev => Array.isArray(prev) ? prev.map(c => {
+            queryClient.setQueryData(['calls911', 'active'], (prev: any[] = []) => prev.map(c => {
                 if (c.id === data.callId) {
                     return {
                         ...c,
@@ -292,7 +338,7 @@ function EMSPageContent() {
                     };
                 }
                 return c;
-            }) : []);
+            }));
 
             // Update selected call if it's the one being modified
             setSelectedCall((prev: any) => {
@@ -309,11 +355,7 @@ function EMSPageContent() {
         });
 
         socket.on("ems_unit_status_changed", (data: { userId: number; status: string; unitCallSign: string }) => {
-            setUnits((prev) =>
-                prev.map((u) =>
-                    u.userId === data.userId ? { ...u, status: data.status } : u,
-                ),
-            );
+            queryClient.setQueryData(['units'], (prev: Unit[] = []) => prev.map(u => u.userId === data.userId ? { ...u, status: data.status } : u));
             setCurrentUnit((prev) => {
                 if (prev?.userId === data.userId) {
                     return { ...prev, status: data.status };
@@ -338,7 +380,7 @@ function EMSPageContent() {
                 title: "Юнит прикреплен",
                 description: `${data.unitCallSign} прикреплен к вызову #${data.callId}`,
             });
-            fetchData();
+            refetchUnits(); refetchCalls(); refetchCharacters();
         });
 
         socket.on("ems_unit_detached", (data: { userId: number; callId: number; unitCallSign: string }) => {
@@ -347,7 +389,7 @@ function EMSPageContent() {
                 title: "Юнит откреплен",
                 description: `${data.unitCallSign} откреплен от вызова #${data.callId}`,
             });
-            fetchData();
+            refetchUnits(); refetchCalls(); refetchCharacters();
         });
 
         socket.on("ems_patient_updated", (patient: Patient) => {
@@ -389,91 +431,25 @@ function EMSPageContent() {
 
     const checkActiveUnit = async () => {
         try {
-            const token = localStorage.getItem("accessToken");
-            if (!token) return;
-
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-            const res = await fetch(`${apiUrl}/api/units/me`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
-            if (res.ok) {
-                const unitData = await res.json();
-                if (unitData) {
-                    setCurrentUnit(unitData);
-                    setSelectedCharacter(unitData.characterId);
-                    setCurrentMember(unitData.departmentMember);
-                    setCallSign(unitData.callSign || "");
-                    setSubdivision(unitData.subdivision || "");
-                    setUnitType(unitData.unitType || 'ems');
-                    setOnDuty(true);
-                }
+            const res = await api.get('/api/units/me');
+            const unitData = res.data;
+            if (unitData) {
+                setCurrentUnit(unitData);
+                setSelectedCharacter(unitData.characterId);
+                setCurrentMember(unitData.departmentMember);
+                setCallSign(unitData.callSign || "");
+                setSubdivision(unitData.subdivision || "");
+                setUnitType(unitData.unitType || 'ems');
+                setOnDuty(true);
             }
         } catch (err) {
             console.error("Failed to check active unit", err);
         }
     };
 
-    const fetchData = async () => {
-        setIsLoading(true);
-        try {
-            const token = localStorage.getItem("accessToken");
-            if (!token) return;
-
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-
-            const [unitsRes, callsRes, charsRes] = await Promise.all([
-                fetch(`${apiUrl}/api/units`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                }),
-                fetch(`${apiUrl}/api/calls911/active`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                }),
-                fetch(`${apiUrl}/api/characters`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                }),
-            ]);
-
-            if (unitsRes.ok) {
-                const data = await unitsRes.json();
-                // Filter for EMS/Fire units only
-                const emsUnits = data.filter((u: any) =>
-                    u.departmentMember?.department?.type === 'ems' || u.departmentMember?.department?.type === 'fire'
-                );
-                setUnits(emsUnits);
-            }
-            if (callsRes.ok) {
-                const data = await callsRes.json();
-                // Show all calls (EMS can see all calls)
-                const callsArray = Array.isArray(data) ? data : (data.calls || []);
-                setCalls(callsArray);
-            }
-            if (charsRes.ok) {
-                const data = await charsRes.json();
-                const emsChars = data.filter((c: Character) =>
-                    c.departmentMembers?.some(
-                        (m) => m.isActive && m.department?.type === "ems" || m.department?.type === "fire",
-                    ),
-                );
-                setCharacters(emsChars);
-            }
-        } catch (err) {
-            console.error("Failed to fetch data", err);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const [characters, setCharacters] = useState<Character[]>([]);
-
     const handleDutyStart = async () => {
         setIsSubmitting(true);
         try {
-            const token = localStorage.getItem("accessToken");
-            if (!token) return;
-
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-
             const char = characters.find(
                 (c) => String(c.id) === String(selectedCharacter),
             );
@@ -481,45 +457,29 @@ function EMSPageContent() {
                 (m) => m.isActive && (m.department?.type === "ems" || m.department?.type === "fire"),
             );
 
-            const res = await fetch(`${apiUrl}/api/units`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    characterId: selectedCharacter ? parseInt(selectedCharacter) : null,
-                    departmentMemberId: member?.id || null,
-                    callSign,
-                    subdivision,
-                    unitType,
-                }),
+            const res = await api.post('/api/units', {
+                characterId: selectedCharacter ? parseInt(selectedCharacter) : null,
+                departmentMemberId: member?.id || null,
+                callSign,
+                subdivision,
+                unitType,
             });
 
-            if (res.ok) {
-                const unitData = await res.json();
-                setCurrentUnit(unitData);
-                setOnDuty(true);
-                setShowDutyModal(false);
-                playSound("notification");
-                toast({
-                    title: "На смене",
-                    description: `Вы вышли на смену как ${unitData.unit}`,
-                });
-                fetchData();
-            } else {
-                const data = await res.json();
-                toast({
-                    title: "Ошибка",
-                    description: data.error || "Не удалось начать смену",
-                    variant: "destructive",
-                });
-            }
-        } catch (err) {
+            const unitData = res.data;
+            setCurrentUnit(unitData);
+            setOnDuty(true);
+            setShowDutyModal(false);
+            playSound("notification");
+            toast({
+                title: "На смене",
+                description: `Вы вышли на смену как ${unitData.unit}`,
+            });
+            refetchUnits(); refetchCalls(); refetchCharacters();
+        } catch (err: any) {
             console.error("Failed to start duty", err);
             toast({
                 title: "Ошибка",
-                description: "Не удалось начать смену",
+                description: err.response?.data?.error || "Не удалось начать смену",
                 variant: "destructive",
             });
         } finally {
@@ -529,27 +489,15 @@ function EMSPageContent() {
 
     const handleDutyEnd = async () => {
         try {
-            const token = localStorage.getItem("accessToken");
-            if (!token) return;
-
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-            const res = await fetch(`${apiUrl}/api/units/me`, {
-                method: "DELETE",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
+            await api.delete('/api/units/me');
+            setOnDuty(false);
+            setCurrentUnit(null);
+            playSound("notification");
+            toast({
+                title: "Смена окончена",
+                description: "Вы вышли со смены",
             });
-
-            if (res.ok) {
-                setOnDuty(false);
-                setCurrentUnit(null);
-                playSound("notification");
-                toast({
-                    title: "Смена окончена",
-                    description: "Вы вышли со смены",
-                });
-                fetchData();
-            }
+            refetchUnits(); refetchCalls(); refetchCharacters();
         } catch (err) {
             console.error("Failed to end duty", err);
         }
@@ -559,49 +507,30 @@ function EMSPageContent() {
         if (!onDuty) return;
 
         try {
-            const token = localStorage.getItem("accessToken");
-            if (!token) return;
-
             setCurrentUnit((prev) => (prev ? { ...prev, status } : null));
-            setUnits((prev) =>
+            queryClient.setQueryData(['units'], (prev: Unit[] = []) =>
                 prev.map((u) =>
                     u.userId === currentUnit?.userId ? { ...u, status } : u,
                 ),
             );
 
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-            const res = await fetch(`${apiUrl}/api/units/status`, {
-                method: "PATCH",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    status,
-                }),
-            });
+            const res = await api.patch('/api/units/status', { status });
+            setCurrentUnit(res.data);
 
-            if (res.ok) {
-                const data = await res.json();
-                setCurrentUnit(data);
-                
-                if (status === "Mayday") {
-                    socket.emit("ems_mayday", {
-                        unitCallSign: currentUnit?.unit,
-                        reason: maydayReason || "Паника",
-                    });
-                }
-                
-                toast({
-                    title: "Статус обновлен",
-                    description: `Новый статус: ${EMS_UNIT_STATUSES.find(s => s.value === status)?.label}`,
+            if (status === "Mayday") {
+                socket.emit("ems_mayday", {
+                    unitCallSign: currentUnit?.unit,
+                    reason: maydayReason || "Паника",
                 });
-            } else {
-                fetchData();
             }
+
+            toast({
+                title: "Статус обновлен",
+                description: `Новый статус: ${EMS_UNIT_STATUSES.find(s => s.value === status)?.label}`,
+            });
         } catch (err) {
             console.error("Failed to update status", err);
-            fetchData();
+            refetchUnits(); refetchCalls(); refetchCharacters();
         }
     };
 
@@ -610,41 +539,25 @@ function EMSPageContent() {
 
         setIsSearchingPatients(true);
         try {
-            const token = localStorage.getItem("accessToken");
-            if (!token) return;
-
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
             const params = new URLSearchParams();
             if (patientFirstName) params.append('firstName', patientFirstName);
             if (patientLastName) params.append('lastName', patientLastName);
             if (patientSSN) params.append('ssn', patientSSN);
 
-            const res = await fetch(`${apiUrl}/api/characters?${params.toString()}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
-            if (res.ok) {
-                const data = await res.json();
-                setPatients(data);
-                if (data.length > 0) {
-                    playSound("search_success");
-                    toast({
-                        title: "Поиск успешен",
-                        description: `Найдено ${data.length} граждан`,
-                    });
-                } else {
-                    playSound("search_error");
-                    toast({
-                        title: "Не найдено",
-                        description: "Граждане с указанными данными не найдены",
-                        variant: "destructive",
-                    });
-                }
+            const res = await api.get(`/api/characters?${params.toString()}`);
+            const data = res.data;
+            setPatients(data);
+            if (data.length > 0) {
+                playSound("search_success");
+                toast({
+                    title: "Поиск успешен",
+                    description: `Найдено ${data.length} граждан`,
+                });
             } else {
                 playSound("search_error");
                 toast({
-                    title: "Ошибка поиска",
-                    description: "Не удалось выполнить поиск",
+                    title: "Не найдено",
+                    description: "Граждане с указанными данными не найдены",
                     variant: "destructive",
                 });
             }
@@ -665,36 +578,22 @@ function EMSPageContent() {
         if (!confirm("Вы уверены, что хотите отметить пациента как мертвого?")) return;
 
         try {
-            const token = localStorage.getItem("accessToken");
-            if (!token) return;
-
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-            const res = await fetch(`${apiUrl}/api/characters/${patientId}`, {
-                method: "PATCH",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ isAlive: false }),
+            const res = await api.patch(`/api/characters/${patientId}`, { isAlive: false });
+            const data = res.data;
+            setPatients((prev) =>
+                prev.map((p) => (p.id === patientId ? data : p)),
+            );
+            setSelectedPatient((prev) => {
+                if (prev?.id === patientId) {
+                    return data;
+                }
+                return prev;
             });
-
-            if (res.ok) {
-                const data = await res.json();
-                setPatients((prev) =>
-                    prev.map((p) => (p.id === patientId ? data : p)),
-                );
-                setSelectedPatient((prev) => {
-                    if (prev?.id === patientId) {
-                        return data;
-                    }
-                    return prev;
-                });
-                toast({
-                    title: "Пациент отмечен",
-                    description: "Пациент отмечен как мертвый",
-                    variant: "destructive",
-                });
-            }
+            toast({
+                title: "Пациент отмечен",
+                description: "Пациент отмечен как мертвый",
+                variant: "destructive",
+            });
         } catch (err) {
             console.error("Failed to mark patient as dead", err);
         }
@@ -716,36 +615,28 @@ function EMSPageContent() {
         if (!newCallNoteText.trim()) return;
 
         try {
-            const token = localStorage.getItem("accessToken");
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-
-            const res = await fetch(`${apiUrl}/api/calls911/${callId}/notes`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    text: newCallNoteText,
-                    author: callSign, // Use callsign as author
-                }),
+            const res = await api.post(`/api/calls911/${callId}/notes`, {
+                text: newCallNoteText,
+                author: callSign
             });
 
-            if (res.ok) {
-                setNewCallNoteText("");
-                fetchData();
-
-                const updatedRes = await fetch(`${apiUrl}/api/calls911/active`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                if (updatedRes.ok) {
-                    const data = await updatedRes.json();
-                    const current = data.find((c: any) => c.id === callId);
-                    if (current) setSelectedCall(current);
+            const newNote = res.data;
+            setNewCallNoteText("");
+            queryClient.setQueryData(['calls911', 'active'], (prev: any[] = []) => prev.map(c => {
+                if (c.id === callId) {
+                    return { ...c, notes: [...(c.notes || []), newNote] };
                 }
-            }
+                return c;
+            }));
+            setSelectedCall((prev: any) => {
+                if (prev?.id === callId) {
+                    return { ...prev, notes: [...(prev.notes || []), newNote] };
+                }
+                return prev;
+            });
+            refetchUnits(); refetchCalls(); refetchCharacters();
         } catch (err) {
-            console.error("Failed to add call note", err);
+            console.error('Failed to add call note', err);
         }
     };
 
@@ -756,42 +647,26 @@ function EMSPageContent() {
         }
 
         try {
-            const token = localStorage.getItem('accessToken');
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const res = await api.post(`/api/calls911/${callId}/attach`);
+            const updatedCall = res.data;
+            toast({ title: 'Прикреплено', description: `Вы прикреплены к вызову #${callId}` });
 
-            const res = await fetch(`${apiUrl}/api/calls911/${callId}/attach`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            // Fetch fresh call data to ensure units are updated
+            const freshRes = await api.get('/api/calls911/active');
+            const data = freshRes.data;
+            const freshCall = data.find((c: any) => c.id === callId);
 
-            if (res.ok) {
-                const updatedCall = await res.json();
-                toast({ title: 'Прикреплено', description: `Вы прикреплены к вызову #${callId}` });
-
-                // Fetch fresh call data to ensure units are updated
-                const freshRes = await fetch(`${apiUrl}/api/calls911/active`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-
-                if (freshRes.ok) {
-                    const data = await freshRes.json();
-                    const freshCall = data.find((c: any) => c.id === callId);
-
-                    if (freshCall) {
-                        setSelectedCall(freshCall);
-                        setCalls(prev => Array.isArray(prev) ? prev.map(c => c.id === callId ? freshCall : c) : [freshCall]);
-                    }
-                } else {
-                    // Fallback if fresh fetch fails
-                    setSelectedCall(updatedCall);
-                    setCalls(prev => Array.isArray(prev) ? prev.map(c => c.id === updatedCall.id ? updatedCall : c) : [updatedCall]);
-                }
-
-                // Update current unit with callId
-                setCurrentUnit(prev => prev ? { ...prev, callId } : null);
+            if (freshCall) {
+                setSelectedCall(freshCall);
+                queryClient.setQueryData(['calls911', 'active'], (prev: any[] = []) => prev.map(c => c.id === callId ? freshCall : c));
+            } else {
+                // Fallback if fresh fetch fails
+                setSelectedCall(updatedCall);
+                queryClient.setQueryData(['calls911', 'active'], (prev: any[] = []) => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
             }
+
+            // Update current unit with callId
+            setCurrentUnit(prev => prev ? { ...prev, callId } : null);
         } catch (err) {
             console.error('Failed to attach to call', err);
         }
@@ -885,7 +760,7 @@ function EMSPageContent() {
                                     <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 overflow-hidden">
                                         <div className="bg-zinc-800/50 px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
                                             <span className="text-sm font-medium text-zinc-300">Статус юнитов</span>
-                                            <Button variant="ghost" size="icon" onClick={fetchData}>
+                                            <Button variant="ghost" size="icon" onClick={() => { refetchUnits(); refetchCalls(); refetchCharacters(); }}>
                                                 <RefreshCw className="w-4 h-4 text-zinc-500" />
                                             </Button>
                                         </div>
@@ -1124,7 +999,7 @@ function EMSPageContent() {
                                     <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 overflow-hidden">
                                         <div className="bg-zinc-800/50 px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
                                             <span className="text-sm font-medium text-zinc-300">Активные вызовы</span>
-                                            <Button variant="ghost" size="icon" onClick={fetchData}>
+                                            <Button variant="ghost" size="icon" onClick={() => { refetchUnits(); refetchCalls(); refetchCharacters(); }}>
                                                 <RefreshCw className="w-4 h-4 text-zinc-500" />
                                             </Button>
                                         </div>

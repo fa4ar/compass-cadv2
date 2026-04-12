@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 
 type Theme = 'light' | 'dark' | 'custom-slate' | 'custom-zinc' | 'custom-rose';
@@ -15,6 +15,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export function ThemeProvider({ children }: { children: ReactNode }) {
     const { user, isAuthenticated } = useAuth();
     const [theme, setThemeState] = useState<Theme>('dark');
+    const saveTimerRef = useRef<number | null>(null);
 
     // 1. Initial load from localStorage
     useEffect(() => {
@@ -47,24 +48,30 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     const setTheme = async (newTheme: Theme) => {
         setThemeState(newTheme);
-        
-        // If logged in, save to backend
+
+        // If logged in, save to backend with debounce
         if (isAuthenticated) {
-            try {
-                const token = localStorage.getItem('accessToken');
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-                
-                await fetch(`${apiUrl}/api/users/profile`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ theme: newTheme })
-                });
-            } catch (err) {
-                console.error('Failed to save theme to profile:', err);
+            if (saveTimerRef.current) {
+                window.clearTimeout(saveTimerRef.current);
             }
+
+            saveTimerRef.current = window.setTimeout(async () => {
+                try {
+                    const token = localStorage.getItem('accessToken');
+                    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+                    await fetch(`${apiUrl}/api/users/profile`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ theme: newTheme })
+                    });
+                } catch (err) {
+                    console.error('Failed to save theme to profile:', err);
+                }
+            }, 500); // 500ms debounce
         }
     };
 

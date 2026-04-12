@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { socket } from '../lib/socket';
 import { getApiUrl } from '../lib/utils';
 
@@ -32,8 +32,9 @@ export function PoliceAuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [socketConnected, setSocketConnected] = useState(false);
+    const userIdRef = useRef<number | null>(null);
 
-    const getCookieOptions = (days = 7) => {
+    const getCookieOptions = useCallback((days = 7) => {
         const expires = new Date();
         expires.setDate(expires.getDate() + days);
         const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
@@ -52,9 +53,9 @@ export function PoliceAuthProvider({ children }: { children: ReactNode }) {
         }
 
         return `; path=/; expires=${expires.toUTCString()}${domain}${isSecure ? '; Secure; SameSite=None' : ''}`;
-    };
+    }, []);
 
-    const clearAuthState = () => {
+    const clearAuthState = useCallback(() => {
         console.log('🧹 [POLICE_AUTH] Clearing Police auth state (localStorage & Cookies)');
         localStorage.removeItem('policeAccessToken');
         localStorage.removeItem('policeRefreshToken');
@@ -68,9 +69,9 @@ export function PoliceAuthProvider({ children }: { children: ReactNode }) {
         document.cookie = `policeRefreshToken=${domainOptions}`;
 
         setUser(null);
-    };
+    }, [getCookieOptions]);
 
-    const redirectBannedUser = (reason?: string | null, clearSession = true) => {
+    const redirectBannedUser = useCallback((reason?: string | null, clearSession = true) => {
         console.log('🚫 [POLICE_AUTH] Redirecting banned user, clearSession:', clearSession);
 
         if (typeof window !== 'undefined' && window.location.pathname === '/banned') {
@@ -91,7 +92,7 @@ export function PoliceAuthProvider({ children }: { children: ReactNode }) {
             console.log('🚀 [POLICE_AUTH] Executing window.location.replace to:', bannedUrl.toString());
             window.location.replace(bannedUrl.toString());
         }
-    };
+    }, [clearAuthState]);
 
     const fetchUser = async (skipRefresh = false) => {
         let token = localStorage.getItem('policeAccessToken');
@@ -223,15 +224,15 @@ export function PoliceAuthProvider({ children }: { children: ReactNode }) {
         return () => clearInterval(interval);
     }, [socketConnected, user]);
 
-    const hasRole = (requiredRoles: string[]): boolean => {
+    const hasRole = useCallback((requiredRoles: string[]): boolean => {
         if (!user || !user.roles || user.roles.length === 0) return false;
         return requiredRoles.some(role => user.roles.includes(role));
-    };
+    }, [user?.roles]);
 
-    const logout = () => {
+    const logout = useCallback(() => {
         clearAuthState();
         window.location.replace('/auth/police/login');
-    };
+    }, [clearAuthState]);
 
     useEffect(() => {
         const token = localStorage.getItem('policeAccessToken');
@@ -266,7 +267,7 @@ export function PoliceAuthProvider({ children }: { children: ReactNode }) {
             };
 
             const handleUserBanned = (data: { userId: number; isBanned: boolean; reason: string | null }) => {
-                if (user?.id === data.userId) {
+                if (userIdRef.current === data.userId) {
                     const userRoles = (user?.roles || []).map((r: string) => r.toLowerCase());
                     const isAdmin = userRoles.includes('admin') || userRoles.includes('supervisor');
 
@@ -306,11 +307,18 @@ export function PoliceAuthProvider({ children }: { children: ReactNode }) {
                 socket.off('user_updated', handleUserUpdated);
             };
         }
+    }, []);
+
+    // Обновляем userIdRef при изменении user.id
+    useEffect(() => {
+        if (user?.id !== undefined) {
+            userIdRef.current = user.id;
+        }
     }, [user?.id]);
 
-    const refreshUser = async () => {
+    const refreshUser = useCallback(async () => {
         await fetchUser();
-    };
+    }, []);
 
     return (
         <PoliceAuthContext.Provider value={{
