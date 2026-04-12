@@ -747,7 +747,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     }, [currentChannel]);
 
     const authenticateDispatch = useCallback(async (callsign: string) => {
-        const nacId = process.env.NEXT_PUBLIC_RADIO_DISPATCH_NAC_ID || '141';
+        const nacId = process.env.NEXT_PUBLIC_RADIO_DISPATCH_NAC_ID || '911';
         const radioUrl = getRadioSocketUrl();
         
         try {
