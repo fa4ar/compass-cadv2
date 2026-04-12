@@ -166,7 +166,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
         const socket = io(radioUrl, {
             autoConnect: true,
-            transports: ['websocket', 'polling'],
+            transports: ['polling', 'websocket'], // Сначала пробуем polling, затем websocket
             reconnection: true,
             reconnectionAttempts: 10,
             reconnectionDelay: 1000,
