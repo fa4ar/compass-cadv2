@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Radio, Users, Volume2, VolumeX, Signal, Mic, MicOff, Settings, Plus, Trash2, Ear, EarOff, AlertTriangle, Phone } from 'lucide-react';
+import { Radio, Users, Volume2, VolumeX, Signal, Mic, MicOff, Settings, Plus, Trash2, Ear, EarOff, AlertTriangle, Phone, User } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,15 +17,87 @@ interface ChannelConfig {
     name: string;
     frequency: string;
     color?: string;
+    type?: 'conventional' | 'trunked';
+    zone?: string;
 }
 
 const DEFAULT_CHANNELS: ChannelConfig[] = [
-    { id: '1', name: 'Полиция 1', frequency: '100.0', color: 'blue' },
-    { id: '2', name: 'Полиция 2', frequency: '101.0', color: 'blue' },
-    { id: '3', name: 'EMS', frequency: '102.0', color: 'green' },
-    { id: '4', name: 'Пожарные', frequency: '103.0', color: 'red' },
-    { id: '5', name: 'Диспетчер', frequency: '104.0', color: 'purple' },
+    // RiverSide County
+    { id: 'rs-1', name: 'DISP', frequency: '154.755', type: 'conventional', zone: 'RiverSide County', color: 'blue' },
+    { id: 'rs-2', name: 'C2C', frequency: '856.1125', type: 'trunked', zone: 'RiverSide County', color: 'blue' },
+    { id: 'rs-3', name: '10-1', frequency: '154.785', type: 'conventional', zone: 'RiverSide County', color: 'red' },
+    { id: 'rs-4', name: 'OPS-1', frequency: '154.815', type: 'conventional', zone: 'RiverSide County', color: 'purple' },
+    // Los Santos
+    { id: 'ls-1', name: 'DISP', frequency: '460.250', type: 'conventional', zone: 'Los Santos', color: 'blue' },
+    { id: 'ls-2', name: 'C2C', frequency: '460.325', type: 'trunked', zone: 'Los Santos', color: 'blue' },
+    { id: 'ls-3', name: '10-1', frequency: '460.275', type: 'conventional', zone: 'Los Santos', color: 'red' },
+    { id: 'ls-4', name: 'OPS-1', frequency: '462.450', type: 'conventional', zone: 'Los Santos', color: 'purple' },
+    // Blaine County
+    { id: 'bc-1', name: 'DISP', frequency: '155.070', type: 'conventional', zone: 'Blaine County', color: 'blue' },
+    { id: 'bc-2', name: 'C2C', frequency: '155.220', type: 'trunked', zone: 'Blaine County', color: 'blue' },
+    { id: 'bc-3', name: '10-1', frequency: '155.100', type: 'conventional', zone: 'Blaine County', color: 'red' },
+    { id: 'bc-4', name: 'OPS-1', frequency: '157.350', type: 'conventional', zone: 'Blaine County', color: 'purple' },
 ];
+
+// Компонент для отображения пользователей на канале
+function ChannelUsers({ frequency }: { frequency: string }) {
+    const { talkingUsers, channels } = useRadio();
+
+    // Получаем информацию о канале из channelState
+    const channelInfo = channels.find(ch => ch.frequency === frequency);
+
+    // Фильтруем пользователей на этом канале
+    const usersOnChannel = talkingUsers.filter(u => u.channel === frequency);
+
+    const speakers = usersOnChannel.filter(u => u.isTalking);
+    const listeners = usersOnChannel.filter(u => !u.isTalking);
+
+    if (usersOnChannel.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className="mt-2 pt-2 border-t border-zinc-700">
+            <div className="text-xs text-zinc-500 mb-1">
+                Пользователи на канале ({channelInfo?.participants || 0})
+            </div>
+            
+            {speakers.length > 0 && (
+                <div className="mb-2">
+                    <div className="text-xs font-semibold text-green-400 mb-1 flex items-center gap-1">
+                        <Mic className="w-3 h-3" />
+                        Говорят ({speakers.length})
+                    </div>
+                    <div className="space-y-1">
+                        {speakers.map(user => (
+                            <div key={user.id} className="flex items-center gap-2 text-sm bg-green-950/20 px-2 py-1 rounded">
+                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                                <span className="text-zinc-300">{user.callsign || user.name}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+            
+            {listeners.length > 0 && (
+                <div>
+                    <div className="text-xs font-semibold text-zinc-400 mb-1 flex items-center gap-1">
+                        <User className="w-3 h-3" />
+                        Слушают ({listeners.length})
+                    </div>
+                    <div className="space-y-1">
+                        {listeners.map(user => (
+                            <div key={user.id} className="flex items-center gap-2 text-sm bg-zinc-800/30 px-2 py-1 rounded">
+                                <div className="w-2 h-2 bg-zinc-500 rounded-full" />
+                                <span className="text-zinc-400">{user.callsign || user.name}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
 
 export default function RadioPanel() {
     const {
@@ -64,6 +136,11 @@ export default function RadioPanel() {
     const [newChannelName, setNewChannelName] = useState('');
     const [newChannelFreq, setNewChannelFreq] = useState('');
     const [isPTTPressed, setIsPTTPressed] = useState(false);
+    const [selectedZone, setSelectedZone] = useState<string>('all');
+
+    // Получаем список уникальных зон
+    const zones = Array.from(new Set(customChannels.map(ch => ch.zone).filter(Boolean))) as string[];
+    const allZones = ['all', ...zones];
 
     // Обработка PTT (Push-to-Talk)
     const handlePTTDown = () => {
@@ -307,19 +384,34 @@ export default function RadioPanel() {
                         <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
                             Каналы
                         </span>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-2 text-xs"
-                            onClick={handleDispatchToggle}
-                        >
-                            <AlertTriangle className="w-3 h-3 mr-1" />
-                            Диспетчер
-                        </Button>
+                        <div className="flex gap-2">
+                            {/* Селектор зон */}
+                            <select
+                                value={selectedZone}
+                                onChange={(e) => setSelectedZone(e.target.value)}
+                                className="h-6 px-2 text-xs bg-zinc-800 border border-zinc-700 rounded text-zinc-300 focus:outline-none focus:border-zinc-600"
+                            >
+                                <option value="all">Все зоны</option>
+                                {zones.map(zone => (
+                                    <option key={zone} value={zone}>{zone}</option>
+                                ))}
+                            </select>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs"
+                                onClick={handleDispatchToggle}
+                            >
+                                <AlertTriangle className="w-3 h-3 mr-1" />
+                                Диспетчер
+                            </Button>
+                        </div>
                     </div>
                     
                     <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-                        {customChannels.map((channel) => {
+                        {customChannels
+                            .filter(channel => selectedZone === 'all' || channel.zone === selectedZone)
+                            .map((channel) => {
                             const isActive = channel.id === currentChannel;
                             const isListening = listeningChannels.includes(channel.id);
                             const participants = channels.find(ch => ch.id === channel.id)?.participants || 0;
@@ -345,8 +437,20 @@ export default function RadioPanel() {
                                                 <div className="text-sm font-semibold text-zinc-200">
                                                     {channel.name}
                                                 </div>
-                                                <div className="text-xs text-zinc-500 font-mono">
-                                                    {channel.frequency} MHz
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs text-zinc-500 font-mono">
+                                                        {channel.frequency} MHz
+                                                    </span>
+                                                    {channel.type && (
+                                                        <Badge variant="outline" className="text-xs bg-zinc-900 border-zinc-700 text-zinc-400">
+                                                            {channel.type === 'trunked' ? '📡 Trunked' : '📻 Conv'}
+                                                        </Badge>
+                                                    )}
+                                                    {channel.zone && selectedZone === 'all' && (
+                                                        <Badge variant="outline" className="text-xs bg-zinc-900 border-zinc-700 text-zinc-500">
+                                                            {channel.zone}
+                                                        </Badge>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -373,6 +477,9 @@ export default function RadioPanel() {
                                             </Button>
                                         </div>
                                     </div>
+                                    
+                                    {/* Отображение пользователей на канале */}
+                                    <ChannelUsers frequency={channel.frequency} />
                                 </div>
                             );
                         })}

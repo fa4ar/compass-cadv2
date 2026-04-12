@@ -51,6 +51,7 @@ interface RadioContextType {
     setToneVolume: (volume: number) => void;
     playTone: (toneType: string) => void;
     setDispatchSession: (sessionId: string) => void;
+    checkSubscription: () => void;
 }
 
 const RadioContext = createContext<RadioContextType | undefined>(undefined);
@@ -74,59 +75,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const audioContextRef = useRef<AudioContext | null>(null);
     const mediaRecorderRef = useRef<any>(null);
 
-    // Вспомогательная функция для записи строки в DataView
     const writeString = (view: DataView, offset: number, str: string) => {
         for (let i = 0; i < str.length; i++) {
             view.setUint8(offset + i, str.charCodeAt(i));
         }
     };
 
-    // Вспомогательная функция для конвертации аудио в base64
-    const audioBufferToBase64 = (buffer: Float32Array): string => {
-        const length = buffer.length;
-        const pcmData = new Int16Array(length);
-        for (let i = 0; i < length; i++) {
-            pcmData[i] = Math.max(-32768, Math.min(32767, Math.floor(buffer[i] * 32768)));
-        }
-        
-        const sampleRate = 16000;
-        const channels = 1;
-        const bitsPerSample = 16;
-        const byteRate = sampleRate * channels * bitsPerSample / 8;
-        const blockAlign = channels * bitsPerSample / 8;
-        
-        const wavHeader = new ArrayBuffer(44);
-        const view = new DataView(wavHeader);
-        
-        writeString(view, 0, 'RIFF');
-        view.setUint32(4, 36 + length * 2, true);
-        writeString(view, 8, 'WAVE');
-        writeString(view, 12, 'fmt ');
-        view.setUint32(16, 16, true);
-        view.setUint16(20, 1, true);
-        view.setUint16(22, channels, true);
-        view.setUint32(24, sampleRate, true);
-        view.setUint32(28, byteRate, true);
-        view.setUint16(32, blockAlign, true);
-        view.setUint16(34, bitsPerSample, true);
-        writeString(view, 36, 'data');
-        view.setUint32(40, length * 2, true);
-        
-        const wavData = new Uint8Array(44 + length * 2);
-        wavData.set(new Uint8Array(wavHeader), 0);
-        
-        const pcmBytes = new Int16Array(wavData.buffer, 44, length);
-        pcmBytes.set(pcmData);
-        
-        let binary = '';
-        const bytes = new Uint8Array(wavData.buffer);
-        for (let i = 0; i < bytes.byteLength; i++) {
-            binary += String.fromCharCode(bytes[i]);
-        }
-        return btoa(binary);
-    };
-
-    // Вспомогательная функция для конвертации Blob в base64
     const blobToBase64 = useCallback((blob: Blob): Promise<string> => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -140,10 +94,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const getRadioSocketUrl = useCallback(() => {
-        // Если URL не указан, используем относительные пути через прокси Next.js
         const radioUrl = process.env.NEXT_PUBLIC_RADIO_SOCKET_URL;
         if (!radioUrl) {
-            return ''; // Будет использовать текущий origin через прокси
+            return '';
         }
         return radioUrl;
     }, []);
@@ -159,7 +112,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
         const socket = io(radioUrl, {
             autoConnect: true,
-            transports: ['polling', 'websocket'], // Пробуем polling и websocket через прокси
+            transports: ['polling', 'websocket'],
             reconnection: true,
             reconnectionAttempts: 10,
             reconnectionDelay: 1000,
@@ -167,7 +120,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             timeout: 20000,
             auth: {
                 authToken: process.env.NEXT_PUBLIC_RADIO_AUTH_TOKEN || 'changeme',
-                serverId: -1, // Диспетчер использует отрицательный ID
+                serverId: -1,
             },
         });
 
@@ -198,27 +151,39 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             setIsConnected(true);
         };
 
-        // Radio-specific events
         const handleChannelState = (data: any) => {
             console.log('[RadioContext] Channel state updated:', data);
-            if (data.channelId) {
-                setChannels(prev => {
-                    const updated = prev.map(ch => 
-                        ch.id === data.channelId 
-                            ? { ...ch, participants: data.participants || ch.participants }
-                            : ch
-                    );
-                    // Если канал новый, добавляем его
-                    if (!prev.find(ch => ch.id === data.channelId)) {
-                        updated.push({
-                            id: data.channelId,
-                            name: data.name || `Channel ${data.channelId}`,
-                            frequency: data.frequency || '100.0',
-                            participants: data.participants || 0,
-                            isActive: data.channelId === currentChannel
-                        });
+            
+            // 🔥 Автоматически подписываемся на канал если есть говорящие
+            if (data.frequency && data.activeTalkers?.length > 0) {
+                const freqStr = data.frequency.toString();
+                if (!listeningChannels.includes(freqStr) && currentChannel !== freqStr) {
+                    console.log(`[RadioContext] Auto-joining channel ${freqStr} due to active talker`);
+                    if (socketRef.current?.connected) {
+                        // ✅ ИСПРАВЛЕНО: отправляем просто число, а не объект
+                        socketRef.current.emit('addListeningChannel', parseFloat(freqStr));
                     }
-                    return updated;
+                }
+            }
+            
+            if (data.frequency) {
+                setChannels(prev => {
+                    const existingIndex = prev.findIndex(ch => ch.frequency === data.frequency.toString());
+                    const channelData = {
+                        id: data.frequency.toString(),
+                        name: data.name || `Channel ${data.frequency}`,
+                        frequency: data.frequency.toString(),
+                        participants: (data.speakers?.length || 0) + (data.listeners?.length || 0),
+                        isActive: currentChannel === data.frequency.toString()
+                    };
+                    
+                    if (existingIndex >= 0) {
+                        const updated = [...prev];
+                        updated[existingIndex] = channelData;
+                        return updated;
+                    } else {
+                        return [...prev, channelData];
+                    }
                 });
             }
         };
@@ -226,93 +191,111 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const handleTalkingState = (data: any) => {
             console.log('[RadioContext] Talking state updated:', data);
             setTalkingUsers(prev => {
-                const updated = prev.map(user => 
-                    user.id === data.serverId 
-                        ? { ...user, isTalking: data.state }
-                        : user
-                );
-                // Если пользователь новый, добавляем его
-                if (!prev.find(u => u.id === data.serverId)) {
-                    updated.push({
-                        id: data.serverId,
-                        name: data.name || 'Unknown',
-                        callsign: data.callsign || '',
-                        isTalking: data.state,
-                        channel: data.frequency
-                    });
+                const existingIndex = prev.findIndex(u => u.id === data.serverId?.toString());
+                const userData = {
+                    id: data.serverId?.toString() || '',
+                    name: data.name || 'Unknown',
+                    callsign: data.callsign || '',
+                    isTalking: data.state,
+                    channel: data.frequency?.toString()
+                };
+                
+                if (existingIndex >= 0) {
+                    const updated = [...prev];
+                    updated[existingIndex] = userData;
+                    return updated;
+                } else {
+                    return [...prev, userData];
                 }
-                return updated;
             });
         };
 
         const handleSpeakerJoined = (data: any) => {
             console.log('[RadioContext] Speaker joined:', data);
             setTalkingUsers(prev => {
-                const exists = prev.find(u => u.id === data.serverId);
-                if (exists) return prev;
-                return [
-                    ...prev,
-                    {
-                        id: data.serverId,
-                        name: data.name || 'Unknown',
-                        callsign: data.callsign || '',
-                        isTalking: false,
-                        channel: data.frequency
-                    }
-                ];
+                if (prev.find(u => u.id === data.serverId?.toString())) return prev;
+                return [...prev, {
+                    id: data.serverId?.toString() || '',
+                    name: data.name || 'Unknown',
+                    callsign: data.callsign || '',
+                    isTalking: false,
+                    channel: data.frequency?.toString()
+                }];
             });
         };
 
         const handleSpeakerLeft = (data: any) => {
             console.log('[RadioContext] Speaker left:', data);
-            setTalkingUsers(prev => prev.filter(u => u.id !== data.serverId));
+            setTalkingUsers(prev => prev.filter(u => u.id !== data.serverId?.toString()));
         };
 
         const handleListenerJoined = (data: any) => {
             console.log('[RadioContext] Listener joined:', data);
             setListeningChannels(prev => {
-                if (prev.includes(data.frequency)) return prev;
-                return [...prev, data.frequency];
+                const freqStr = data.frequency?.toString();
+                if (!freqStr || prev.includes(freqStr)) return prev;
+                return [...prev, freqStr];
             });
         };
 
         const handleListenerLeft = (data: any) => {
             console.log('[RadioContext] Listener left:', data);
-            setListeningChannels(prev => prev.filter(ch => ch !== data.frequency));
+            setListeningChannels(prev => prev.filter(ch => ch !== data.frequency?.toString()));
         };
 
         const handleChannelDeleted = (data: any) => {
             console.log('[RadioContext] Channel deleted:', data);
-            setChannels(prev => prev.filter(ch => ch.id !== data.frequency));
+            setChannels(prev => prev.filter(ch => ch.frequency !== data.frequency?.toString()));
         };
 
         const handleServerTone = (data: any) => {
             console.log('[RadioContext] Server tone:', data);
-            // Можно добавить воспроизведение звука
         };
 
+        // 🔥 ИСПРАВЛЕННЫЙ handleVoice с лучшей обработкой ошибок
         const handleVoice = (data: any) => {
-            console.log('[RadioContext] Voice packet received:', data);
-            if (data.data) {
+            console.log('[RadioContext] Voice packet received:', {
+                serverId: data.serverId,
+                frequency: data.frequency,
+                dataLength: data.data?.length,
+                receiveType: data.receiveType
+            });
+            
+            if (!data.data || data.data.length === 0) {
+                console.warn('[RadioContext] No audio data in voice packet');
+                return;
+            }
+            
+            try {
                 const audioBase64 = data.data;
-                const binary = atob(audioBase64);
-                const array = new Uint8Array(binary.length);
-                for (let i = 0; i < binary.length; i++) {
-                    array[i] = binary.charCodeAt(i);
+                const binaryString = atob(audioBase64);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
                 }
-                const blob = new Blob([array], { type: 'audio/webm' });
+                
+                const blob = new Blob([bytes], { type: 'audio/webm' });
                 const url = URL.createObjectURL(blob);
                 
                 const sound = new Howl({
                     src: [url],
-                    format: ['webm'],
-                    volume: 1,
-                    onload: () => {
-                        sound.volume(volume / 100);
+                    format: ['webm', 'opus'],
+                    volume: volume / 100,
+                    onend: () => {
+                        URL.revokeObjectURL(url);
                     },
-                    onend: () => URL.revokeObjectURL(url)
+                    onloaderror: (id, error) => {
+                        console.error('[RadioContext] Howl load error:', error);
+                    },
+                    onplayerror: (id, error) => {
+                        console.error('[RadioContext] Howl play error:', error);
+                    }
                 });
+                
                 sound.play();
+                console.log('[RadioContext] Voice playing, volume:', volume);
+            } catch (error) {
+                console.error('[RadioContext] Failed to play voice:', error);
             }
         };
 
@@ -347,7 +330,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         ];
 
         setIsInitialized(true);
-    }, [getRadioSocketUrl, currentChannel]);
+    }, [getRadioSocketUrl, currentChannel, volume, listeningChannels]);
 
     const disconnect = useCallback(() => {
         if (socketRef.current) {
@@ -358,9 +341,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     }, []);
 
     useEffect(() => {
-        // Автоматическое подключение при монтировании провайдера
         connect();
-
         return () => {
             cleanupRef.current.forEach(cleanup => cleanup());
             disconnect();
@@ -369,11 +350,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
     const setSpeakerChannel = useCallback((channelId: string) => {
         if (socketRef.current?.connected) {
-            socketRef.current.emit('setSpeakerChannel', channelId);
+            // ✅ ИСПРАВЛЕНО: отправляем число
+            socketRef.current.emit('setSpeakerChannel', parseFloat(channelId));
             setCurrentChannel(channelId);
-            setChannels(prev => prev.map(ch => 
-                ch.id === channelId ? { ...ch, isActive: true } : { ...ch, isActive: false }
-            ));
         } else {
             console.warn('[RadioContext] Cannot set speaker channel, not connected');
         }
@@ -381,7 +360,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
     const addListeningChannel = useCallback((channelId: string) => {
         if (socketRef.current?.connected) {
-            socketRef.current.emit('addListeningChannel', channelId);
+            // ✅ ИСПРАВЛЕНО: отправляем число
+            socketRef.current.emit('addListeningChannel', parseFloat(channelId));
             setListeningChannels(prev => [...prev, channelId]);
         } else {
             console.warn('[RadioContext] Cannot add listening channel, not connected');
@@ -390,7 +370,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
     const removeListeningChannel = useCallback((channelId: string) => {
         if (socketRef.current?.connected) {
-            socketRef.current.emit('removeListeningChannel', channelId);
+            // ✅ ИСПРАВЛЕНО: отправляем число
+            socketRef.current.emit('removeListeningChannel', parseFloat(channelId));
             setListeningChannels(prev => prev.filter(ch => ch !== channelId));
         } else {
             console.warn('[RadioContext] Cannot remove listening channel, not connected');
@@ -451,6 +432,22 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
+    // ✅ ДОБАВЛЕН МЕТОД checkSubscription
+    const checkSubscription = useCallback(() => {
+        console.log('=== RADIO SUBSCRIPTION CHECK ===');
+        console.log('Socket connected:', socketRef.current?.connected);
+        console.log('Current channel:', currentChannel);
+        console.log('Listening channels:', listeningChannels);
+        console.log('Talking users:', talkingUsers);
+        console.log('Available channels:', channels);
+        
+        if (socketRef.current?.connected) {
+            socketRef.current.emit('getSubscriptionStatus', (response: any) => {
+                console.log('Server subscription status:', response);
+            });
+        }
+    }, [currentChannel, listeningChannels, talkingUsers, channels]);
+
     const enableMicrophone = useCallback(async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -464,11 +461,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             });
             
             mediaStreamRef.current = stream;
-            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({
-                sampleRate: 16000
-            });
-            
-            const source = audioContextRef.current.createMediaStreamSource(stream);
             
             const mediaRecorder = new MediaRecorder(stream, {
                 mimeType: 'audio/webm; codecs=opus',
@@ -483,7 +475,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             };
             
             mediaRecorder.onstop = async () => {
-                if (chunks.length > 0 && socketRef.current?.connected) {
+                if (chunks.length > 0 && socketRef.current?.connected && isRecording) {
                     const blob = new Blob(chunks, { type: 'audio/webm' });
                     const base64 = await blobToBase64(blob);
                     socketRef.current.emit('voice', {
@@ -522,11 +514,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         if (mediaStreamRef.current) {
             mediaStreamRef.current.getTracks().forEach(track => track.stop());
             mediaStreamRef.current = null;
-        }
-        
-        if (audioContextRef.current) {
-            audioContextRef.current.close();
-            audioContextRef.current = null;
         }
         
         if (mediaRecorderRef.current) {
@@ -572,6 +559,18 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                 setDispatchSessionId(data.sessionId);
                 setDispatchSession(data.sessionId);
                 console.log('[RadioContext] Dispatch authenticated, session ID:', data.sessionId);
+                
+                // Подписываемся на основные каналы
+                setTimeout(() => {
+                    const mainChannels = ['154.755', '460.250', '155.070'];
+                    mainChannels.forEach(freq => {
+                        if (socketRef.current?.connected) {
+                            // ✅ ИСПРАВЛЕНО: отправляем число
+                            socketRef.current.emit('addListeningChannel', parseFloat(freq));
+                            console.log(`[RadioContext] Subscribed to channel ${freq}`);
+                        }
+                    });
+                }, 1000);
             } else {
                 console.error('[RadioContext] Dispatch authentication failed:', data.error);
                 throw new Error(data.error || 'Authentication failed');
@@ -612,6 +611,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             setToneVolume,
             playTone,
             setDispatchSession,
+            checkSubscription,
         }}>
             {children}
         </RadioContext.Provider>
