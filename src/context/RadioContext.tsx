@@ -599,10 +599,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
     const emitServerTone = useCallback((frequency: number, tone: string) => {
         if (socketRef.current?.connected) {
-            socketRef.current.emit('serverTone', { frequency, tone });
-            console.log('[RadioContext] Server tone emitted:', { frequency, tone });
+            socketRef.current.emit('playTone', { tone });
+            console.log('[RadioContext] Tone emitted via Socket.IO:', { tone });
         } else {
-            console.warn('[RadioContext] Cannot emit serverTone, not connected');
+            console.warn('[RadioContext] Cannot emit playTone, not connected');
         }
     }, []);
 
