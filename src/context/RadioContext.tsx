@@ -156,6 +156,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             return;
         }
 
+        // Отключаем радио на HTTPS страницах для избежания Mixed Content ошибок
+        if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+            console.warn('[RadioContext] Radio disabled on HTTPS pages to avoid Mixed Content errors');
+            return;
+        }
+
         const radioUrl = getRadioSocketUrl();
         console.log('[RadioContext] Connecting to radio server at:', radioUrl);
 
