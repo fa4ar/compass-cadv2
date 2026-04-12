@@ -290,6 +290,22 @@ function EMSPageContent() {
             setSelectedCall((prev: any) => (prev?.id === id ? null : prev));
         });
 
+        socket.on('new_911_note', ({ callId, note }: { callId: number; note: any }) => {
+            console.log('[SOCKET] new_911_note received:', { callId, note });
+            queryClient.setQueryData(['calls911', 'active'], (prev: any[] = []) => prev.map(c => {
+                if (c.id === callId) {
+                    return { ...c, notes: [...(c.notes || []), note] };
+                }
+                return c;
+            }));
+            setSelectedCall((prev: any) => {
+                if (prev?.id === callId) {
+                    return { ...prev, notes: [...(prev.notes || []), note] };
+                }
+                return prev;
+            });
+        });
+
         socket.on('unit_attached_to_call', (data: { userId: number; callId: number; unitCallSign: string; isLeadUnit: boolean; call: any }) => {
             console.log('[SOCKET] unit_attached_to_call:', data);
             playSound('notification');
