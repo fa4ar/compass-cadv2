@@ -26,8 +26,8 @@ export async function POST(req: NextRequest) {
                 alertType: 'SIGNAL 100',
                 alertConfig: {
                     name: 'CODE 100',
-                    color: '#ff0000',
-                    isPersistent: false,
+                    color: '#f5e504',
+                    isPersistent: true,
                     tone: body.tone
                 }
             })
