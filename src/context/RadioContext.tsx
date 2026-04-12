@@ -53,6 +53,7 @@ interface RadioContextType {
     setDispatchSession: (sessionId: string) => void;
     checkSubscription: () => void;
     emitServerTone: (frequency: number, tone: string) => void;
+    sendCode100: (frequency: number) => void;
 }
 
 const RadioContext = createContext<RadioContextType | undefined>(undefined);
@@ -156,22 +157,54 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const handleChannelState = (data: any) => {
             console.log('[RadioContext] Channel state updated:', data);
             
+            // Удаляем пользователей которые больше не на канале
+            if (data.frequency) {
+                setTalkingUsers(prev => {
+                    const freqStr = data.frequency.toString();
+                    const usersOnChannel = data.speakers || [];
+                    const userIdsOnChannel = usersOnChannel.map((id: number) => id.toString());
+                    
+                    // Оставляем только тех кто на этом канале или на других каналах
+                    return prev.filter(user => 
+                        user.channel !== freqStr || userIdsOnChannel.includes(user.id)
+                    );
+                });
+            }
+            
             // Обновляем talkingUsers на основе speakers с позывными
             if (data.speakers && data.speakers.length > 0) {
+                const freqStr = data.frequency?.toString();
+                
                 data.speakers.forEach((speakerId: number) => {
-                    // Находим пользователя с этим ID
-                    const existingUser = talkingUsers.find(u => u.id === speakerId.toString());
+                    const speakerIdStr = speakerId.toString();
                     
-                    if (!existingUser) {
-                        // Добавляем нового пользователя с позывным из данных
-                        setTalkingUsers(prev => [...prev, {
-                            id: speakerId.toString(),
-                            name: data.userCallsigns?.[speakerId] || `Player ${speakerId}`,
-                            callsign: data.userCallsigns?.[speakerId] || '',
-                            isTalking: data.activeTalkers?.includes(speakerId) || false,
-                            channel: data.frequency?.toString()
-                        }]);
-                    }
+                    setTalkingUsers(prev => {
+                        // Находим пользователя с этим ID
+                        const existingUser = prev.find(u => u.id === speakerIdStr);
+                        
+                        if (existingUser) {
+                            // Обновляем существующего пользователя
+                            return prev.map(u => 
+                                u.id === speakerIdStr 
+                                    ? { ...u, 
+                                        name: data.userCallsigns?.[speakerId] || u.name,
+                                        callsign: data.userCallsigns?.[speakerId] || u.callsign,
+                                        isTalking: data.activeTalkers?.includes(speakerId) || false,
+                                        channel: freqStr
+                                      }
+                                    : u
+                            );
+                        } else {
+                            // Добавляем нового пользователя с позывным из данных
+                            return [...prev, {
+                                id: speakerIdStr,
+                                name: data.userCallsigns?.[speakerId] || `Player ${speakerId}`,
+                                callsign: data.userCallsigns?.[speakerId] || '',
+                                isTalking: data.activeTalkers?.includes(speakerId) || false,
+                                channel: freqStr
+                            }];
+                        }
+                    });
                 });
             }
             
@@ -452,9 +485,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             socketRef.current.emit('setSpeakerChannel', parseFloat(channelId));
             console.log(`[RadioContext] Now SPEAKING on channel ${channelId}`);
         } else {
-            console.warn('[RadioContext] Cannot set speaker channel, not connected');
+            console.warn('[RadioContext] Cannot set speaker channel, not connected - attempting to connect');
+            connect();
         }
-    }, []);
+    }, [connect]);
 
     const addListeningChannel = useCallback((channelId: string) => {
         if (socketRef.current?.connected) {
@@ -555,6 +589,19 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
+    const sendCode100 = useCallback((frequency: number) => {
+        if (socketRef.current?.connected) {
+            socketRef.current.emit('toggleAlert', {
+                frequency: frequency,
+                tone: 'ALERT_A',
+                type: 'SIGNAL_100'
+            });
+            console.log('[RadioContext] 📤 Code 100 sent to server for channel', frequency);
+        } else {
+            console.warn('[RadioContext] Cannot send Code 100, not connected');
+        }
+    }, []);
+
     const playGunshotSound = useCallback((vol: number = 0.8, position?: { x: number; y: number; z: number }) => {
         try {
             const soundPath = '/audio/bgShot.wav';
@@ -634,9 +681,14 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                     const blob = new Blob(chunks, { type: 'audio/webm' });
                     const base64 = await blobToBase64(blob);
                     socketRef.current.emit('voice', {
+                        channelName: currentChannel?.toString(),  // СТРОКА!
+                        serverId: -1,                              // ЧИСЛО!
+                        data: base64                               // ТОЛЬКО base64!
+                    });
+                    console.log('[RadioContext] Voice sent:', {
                         channelName: currentChannel,
                         serverId: -1,
-                        data: base64
+                        dataSize: base64.length
                     });
                     chunks.length = 0;
                 }
@@ -757,6 +809,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             setDispatchSession,
             checkSubscription,
             emitServerTone,
+            sendCode100,
         }}>
             {children}
         </RadioContext.Provider>
