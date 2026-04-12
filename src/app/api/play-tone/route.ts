@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
             headers['X-Session-Id'] = sessionId;
         }
         
-        const response = await fetch(`${radioUrl}/radio/dispatch/tone`, {
+        const response = await fetch(`${radioUrl}/api/play-tone`, {
             method: 'POST',
             headers: headers,
             body: JSON.stringify({
