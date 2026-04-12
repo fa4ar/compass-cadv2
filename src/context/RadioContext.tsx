@@ -142,7 +142,16 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const getRadioSocketUrl = useCallback(() => {
         // Радио сервер может работать на другом порту или пути
         // Используем NEXT_PUBLIC_RADIO_SOCKET_URL или дефолтный порт для радио
-        const radioUrl = process.env.NEXT_PUBLIC_RADIO_SOCKET_URL || 'http://localhost:3002';
+        let radioUrl = process.env.NEXT_PUBLIC_RADIO_SOCKET_URL || 'http://localhost:3002';
+        
+        if (typeof window !== 'undefined') {
+            const isHttps = window.location.protocol === 'https:';
+            if (isHttps && radioUrl.startsWith('http:')) {
+                // Заменяем http:// на https:// для HTTPS страниц
+                radioUrl = radioUrl.replace('http://', 'https://');
+            }
+        }
+        
         return radioUrl;
     }, []);
 
