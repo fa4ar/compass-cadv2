@@ -98,7 +98,7 @@ export class Calls911Controller {
     getActive = async (req: AuthRequest, res: Response) => {
         try {
             const calls = await Calls911Service.getActiveCalls();
-            res.json({ calls });
+            res.json(calls);
         } catch (error: any) {
             console.error("Calls911Controller getActive error:", error);
             res.status(500).json({ error: error.message || "Failed to fetch 911 calls" });
