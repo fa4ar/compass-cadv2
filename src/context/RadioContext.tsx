@@ -77,6 +77,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const audioContextRef = useRef<AudioContext | null>(null);
     const mediaRecorderRef = useRef<any>(null);
     const gunshotSoundRef = useRef<Howl | null>(null);
+    const isRecordingRef = useRef(false);
 
     const writeString = (view: DataView, offset: number, str: string) => {
         for (let i = 0; i < str.length; i++) {
@@ -664,13 +665,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             };
             
             mediaRecorder.onstop = async () => {
-                if (chunks.length > 0 && socketRef.current?.connected && isRecording) {
+                if (chunks.length > 0 && socketRef.current?.connected && isRecordingRef.current) {
                     const blob = new Blob(chunks, { type: 'audio/webm' });
                     const base64 = await blobToBase64(blob);
                     socketRef.current.emit('voice', {
-                        channelName: currentChannel?.toString(),  // СТРОКА!
-                        serverId: -1,                              // ЧИСЛО!
-                        data: base64                               // ТОЛЬКО base64!
+                        channelName: currentChannel?.toString(),
+                        serverId: -1,
+                        data: base64
                     });
                     console.log('[RadioContext] Voice sent:', {
                         channelName: currentChannel,
@@ -684,7 +685,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             mediaRecorderRef.current = mediaRecorder;
             
             const recordInterval = setInterval(() => {
-                if (isRecording && mediaRecorder.state === 'inactive') {
+                if (isRecordingRef.current && mediaRecorder.state === 'inactive') {
                     mediaRecorder.start();
                     setTimeout(() => {
                         if (mediaRecorder.state === 'recording') {
@@ -702,7 +703,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             console.error('[RadioContext] Failed to enable microphone:', error);
             throw error;
         }
-    }, [currentChannel, isRecording, blobToBase64]);
+    }, [currentChannel, blobToBase64]);
 
     const disableMicrophone = useCallback(() => {
         if (mediaStreamRef.current) {
@@ -721,11 +722,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         
         setMicrophoneEnabled(false);
         setIsRecording(false);
+        isRecordingRef.current = false;
         console.log('[RadioContext] Microphone disabled');
     }, []);
 
     const startRecording = useCallback(() => {
         setIsRecording(true);
+        isRecordingRef.current = true;
         if (socketRef.current?.connected && currentChannel) {
             socketRef.current.emit('setTalking', true);
             console.log('[RadioContext] setTalking: true sent to server');
@@ -735,6 +738,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
     const stopRecording = useCallback(() => {
         setIsRecording(false);
+        isRecordingRef.current = false;
         if (socketRef.current?.connected && currentChannel) {
             socketRef.current.emit('setTalking', false);
             console.log('[RadioContext] setTalking: false sent to server');
