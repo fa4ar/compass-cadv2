@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
             headers: headers,
             body: JSON.stringify({
                 frequency: body.frequency,
-                alertType: 'CODE 100',
+                alertType: 'SIGNAL 100',
                 alertConfig: {
                     name: 'CODE 100',
                     color: '#ff0000',
