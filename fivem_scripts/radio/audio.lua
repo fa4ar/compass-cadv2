@@ -685,4 +685,16 @@ else
   L7_1 = Radio
   L7_1 = L7_1.disconnect
   L5_1(L6_1, L7_1)
+  L5_1 = RegisterNetEvent
+  L6_1 = "radioClient:playTone"
+  L5_1(L6_1)
+  L5_1 = AddEventHandler
+  L6_1 = "radioClient:playTone"
+  function L7_1(A0_2)
+    local L0_2, L1_2
+    L0_2 = Radio
+    L1_2 = A0_2
+    L0_2.playTone(L1_2)
+  end
+  L5_1(L6_1, L7_1)
 end

@@ -234,17 +234,37 @@ export default function RadioPanel() {
         }
 
         try {
-            // Используем emitServerTone через Socket.IO - bundle.js обрабатывает playTone событие
-            emitServerTone(parseFloat(currentChannel), 'ALERT_A');
-            toast({
-                title: '🚨 КОД 100',
-                description: `SIGNAL 100 отправлен на канал ${currentChannel} MHz`
+            const response = await fetch('/api/play-tone', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer changeme',
+                    'X-Session-Id': dispatchSessionId || ''
+                },
+                body: JSON.stringify({
+                    frequency: parseFloat(currentChannel),
+                    tone: 'alert_a'
+                })
             });
+
+            const data = await response.json();
+            if (data.success) {
+                toast({
+                    title: '🚨 КОД 100',
+                    description: `SIGNAL 100 отправлен на канал ${currentChannel} MHz`
+                });
+            } else {
+                toast({
+                    title: 'Ошибка',
+                    description: data.error || 'Не удалось отправить сигнал',
+                    variant: 'destructive'
+                });
+            }
         } catch (error) {
             console.error('Failed to send code 100:', error);
             toast({
                 title: 'Ошибка',
-                description: 'Не удалось отправить сигнал',
+                description: 'Не удалось соединиться с сервером',
                 variant: 'destructive'
             });
         }
