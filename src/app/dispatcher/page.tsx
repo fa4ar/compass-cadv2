@@ -18,6 +18,7 @@ import { DutyModal } from '@/components/police-dispatcher/DutyModal';
 import { MessageModal } from '@/components/police-dispatcher/MessageModal';
 import { PairCreationModal } from '@/components/police-dispatcher/PairCreationModal';
 import RadioPanel from '@/components/police-dispatcher/RadioPanel';
+import { useRadio } from '@/context/RadioContext';
 import type { Call911 } from '@/types/coordinates';
 import api from '@/lib/axios';
 
@@ -82,6 +83,7 @@ export default function DispatcherPage() {
 function DispatcherPageContent() {
     const { user } = useAuth();
     const { socket, isConnected } = useSocket();
+    const { authenticateDispatch, setDispatchSession } = useRadio();
     const queryClient = useQueryClient();
 
     // Tanstack Query для units
@@ -465,15 +467,25 @@ function DispatcherPageContent() {
         };
     }, [socket, isConnected, selectedCall]);
 
-    const handleDutyStart = () => {
+    const handleDutyStart = async () => {
         if (!callSign.trim()) {
             toast({ title: 'Ошибка', description: 'Введите позывной', variant: 'destructive' });
             return;
         }
-        setOnDuty(true);
-        setShowDutyModal(false);
-        localStorage.setItem('dispatcherCallSign', callSign.toUpperCase());
-        localStorage.setItem('dispatcherOnDuty', 'true');
+
+        try {
+            // Авторизуемся в радио системе как диспетчер
+            await authenticateDispatch(callSign.toUpperCase());
+            toast({ title: 'Диспетчер авторизован', description: `Позывной: ${callSign.toUpperCase()}` });
+            
+            setOnDuty(true);
+            setShowDutyModal(false);
+            localStorage.setItem('dispatcherCallSign', callSign.toUpperCase());
+            localStorage.setItem('dispatcherOnDuty', 'true');
+        } catch (error) {
+            console.error('Failed to authenticate dispatch:', error);
+            toast({ title: 'Ошибка авторизации', description: 'Не удалось авторизоваться в радио системе', variant: 'destructive' });
+        }
     };
 
     const handleGoOffDuty = () => {
