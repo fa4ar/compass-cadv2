@@ -166,7 +166,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             reconnectionDelayMax: 5000,
             timeout: 20000,
             auth: {
-                authToken: process.env.NEXT_PUBLIC_RADIO_AUTH_TOKEN || 'radio',
+                authToken: process.env.NEXT_PUBLIC_RADIO_AUTH_TOKEN || 'changeme',
                 serverId: -1, // Диспетчер использует отрицательный ID
             },
         });
