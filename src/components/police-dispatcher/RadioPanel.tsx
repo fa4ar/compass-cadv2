@@ -156,6 +156,35 @@ export default function RadioPanel() {
         stopRecording();
     };
 
+    // Поддержка клавиши T для PTT
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 't' || e.key === 'T' || e.key === 'т' || e.key === 'Т') {
+                if (!isPTTPressed && microphoneEnabled) {
+                    e.preventDefault();
+                    handlePTTDown();
+                }
+            }
+        };
+
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.key === 't' || e.key === 'T' || e.key === 'т' || e.key === 'Т') {
+                if (isPTTPressed) {
+                    e.preventDefault();
+                    handlePTTUp();
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, [isPTTPressed, microphoneEnabled, handlePTTDown, handlePTTUp]);
+
     // Переключение канала
     const handleChannelSelect = (channelFrequency: string) => {
         setSpeakerChannel(channelFrequency);
@@ -301,26 +330,18 @@ export default function RadioPanel() {
         }
     };
 
-    if (!isConnected) {
-        return (
-            <Card className="bg-zinc-900/50 border-zinc-800">
-                <CardContent className="p-4">
-                    <div className="flex items-center gap-3 text-zinc-500">
-                        <Signal className="w-5 h-5" />
-                        <span className="text-sm">Нет подключения к радио серверу</span>
-                    </div>
-                </CardContent>
-            </Card>
-        );
-    }
-
     return (
         <Card className="bg-zinc-900/50 border-zinc-800 flex flex-col">
             <CardHeader className="pb-3 shrink-0">
                 <CardTitle className="text-sm font-bold text-zinc-100 flex items-center justify-between">
                     <span className="flex items-center gap-2">
-                        <Radio className="w-4 h-4 text-blue-500" />
+                        <Radio className={`w-4 h-4 ${isConnected ? 'text-blue-500' : 'text-red-500'}`} />
                         Радио Консоль
+                        {!isConnected && (
+                            <Badge variant="outline" className="text-xs bg-red-500/20 text-red-400 border-red-500/30">
+                                Отключено
+                            </Badge>
+                        )}
                     </span>
                     <div className="flex gap-2">
                         <Button

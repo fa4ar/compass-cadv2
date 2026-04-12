@@ -156,12 +156,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             console.log('[RadioContext] Channel state updated:', data);
             
             // 🔥 Автоматически подписываемся на канал если есть говорящие
-            if (data.frequency && data.activeTalkers?.length > 0) {
+            if (data.frequency && data.speakers?.length > 0) {
                 const freqStr = data.frequency.toString();
                 if (!listeningChannels.includes(freqStr) && currentChannel !== freqStr) {
-                    console.log(`[RadioContext] Auto-joining channel ${freqStr} due to active talker`);
+                    console.log(`[RadioContext] Auto-subscribing to ${freqStr} - has speakers`);
                     if (socketRef.current?.connected) {
-                        // ✅ ИСПРАВЛЕНО: отправляем просто число, а не объект
                         socketRef.current.emit('addListeningChannel', parseFloat(freqStr));
                     }
                 }
@@ -252,20 +251,26 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         };
 
         const handleServerTone = (data: any) => {
-            console.log('[RadioContext] Server tone:', data);
+            console.log('[RadioContext] Server tone received:', data);
+            
+            if (data.tone) {
+                playTone(data.tone);
+                console.log('[RadioContext] Playing tone:', data.tone);
+            }
         };
 
         // 🔥 ИСПРАВЛЕННЫЙ handleVoice с лучшей обработкой ошибок
         const handleVoice = (data: any) => {
-            console.log('[RadioContext] Voice packet received:', {
+            console.log('[RadioContext] 🎙️ Voice packet received:', {
                 serverId: data.serverId,
                 frequency: data.frequency,
                 dataLength: data.data?.length,
-                receiveType: data.receiveType
+                receiveType: data.receiveType,
+                currentVolume: volume
             });
             
             if (!data.data || data.data.length === 0) {
-                console.warn('[RadioContext] No audio data in voice packet');
+                console.warn('[RadioContext] ⚠️ No audio data in voice packet');
                 return;
             }
             
@@ -277,8 +282,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                     bytes[i] = binaryString.charCodeAt(i);
                 }
                 
+                console.log('[RadioContext] 📦 Audio decoded, size:', bytes.length, 'bytes');
+                
                 const blob = new Blob([bytes], { type: 'audio/webm' });
                 const url = URL.createObjectURL(blob);
+                
+                console.log('[RadioContext] 🔊 Creating Howl with volume:', volume / 100);
                 
                 const sound = new Howl({
                     src: [url],
@@ -287,23 +296,24 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                     preload: true,
                     html5: true,
                     onend: () => {
+                        console.log('[RadioContext] ✅ Audio playback finished');
                         URL.revokeObjectURL(url);
                     },
                     onload: () => {
-                        console.log('[RadioContext] Voice audio loaded successfully');
+                        console.log('[RadioContext] ✅ Voice audio loaded successfully');
                     },
                     onloaderror: (id, error) => {
-                        console.error('[RadioContext] Howl load error:', error);
+                        console.error('[RadioContext] ❌ Howl load error:', error);
                         URL.revokeObjectURL(url);
                     },
                     onplayerror: (id, error) => {
-                        console.error('[RadioContext] Howl play error:', error);
+                        console.error('[RadioContext] ❌ Howl play error:', error);
                         // Retry once on play error
                         setTimeout(() => {
                             try {
                                 sound.play();
                             } catch (retryError) {
-                                console.error('[RadioContext] Retry play failed:', retryError);
+                                console.error('[RadioContext] ❌ Retry play failed:', retryError);
                                 URL.revokeObjectURL(url);
                             }
                         }, 100);
@@ -312,20 +322,20 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                 
                 // Wait for audio to load before playing
                 sound.once('load', () => {
+                    console.log('[RadioContext] ▶️ Starting playback');
                     sound.play();
-                    console.log('[RadioContext] Voice playing, volume:', volume);
                 });
                 
                 // Fallback: if load takes too long, try playing anyway
                 setTimeout(() => {
                     if (sound.state() !== 'loaded') {
-                        console.warn('[RadioContext] Audio load timeout, attempting playback anyway');
+                        console.warn('[RadioContext] ⏱️ Audio load timeout, attempting playback anyway');
                         sound.play();
                     }
                 }, 500);
                 
             } catch (error) {
-                console.error('[RadioContext] Failed to play voice:', error);
+                console.error('[RadioContext] ❌ Failed to play voice:', error);
             }
         };
 
@@ -350,6 +360,23 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                 z: data.z
             });
         });
+        
+        socket.on('channelAlert', (data: any) => {
+            console.log('[RadioContext] Channel alert received:', data);
+            
+            if (data.tone === 'ALERT_A' || data.type === 'SIGNAL_100') {
+                playTone('ALERT_A');
+                console.log('[RadioContext] Playing ALERT_A for channel alert');
+            }
+        });
+        
+        socket.on('dispatchAlert', (data: any) => {
+            console.log('[RadioContext] Dispatch alert received:', data);
+            
+            if (data.tone) {
+                playTone(data.tone);
+            }
+        });
 
         cleanupRef.current = [
             () => socket.off('connect', handleConnect),
@@ -366,6 +393,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             () => socket.off('serverTone', handleServerTone),
             () => socket.off('voice', handleVoice),
             () => socket.off('playGunshot'),
+            () => socket.off('channelAlert'),
+            () => socket.off('dispatchAlert'),
         ];
 
         setIsInitialized(true);
