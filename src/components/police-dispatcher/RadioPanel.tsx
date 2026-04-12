@@ -238,7 +238,8 @@ export default function RadioPanel() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-Session-Id': dispatchSessionId || ''
+                    'X-Session-Id': dispatchSessionId || '',
+                    'Authorization': `Bearer ${dispatchSessionId || ''}`
                 },
                 body: JSON.stringify({
                     frequency: parseFloat(currentChannel),
