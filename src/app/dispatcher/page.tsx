@@ -449,18 +449,11 @@ function DispatcherPageContent() {
         socket.on('unit_attached_to_call', handleUnitAttached);
         socket.on('unit_detached_from_call', handleUnitDetached);
         socket.on('lead_unit_changed', handleLeadUnitChanged);
-        socket.on('new_911_note', ({ callId, note }: { callId: number; note: any }) => {
-            console.log('[SOCKET] new_911_note received:', { callId, note });
-            if (selectedCall?.id === callId) {
-                setSelectedCall(prev => prev ? { ...prev, notes: [...(prev.notes || []), note] } : null);
-            }
-        });
 
         return () => {
             socket.off('unit_attached_to_call', handleUnitAttached);
             socket.off('unit_detached_from_call', handleUnitDetached);
             socket.off('lead_unit_changed', handleLeadUnitChanged);
-            socket.off('new_911_note');
         };
     }, [socket, isConnected, selectedCall]);
 

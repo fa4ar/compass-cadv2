@@ -137,10 +137,13 @@ export class Calls911Controller {
             const { id } = req.params;
             const { text, author: bodyAuthor } = req.body;
             const author = bodyAuthor || req.user?.username || "Unknown";
+            console.log('[Calls911Controller] Adding note to call:', { callId: id, author, text });
             const note = await Calls911Service.addNote(Number(id), author, text);
+            console.log('[Calls911Controller] Note created:', note);
             
             // 🔥 Emit socket event
             io.emit('new_911_note', { callId: Number(id), note });
+            console.log('[Calls911Controller] Socket event emitted: new_911_note', { callId: Number(id), note });
             
             res.status(201).json(note);
         } catch (error: any) {
