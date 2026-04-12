@@ -113,6 +113,16 @@ function DispatcherPageContent() {
     const [callSign, setCallSign] = useState("");
     const [onDuty, setOnDuty] = useState(false);
     
+    // 🔧 ДОБАВЛЕНЫ НЕДОСТАЮЩИЕ useState
+    const [draggedUnit, setDraggedUnit] = useState<Unit | null>(null);
+    const [dropTargetUnit, setDropTargetUnit] = useState<Unit | null>(null);
+    const [showCreatePairModal, setShowCreatePairModal] = useState(false);
+    const [createPairData, setCreatePairData] = useState<{
+        unit1: Unit | null;
+        unit2: Unit | null;
+        pairName: string;
+        customCallSign: string;
+    } | null>(null);
     
     const [searchType, setSearchType] = useState<SearchType>('person');
     const [searchQuery, setSearchQuery] = useState("");
@@ -125,12 +135,6 @@ function DispatcherPageContent() {
     const [showMessageModal, setShowMessageModal] = useState(false);
     const [messageText, setMessageText] = useState("");
     const [messageUnit, setMessageUnit] = useState<Unit | null>(null);
-
-    // Drag and drop for pair creation
-    const [draggedUnit, setDraggedUnit] = useState<Unit | null>(null);
-    const [dropTargetUnit, setDropTargetUnit] = useState<Unit | null>(null);
-    const [showCreatePairModal, setShowCreatePairModal] = useState(false);
-    const [createPairData, setCreatePairData] = useState<{ unit1: Unit; unit2: Unit; pairName: string; customCallSign: string } | null>(null);
 
     // Status dropdown state
     const [showStatusMenu, setShowStatusMenu] = useState(false);
@@ -897,11 +901,11 @@ function DispatcherPageContent() {
                                                                     </TooltipProvider>
                                                                 )}
                                                             </div>
-                                                        </td>
+                                                         </td>
                                                         <td className="px-3 py-2 text-zinc-300">{u.officer}</td>
                                                         <td className="px-3 py-2">
                                                             {renderUnitStatusBadge(u.status)}
-                                                        </td>
+                                                         </td>
                                                         <td className="px-3 py-2 text-zinc-500 text-xs font-mono">{u.time}</td>
                                                         <td className="px-3 py-2 text-right">
                                                             <div className="flex justify-end gap-1">
@@ -924,8 +928,8 @@ function DispatcherPageContent() {
                                                                     <Siren className="w-3.5 h-3.5" />
                                                                 </Button>
                                                             </div>
-                                                        </td>
-                                                    </tr>
+                                                         </td>
+                                                     </tr>
                                                 ))}
                                             </tbody>
                                         </table>

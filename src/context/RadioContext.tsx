@@ -74,6 +74,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const mediaStreamRef = useRef<MediaStream | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
     const mediaRecorderRef = useRef<any>(null);
+    const gunshotSoundRef = useRef<Howl | null>(null);
 
     const writeString = (view: DataView, offset: number, str: string) => {
         for (let i = 0; i < str.length; i++) {
@@ -214,10 +215,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             console.log('[RadioContext] Speaker joined:', data);
             setTalkingUsers(prev => {
                 if (prev.find(u => u.id === data.serverId?.toString())) return prev;
+                // Если это диспетчер (serverId = -1), используем позывной из сессии
+                const isDispatch = data.serverId === -1;
                 return [...prev, {
                     id: data.serverId?.toString() || '',
-                    name: data.name || 'Unknown',
-                    callsign: data.callsign || '',
+                    name: isDispatch ? 'DISPATCH' : (data.name || 'Unknown'),
+                    callsign: isDispatch ? 'DISPATCH' : (data.callsign || ''),
                     isTalking: false,
                     channel: data.frequency?.toString()
                 }];
@@ -281,19 +284,46 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                     src: [url],
                     format: ['webm', 'opus'],
                     volume: volume / 100,
+                    preload: true,
+                    html5: true,
                     onend: () => {
                         URL.revokeObjectURL(url);
                     },
+                    onload: () => {
+                        console.log('[RadioContext] Voice audio loaded successfully');
+                    },
                     onloaderror: (id, error) => {
                         console.error('[RadioContext] Howl load error:', error);
+                        URL.revokeObjectURL(url);
                     },
                     onplayerror: (id, error) => {
                         console.error('[RadioContext] Howl play error:', error);
+                        // Retry once on play error
+                        setTimeout(() => {
+                            try {
+                                sound.play();
+                            } catch (retryError) {
+                                console.error('[RadioContext] Retry play failed:', retryError);
+                                URL.revokeObjectURL(url);
+                            }
+                        }, 100);
                     }
                 });
                 
-                sound.play();
-                console.log('[RadioContext] Voice playing, volume:', volume);
+                // Wait for audio to load before playing
+                sound.once('load', () => {
+                    sound.play();
+                    console.log('[RadioContext] Voice playing, volume:', volume);
+                });
+                
+                // Fallback: if load takes too long, try playing anyway
+                setTimeout(() => {
+                    if (sound.state() !== 'loaded') {
+                        console.warn('[RadioContext] Audio load timeout, attempting playback anyway');
+                        sound.play();
+                    }
+                }, 500);
+                
             } catch (error) {
                 console.error('[RadioContext] Failed to play voice:', error);
             }
@@ -312,6 +342,14 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         socket.on('channelDeleted', handleChannelDeleted);
         socket.on('serverTone', handleServerTone);
         socket.on('voice', handleVoice);
+        socket.on('playGunshot', (data: any) => {
+            console.log('[RadioContext] Gunshot received:', data);
+            playGunshotSound(data.volume || 0.8, {
+                x: data.x,
+                y: data.y,
+                z: data.z
+            });
+        });
 
         cleanupRef.current = [
             () => socket.off('connect', handleConnect),
@@ -327,6 +365,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             () => socket.off('channelDeleted', handleChannelDeleted),
             () => socket.off('serverTone', handleServerTone),
             () => socket.off('voice', handleVoice),
+            () => socket.off('playGunshot'),
         ];
 
         setIsInitialized(true);
@@ -349,10 +388,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     }, [connect, disconnect]);
 
     const setSpeakerChannel = useCallback((channelId: string) => {
+        setCurrentChannel(channelId);
         if (socketRef.current?.connected) {
             // ✅ ИСПРАВЛЕНО: отправляем число
             socketRef.current.emit('setSpeakerChannel', parseFloat(channelId));
-            setCurrentChannel(channelId);
         } else {
             console.warn('[RadioContext] Cannot set speaker channel, not connected');
         }
@@ -447,6 +486,54 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             });
         }
     }, [currentChannel, listeningChannels, talkingUsers, channels]);
+
+    const playGunshotSound = useCallback((vol: number = 0.8, position?: { x: number; y: number; z: number }) => {
+        try {
+            const soundPath = '/audio/bgShot.wav';
+            
+            if (gunshotSoundRef.current) {
+                gunshotSoundRef.current.stop();
+                gunshotSoundRef.current.unload();
+            }
+            
+            const sound = new Howl({
+                src: [soundPath],
+                format: ['wav'],
+                volume: Math.min(1, Math.max(0, vol)),
+                onload: () => {
+                    console.log('[RadioContext] Gunshot sound loaded');
+                },
+                onloaderror: (id, error) => {
+                    console.error('[RadioContext] Failed to load gunshot sound:', error);
+                    const altSound = new Howl({
+                        src: ['/sounds/bgShot.wav', '/radios/default/sounds/bgShot.wav'],
+                        format: ['wav'],
+                        volume: Math.min(1, Math.max(0, vol))
+                    });
+                    gunshotSoundRef.current = altSound;
+                    altSound.play();
+                }
+            });
+            
+            if (position && (window as any).Howler) {
+                const soundId = sound.play();
+                sound.pos(position.x, position.y, position.z, soundId);
+                sound.pannerAttr({
+                    panningModel: 'HRTF',
+                    rolloffFactor: 3,
+                    distanceModel: 'inverse',
+                    refDistance: 0.25
+                }, soundId);
+            } else {
+                sound.play();
+            }
+            
+            gunshotSoundRef.current = sound;
+            
+        } catch (error) {
+            console.error('[RadioContext] Failed to play gunshot:', error);
+        }
+    }, []);
 
     const enableMicrophone = useCallback(async () => {
         try {

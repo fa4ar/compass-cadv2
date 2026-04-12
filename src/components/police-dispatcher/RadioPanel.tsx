@@ -110,6 +110,7 @@ export default function RadioPanel() {
         toneVolume,
         microphoneEnabled,
         isRecording,
+        dispatchSessionId,
         connect,
         disconnect,
         enableMicrophone,
@@ -145,28 +146,33 @@ export default function RadioPanel() {
     // Обработка PTT (Push-to-Talk)
     const handlePTTDown = () => {
         setIsPTTPressed(true);
+        setTalking(true);
         startRecording();
     };
 
     const handlePTTUp = () => {
         setIsPTTPressed(false);
+        setTalking(false);
         stopRecording();
     };
 
     // Переключение канала
     const handleChannelSelect = (channelFrequency: string) => {
         setSpeakerChannel(channelFrequency);
-        toast({ title: 'Канал изменен', description: `Переключено на канал ${channelFrequency}` });
+        toast({ title: 'Канал изменен', description: `Переключено на канал ${channelFrequency} MHz` });
     };
 
     // Добавление канала в прослушиваемые
     const handleAddListening = (channelId: string) => {
-        if (listeningChannels.includes(channelId)) {
-            removeListeningChannel(channelId);
-            toast({ title: 'Прослушивание остановлено', description: `Канал ${channelId} удален из прослушиваемых` });
+        const channel = customChannels.find(ch => ch.id === channelId);
+        const freq = channel?.frequency || channelId;
+        
+        if (listeningChannels.includes(freq)) {
+            removeListeningChannel(freq);
+            toast({ title: 'Прослушивание остановлено', description: `Канал ${freq} MHz удален из прослушиваемых` });
         } else {
-            addListeningChannel(channelId);
-            toast({ title: 'Прослушивание добавлено', description: `Канал ${channelId} добавлен в прослушиваемые` });
+            addListeningChannel(freq);
+            toast({ title: 'Прослушивание добавлено', description: `Канал ${freq} MHz добавлен в прослушиваемые` });
         }
     };
 
@@ -176,6 +182,88 @@ export default function RadioPanel() {
         toast({ title: 'Тон воспроизведен', description: toneType });
     };
 
+    // 🚨 КОД 100 - ТРЕВОГА (исправлено: ALERT_A)
+    const handleCode100 = () => {
+        if (!currentChannel) {
+            toast({ 
+                title: 'Ошибка', 
+                description: 'Сначала выберите канал',
+                variant: 'destructive' 
+            });
+            return;
+        }
+        
+        // Воспроизводим тон ALERT_A на текущем канале
+        playTone('ALERT_A');
+        
+        // Отправляем алерт через HTTP API если есть диспетчерская сессия
+        if (dispatchSessionId) {
+            fetch('/radio/dispatch/alert/trigger', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Session-Id': dispatchSessionId
+                },
+                body: JSON.stringify({
+                    frequency: currentChannel,
+                    alertType: 'SIGNAL 100',
+                    alertConfig: {
+                        name: 'SIGNAL 100',
+                        color: '#ff0000',
+                        isPersistent: true,
+                        tone: 'ALERT_A'
+                    }
+                })
+            }).catch(err => console.error('Failed to trigger alert:', err));
+        }
+        
+        toast({ 
+            title: '🚨 КОД 100 - ТРЕВОГА 🚨', 
+            description: `Экстренное оповещение отправлено на канал ${currentChannel} MHz`,
+            variant: 'destructive'
+        });
+    };
+
+    // Код 10-1 (SIGNAL 3)
+    const handleCode101 = () => {
+        if (!currentChannel) {
+            toast({ 
+                title: 'Ошибка', 
+                description: 'Сначала выберите канал',
+                variant: 'destructive' 
+            });
+            return;
+        }
+        
+        playTone('ALERT_B');
+        
+        if (dispatchSessionId) {
+            fetch('/radio/dispatch/alert/trigger', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Session-Id': dispatchSessionId
+                },
+                body: JSON.stringify({
+                    frequency: currentChannel,
+                    alertType: 'SIGNAL 3',
+                    alertConfig: {
+                        name: 'SIGNAL 3',
+                        color: '#0049d1',
+                        isPersistent: true,
+                        tone: 'ALERT_B'
+                    }
+                })
+            }).catch(err => console.error('Failed to trigger alert:', err));
+        }
+        
+        toast({ 
+            title: '⚠️ КОД 10-1 (SIGNAL 3)', 
+            description: `Оповещение отправлено на канал ${currentChannel} MHz`,
+            variant: 'default'
+        });
+    };
+
     // Добавление нового канала
     const handleAddChannel = () => {
         if (!newChannelName || !newChannelFreq) {
@@ -183,20 +271,20 @@ export default function RadioPanel() {
             return;
         }
         const newChannel: ChannelConfig = {
-            id: String(customChannels.length + 1),
+            id: `custom-${Date.now()}`,
             name: newChannelName,
             frequency: newChannelFreq,
         };
         setCustomChannels([...customChannels, newChannel]);
         setNewChannelName('');
         setNewChannelFreq('');
-        toast({ title: 'Канал добавлен', description: `${newChannelName} (${newChannelFreq})` });
+        toast({ title: 'Канал добавлен', description: `${newChannelName} (${newChannelFreq} MHz)` });
     };
 
     // Удаление канала
     const handleRemoveChannel = (channelId: string) => {
         setCustomChannels(customChannels.filter(ch => ch.id !== channelId));
-        toast({ title: 'Канал удален', description: `Канал ${channelId} удален` });
+        toast({ title: 'Канал удален', description: `Канал удален` });
     };
 
     // Активация диспетчерской сессии
@@ -264,11 +352,11 @@ export default function RadioPanel() {
                                 ТЕКУЩИЙ
                             </Badge>
                             <span className="text-sm font-semibold text-zinc-200">
-                                {customChannels.find(ch => ch.id === currentChannel)?.name || 'Не выбран'}
+                                {customChannels.find(ch => ch.frequency === currentChannel)?.name || 'Не выбран'}
                             </span>
                         </div>
                         <span className="text-xs text-zinc-500 font-mono">
-                            {customChannels.find(ch => ch.id === currentChannel)?.frequency || '--.-'} MHz
+                            {currentChannel || '--.-'} MHz
                         </span>
                     </div>
                     
@@ -412,9 +500,9 @@ export default function RadioPanel() {
                         {customChannels
                             .filter(channel => selectedZone === 'all' || channel.zone === selectedZone)
                             .map((channel) => {
-                            const isActive = channel.id === currentChannel;
-                            const isListening = listeningChannels.includes(channel.id);
-                            const participants = channels.find(ch => ch.id === channel.id)?.participants || 0;
+                            const isActive = channel.frequency === currentChannel;
+                            const isListening = listeningChannels.includes(channel.frequency);
+                            const participants = channels.find(ch => ch.frequency === channel.frequency)?.participants || 0;
 
                             return (
                                 <div
@@ -443,7 +531,7 @@ export default function RadioPanel() {
                                                     </span>
                                                     {channel.type && (
                                                         <Badge variant="outline" className="text-xs bg-zinc-900 border-zinc-700 text-zinc-400">
-                                                            {channel.type === 'trunked' ? '📡 Trunked' : '📻 Conv'}
+                                                            {channel.type === 'trunked' ? ' Trunked' : ' Conv'}
                                                         </Badge>
                                                     )}
                                                     {channel.zone && selectedZone === 'all' && (
@@ -487,7 +575,7 @@ export default function RadioPanel() {
                 </div>
 
                 {/* Говорящие пользователи */}
-                {talkingUsers.length > 0 && (
+                {talkingUsers.filter(u => u.isTalking).length > 0 && (
                     <div className="bg-zinc-800/50 rounded-lg p-3 border border-zinc-700">
                         <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-2">
                             Говорят
@@ -499,7 +587,7 @@ export default function RadioPanel() {
                                     <span className="text-zinc-300">{user.callsign || user.name}</span>
                                     {user.channel && (
                                         <Badge variant="outline" className="text-xs bg-zinc-700 border-zinc-600">
-                                            {user.channel}
+                                            {user.channel} MHz
                                         </Badge>
                                     )}
                                 </div>
@@ -508,29 +596,70 @@ export default function RadioPanel() {
                     </div>
                 )}
 
-                {/* Тоны */}
+                {/* Тоны и экстренные кнопки */}
                 <div className="bg-zinc-800/50 rounded-lg p-3 border border-zinc-700">
+                    <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-2">
+                        Экстренные кнопки
+                    </span>
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                        {/* 🚨 КОД 100 - ТРЕВОГА (ALERT_A) */}
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            className="h-10 text-sm font-bold bg-red-600 hover:bg-red-500"
+                            onClick={handleCode100}
+                        >
+                            <AlertTriangle className="w-4 h-4 mr-1" />
+                            КОД 100
+                        </Button>
+                        
+                        {/* КОД 10-1 (ALERT_B) */}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-10 text-sm border-yellow-600 text-yellow-500 hover:bg-yellow-950/20"
+                            onClick={handleCode101}
+                        >
+                            <Phone className="w-4 h-4 mr-1" />
+                            КОД 10-1
+                        </Button>
+                    </div>
+                    
                     <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-2">
                         Тоны
                     </span>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-4 gap-2">
                         <Button
                             variant="outline"
                             size="sm"
                             className="h-8 text-xs border-zinc-700 bg-zinc-800 hover:bg-zinc-700"
-                            onClick={() => handlePlayTone('alert')}
+                            onClick={() => handlePlayTone('BEEP')}
                         >
-                            <AlertTriangle className="w-3 h-3 mr-1" />
-                            Тревога
+                            BEEP
                         </Button>
                         <Button
                             variant="outline"
                             size="sm"
                             className="h-8 text-xs border-zinc-700 bg-zinc-800 hover:bg-zinc-700"
-                            onClick={() => handlePlayTone('dispatch')}
+                            onClick={() => handlePlayTone('BOOP')}
                         >
-                            <Radio className="w-3 h-3 mr-1" />
-                            Диспетчер
+                            BOOP
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs border-zinc-700 bg-zinc-800 hover:bg-zinc-700"
+                            onClick={() => handlePlayTone('CHIRP')}
+                        >
+                            CHIRP
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs border-zinc-700 bg-zinc-800 hover:bg-zinc-700"
+                            onClick={() => handlePlayTone('ALERT_C')}
+                        >
+                            ALERT C
                         </Button>
                     </div>
                 </div>
@@ -565,14 +694,14 @@ export default function RadioPanel() {
                             </Button>
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="space-y-1 max-h-32 overflow-y-auto">
                             {customChannels.map((channel) => (
                                 <div
                                     key={channel.id}
                                     className="flex items-center justify-between p-2 rounded bg-zinc-900/50"
                                 >
                                     <div className="text-sm text-zinc-300">
-                                        {channel.name} ({channel.frequency})
+                                        {channel.name} ({channel.frequency} MHz)
                                     </div>
                                     <Button
                                         variant="ghost"
