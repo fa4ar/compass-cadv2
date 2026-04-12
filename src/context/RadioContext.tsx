@@ -52,6 +52,7 @@ interface RadioContextType {
     playTone: (toneType: string) => void;
     setDispatchSession: (sessionId: string) => void;
     checkSubscription: () => void;
+    emitServerTone: (frequency: number, tone: string) => void;
 }
 
 const RadioContext = createContext<RadioContextType | undefined>(undefined);
@@ -155,6 +156,25 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const handleChannelState = (data: any) => {
             console.log('[RadioContext] Channel state updated:', data);
             
+            // Обновляем talkingUsers на основе speakers с позывными
+            if (data.speakers && data.speakers.length > 0) {
+                data.speakers.forEach((speakerId: number) => {
+                    // Находим пользователя с этим ID
+                    const existingUser = talkingUsers.find(u => u.id === speakerId.toString());
+                    
+                    if (!existingUser) {
+                        // Добавляем нового пользователя с позывным из данных
+                        setTalkingUsers(prev => [...prev, {
+                            id: speakerId.toString(),
+                            name: data.userCallsigns?.[speakerId] || `Player ${speakerId}`,
+                            callsign: data.userCallsigns?.[speakerId] || '',
+                            isTalking: data.activeTalkers?.includes(speakerId) || false,
+                            channel: data.frequency?.toString()
+                        }]);
+                    }
+                });
+            }
+            
             // 🔥 Автоматически подписываемся на канал если есть говорящие
             if (data.frequency && data.speakers?.length > 0) {
                 const freqStr = data.frequency.toString();
@@ -190,11 +210,17 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
         const handleTalkingState = (data: any) => {
             console.log('[RadioContext] Talking state updated:', data);
+            
             setTalkingUsers(prev => {
                 const existingIndex = prev.findIndex(u => u.id === data.serverId?.toString());
+                
+                // 🔥 БЕРЕМ ПОЗЫВНОЙ ИЗ ДАННЫХ
+                const callsign = data.callsign || data.name || 
+                                (data.serverId < 0 ? `DISP-${Math.abs(data.serverId)}` : `Player ${data.serverId}`);
+                
                 const userData = {
                     id: data.serverId?.toString() || '',
-                    name: data.name || 'Unknown',
+                    name: callsign,
                     callsign: data.callsign || '',
                     isTalking: data.state,
                     channel: data.frequency?.toString()
@@ -212,14 +238,18 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
         const handleSpeakerJoined = (data: any) => {
             console.log('[RadioContext] Speaker joined:', data);
+            
             setTalkingUsers(prev => {
                 if (prev.find(u => u.id === data.serverId?.toString())) return prev;
-                // Если это диспетчер (serverId = -1), используем позывной из сессии
-                const isDispatch = data.serverId === -1;
+                
+                // 🔥 БЕРЕМ ПОЗЫВНОЙ
+                const callsign = data.callsign || data.name || 
+                                (data.serverId < 0 ? `DISP-${Math.abs(data.serverId)}` : `Player ${data.serverId}`);
+                
                 return [...prev, {
                     id: data.serverId?.toString() || '',
-                    name: isDispatch ? 'DISPATCH' : (data.name || 'Unknown'),
-                    callsign: isDispatch ? 'DISPATCH' : (data.callsign || ''),
+                    name: callsign,
+                    callsign: data.callsign || '',
                     isTalking: false,
                     channel: data.frequency?.toString()
                 }];
@@ -419,8 +449,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const setSpeakerChannel = useCallback((channelId: string) => {
         setCurrentChannel(channelId);
         if (socketRef.current?.connected) {
-            // ✅ ИСПРАВЛЕНО: отправляем число
             socketRef.current.emit('setSpeakerChannel', parseFloat(channelId));
+            console.log(`[RadioContext] Now SPEAKING on channel ${channelId}`);
         } else {
             console.warn('[RadioContext] Cannot set speaker channel, not connected');
         }
@@ -515,6 +545,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             });
         }
     }, [currentChannel, listeningChannels, talkingUsers, channels]);
+
+    const emitServerTone = useCallback((frequency: number, tone: string) => {
+        if (socketRef.current?.connected) {
+            socketRef.current.emit('serverTone', { frequency, tone });
+            console.log('[RadioContext] Server tone emitted:', { frequency, tone });
+        } else {
+            console.warn('[RadioContext] Cannot emit serverTone, not connected');
+        }
+    }, []);
 
     const playGunshotSound = useCallback((vol: number = 0.8, position?: { x: number; y: number; z: number }) => {
         try {
@@ -675,18 +714,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                 setDispatchSessionId(data.sessionId);
                 setDispatchSession(data.sessionId);
                 console.log('[RadioContext] Dispatch authenticated, session ID:', data.sessionId);
-                
-                // Подписываемся на основные каналы
-                setTimeout(() => {
-                    const mainChannels = ['154.755', '460.250', '155.070'];
-                    mainChannels.forEach(freq => {
-                        if (socketRef.current?.connected) {
-                            // ✅ ИСПРАВЛЕНО: отправляем число
-                            socketRef.current.emit('addListeningChannel', parseFloat(freq));
-                            console.log(`[RadioContext] Subscribed to channel ${freq}`);
-                        }
-                    });
-                }, 1000);
+                console.log('[RadioContext] Dispatch ready to speak - will use setSpeakerChannel when channel selected');
             } else {
                 console.error('[RadioContext] Dispatch authentication failed:', data.error);
                 throw new Error(data.error || 'Authentication failed');
@@ -728,6 +756,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             playTone,
             setDispatchSession,
             checkSubscription,
+            emitServerTone,
         }}>
             {children}
         </RadioContext.Provider>

@@ -72,7 +72,7 @@ function ChannelUsers({ frequency }: { frequency: string }) {
                         {speakers.map(user => (
                             <div key={user.id} className="flex items-center gap-2 text-sm bg-green-950/20 px-2 py-1 rounded">
                                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                                <span className="text-zinc-300">{user.callsign || user.name}</span>
+                                <span className="text-zinc-300 font-mono font-bold">{user.callsign || user.name}</span>
                             </div>
                         ))}
                     </div>
@@ -89,7 +89,7 @@ function ChannelUsers({ frequency }: { frequency: string }) {
                         {listeners.map(user => (
                             <div key={user.id} className="flex items-center gap-2 text-sm bg-zinc-800/30 px-2 py-1 rounded">
                                 <div className="w-2 h-2 bg-zinc-500 rounded-full" />
-                                <span className="text-zinc-400">{user.callsign || user.name}</span>
+                                <span className="text-zinc-400 font-mono font-bold">{user.callsign || user.name}</span>
                             </div>
                         ))}
                     </div>
@@ -128,6 +128,7 @@ export default function RadioPanel() {
         setToneVolume,
         playTone,
         setDispatchSession,
+        emitServerTone,
     } = useRadio();
 
     const [isTalking, setIsTalking] = useState(false);
@@ -145,6 +146,15 @@ export default function RadioPanel() {
 
     // Обработка PTT (Push-to-Talk)
     const handlePTTDown = () => {
+        if (!currentChannel) {
+            toast({ 
+                title: 'Ошибка', 
+                description: 'Сначала выберите канал для передачи',
+                variant: 'destructive' 
+            });
+            return;
+        }
+        
         setIsPTTPressed(true);
         setTalking(true);
         startRecording();
@@ -222,33 +232,18 @@ export default function RadioPanel() {
             return;
         }
         
-        // Воспроизводим тон ALERT_A на текущем канале
+        // Воспроизводим тон ALERT_A локально в CAD
         playTone('ALERT_A');
         
-        // Отправляем алерт через HTTP API если есть диспетчерская сессия
-        if (dispatchSessionId) {
-            fetch('/radio/dispatch/alert/trigger', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Session-Id': dispatchSessionId
-                },
-                body: JSON.stringify({
-                    frequency: currentChannel,
-                    alertType: 'SIGNAL 100',
-                    alertConfig: {
-                        name: 'SIGNAL 100',
-                        color: '#ff0000',
-                        isPersistent: true,
-                        tone: 'ALERT_A'
-                    }
-                })
-            }).catch(err => console.error('Failed to trigger alert:', err));
+        // Отправляем serverTone на сервер для игроков через socket
+        if (isConnected) {
+            emitServerTone(parseFloat(currentChannel), 'ALERT_A');
+            console.log('[RadioPanel] Code 100 sent to server for channel', currentChannel);
         }
         
         toast({ 
             title: '🚨 КОД 100 - ТРЕВОГА 🚨', 
-            description: `Экстренное оповещение отправлено на канал ${currentChannel} MHz`,
+            description: `SIGNAL 100 отправлен на канал ${currentChannel} MHz`,
             variant: 'destructive'
         });
     };
@@ -605,7 +600,7 @@ export default function RadioPanel() {
                             {talkingUsers.filter(u => u.isTalking).map((user) => (
                                 <div key={user.id} className="flex items-center gap-2 text-sm">
                                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                                    <span className="text-zinc-300">{user.callsign || user.name}</span>
+                                    <span className="text-zinc-300 font-mono font-bold">{user.callsign || user.name}</span>
                                     {user.channel && (
                                         <Badge variant="outline" className="text-xs bg-zinc-700 border-zinc-600">
                                             {user.channel} MHz
