@@ -300,12 +300,14 @@ function DispatcherPageContent() {
                 toast({ title: 'Новый вызов!', description: `${newCall.callerName}: ${newCall.description}` });
             },
             update_911_call: (updatedCall: Call911) => {
+                console.log('[SOCKET] update_911_call received:', updatedCall);
                 queryClient.setQueryData(['calls911', 'active'], (prev: Call911[] = []) => prev.map(c => c.id === updatedCall.id ? updatedCall : c));
                 if (selectedCall?.id === updatedCall.id) {
                     setSelectedCall(updatedCall);
                 }
             },
             new_911_note: ({ callId, note }: { callId: number, note: CallNote }) => {
+                console.log('[SOCKET] new_911_note received:', { callId, note });
                 queryClient.setQueryData(['calls911', 'active'], (prev: Call911[] = []) => prev.map(c => {
                     if (c.id === callId) {
                         return { ...c, notes: [...(c.notes || []), note] };
@@ -313,6 +315,7 @@ function DispatcherPageContent() {
                     return c;
                 }));
                 if (selectedCall?.id === callId) {
+                    console.log('[SOCKET] Updating selectedCall with new note');
                     setSelectedCall(prev => prev ? { ...prev, notes: Array.isArray(prev.notes) ? [...prev.notes, note] : [note] } : null);
                 }
             },
