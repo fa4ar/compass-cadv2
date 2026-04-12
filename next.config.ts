@@ -41,6 +41,19 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // Proxy radio server requests to avoid Mixed Content errors
+  async rewrites() {
+    return [
+      {
+        source: '/radio/:path*',
+        destination: 'http://194.87.141.114:7777/radio/:path*',
+      },
+      {
+        source: '/socket.io/:path*',
+        destination: 'http://194.87.141.114:7777/socket.io/:path*',
+      },
+    ];
+  },
 };
 
 export default nextConfig;

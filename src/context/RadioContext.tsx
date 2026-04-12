@@ -140,13 +140,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const getRadioSocketUrl = useCallback(() => {
-        // Радио сервер может работать на другом порту или пути
-        // Используем NEXT_PUBLIC_RADIO_SOCKET_URL или дефолтный порт для радио
-        let radioUrl = process.env.NEXT_PUBLIC_RADIO_SOCKET_URL || 'http://localhost:3002';
-        
-        // Не переключаем на HTTPS для радио сервера, так как порт 7777 не имеет SSL сертификата
-        // Если нужно использовать HTTPS, настройте NEXT_PUBLIC_RADIO_SOCKET_URL с wss://
-        
+        // Если URL не указан, используем относительные пути через прокси Next.js
+        const radioUrl = process.env.NEXT_PUBLIC_RADIO_SOCKET_URL;
+        if (!radioUrl) {
+            return ''; // Будет использовать текущий origin через прокси
+        }
         return radioUrl;
     }, []);
 
@@ -156,14 +154,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        // Отключаем радио на HTTPS страницах для избежания Mixed Content ошибок
-        if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
-            console.warn('[RadioContext] Radio disabled on HTTPS pages to avoid Mixed Content errors');
-            return;
-        }
-
         const radioUrl = getRadioSocketUrl();
-        console.log('[RadioContext] Connecting to radio server at:', radioUrl);
+        console.log('[RadioContext] Connecting to radio server at:', radioUrl || '(relative path through proxy)');
 
         const socket = io(radioUrl, {
             autoConnect: true,
