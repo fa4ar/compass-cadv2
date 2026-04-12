@@ -17,6 +17,7 @@ import { CallCard } from '@/components/police-dispatcher/CallCard';
 import { DutyModal } from '@/components/police-dispatcher/DutyModal';
 import { MessageModal } from '@/components/police-dispatcher/MessageModal';
 import { PairCreationModal } from '@/components/police-dispatcher/PairCreationModal';
+import RadioPanel from '@/components/police-dispatcher/RadioPanel';
 import type { Call911 } from '@/types/coordinates';
 import api from '@/lib/axios';
 
@@ -112,7 +113,7 @@ function DispatcherPageContent() {
     const [callSign, setCallSign] = useState("");
     const [onDuty, setOnDuty] = useState(false);
     
-    // Search functionality
+    
     const [searchType, setSearchType] = useState<SearchType>('person');
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -1264,6 +1265,10 @@ function DispatcherPageContent() {
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+
+                            <div className="flex-1 min-w-[320px] max-w-[400px] space-y-3 min-h-0 flex flex-col">
+                                <RadioPanel />
                             </div>
                         </div>
                     </CardContent>

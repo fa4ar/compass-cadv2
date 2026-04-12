@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taser UI</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app" class="taser-ui" style="display: none;">
+        <div class="top-header">
+            <span id="weapon-name">TASER 7</span>
+        </div>
+        
+        <div class="main-container">
+            <div class="cartridge-grid" id="cartridge-grid">
+                <!-- Cartridges will be injected here -->
+            </div>
+        </div>
+
+        <div class="bottom-bar">
+            <div class="status-indicator">
+                <span id="safety-status" class="status-safe">SAFE</span>
+            </div>
+            <div class="indicator-group">
+                <div id="flashlight-indicator" class="icon-indicator">🔦</div>
+                <div id="laser-indicator" class="icon-indicator">🔴</div>
+            </div>
+            <div class="battery-section">
+                <div class="battery-percent" id="battery-percent">98%</div>
+                <div class="battery-bar-container">
+                    <div class="battery-fill" id="battery-fill"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <span id="game-time">12:00</span>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
