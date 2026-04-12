@@ -18,12 +18,17 @@ export async function POST(req: NextRequest) {
             headers['X-Session-Id'] = sessionId;
         }
         
-        const response = await fetch(`${radioUrl}/radio/dispatch/tone`, {
+        const response = await fetch(`${radioUrl}/radio/dispatch/alert/trigger`, {
             method: 'POST',
             headers: headers,
             body: JSON.stringify({
                 frequency: body.frequency,
-                tone: body.tone
+                alertConfig: {
+                    name: 'CODE 100',
+                    color: '#ff0000',
+                    isPersistent: false,
+                    tone: body.tone
+                }
             })
         });
         
