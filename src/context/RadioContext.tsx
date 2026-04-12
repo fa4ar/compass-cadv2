@@ -144,13 +144,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         // Используем NEXT_PUBLIC_RADIO_SOCKET_URL или дефолтный порт для радио
         let radioUrl = process.env.NEXT_PUBLIC_RADIO_SOCKET_URL || 'http://localhost:3002';
         
-        if (typeof window !== 'undefined') {
-            const isHttps = window.location.protocol === 'https:';
-            if (isHttps && radioUrl.startsWith('http:')) {
-                // Заменяем http:// на https:// для HTTPS страниц
-                radioUrl = radioUrl.replace('http://', 'https://');
-            }
-        }
+        // Не переключаем на HTTPS для радио сервера, так как порт 7777 не имеет SSL сертификата
+        // Если нужно использовать HTTPS, настройте NEXT_PUBLIC_RADIO_SOCKET_URL с wss://
         
         return radioUrl;
     }, []);
