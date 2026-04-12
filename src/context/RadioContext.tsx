@@ -157,34 +157,26 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const handleChannelState = (data: any) => {
             console.log('[RadioContext] Channel state updated:', data);
             
-            // Удаляем пользователей которые больше не на канале
-            if (data.frequency) {
-                setTalkingUsers(prev => {
-                    const freqStr = data.frequency.toString();
-                    const usersOnChannel = data.speakers || [];
-                    const userIdsOnChannel = usersOnChannel.map((id: number) => id.toString());
-                    
-                    // Оставляем только тех кто на этом канале или на других каналах
-                    return prev.filter(user => 
-                        user.channel !== freqStr || userIdsOnChannel.includes(user.id)
-                    );
-                });
-            }
-            
-            // Обновляем talkingUsers на основе speakers с позывными
-            if (data.speakers && data.speakers.length > 0) {
+            // Пакетное обновление talkingUsers для реального времени
+            setTalkingUsers(prev => {
                 const freqStr = data.frequency?.toString();
+                const usersOnChannel = data.speakers || [];
+                const userIdsOnChannel = usersOnChannel.map((id: number) => id.toString());
                 
-                data.speakers.forEach((speakerId: number) => {
-                    const speakerIdStr = speakerId.toString();
-                    
-                    setTalkingUsers(prev => {
-                        // Находим пользователя с этим ID
-                        const existingUser = prev.find(u => u.id === speakerIdStr);
+                // Удаляем пользователей которые больше не на канале
+                let updated = prev.filter(user => 
+                    !freqStr || user.channel !== freqStr || userIdsOnChannel.includes(user.id)
+                );
+                
+                // Обновляем или добавляем пользователей на канале
+                if (data.speakers && data.speakers.length > 0) {
+                    data.speakers.forEach((speakerId: number) => {
+                        const speakerIdStr = speakerId.toString();
+                        const existingUser = updated.find(u => u.id === speakerIdStr);
                         
                         if (existingUser) {
                             // Обновляем существующего пользователя
-                            return prev.map(u => 
+                            updated = updated.map(u => 
                                 u.id === speakerIdStr 
                                     ? { ...u, 
                                         name: data.userCallsigns?.[speakerId] || u.name,
@@ -196,7 +188,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                             );
                         } else {
                             // Добавляем нового пользователя с позывным из данных
-                            return [...prev, {
+                            updated = [...updated, {
                                 id: speakerIdStr,
                                 name: data.userCallsigns?.[speakerId] || `Player ${speakerId}`,
                                 callsign: data.userCallsigns?.[speakerId] || '',
@@ -205,8 +197,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                             }];
                         }
                     });
-                });
-            }
+                }
+                
+                return updated;
+            });
             
             // 🔥 Автоматически подписываемся на канал если есть говорящие
             if (data.frequency && data.speakers?.length > 0) {
@@ -332,6 +326,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                 currentVolume: volume
             });
             
+            // 🔥 Проверка: игнорируем ли мы свой голос (диспетчера)?
+            if (data.serverId === -1) {
+                console.log('[RadioContext] ⏭️ Ignoring own voice (dispatcher)');
+                return;
+            }
+            
             if (!data.data || data.data.length === 0) {
                 console.warn('[RadioContext] ⚠️ No audio data in voice packet');
                 return;
@@ -386,7 +386,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                 // Wait for audio to load before playing
                 sound.once('load', () => {
                     console.log('[RadioContext] ▶️ Starting playback');
-                    sound.play();
+                    const playResult = sound.play();
+                    if (typeof playResult === 'boolean' && !playResult) {
+                        console.error('[RadioContext] ❌ Browser autoplay policy blocked audio');
+                    }
                 });
                 
                 // Fallback: if load takes too long, try playing anyway

@@ -223,7 +223,7 @@ export default function RadioPanel() {
     };
 
     // 🚨 КОД 100 - ТРЕВОГА (исправлено: ALERT_A)
-    const handleCode100 = () => {
+    const handleCode100 = async () => {
         if (!currentChannel) {
             toast({ 
                 title: 'Ошибка', 
@@ -233,16 +233,40 @@ export default function RadioPanel() {
             return;
         }
         
-        // Отправляем код 100 на сервер через toggleAlert
-        if (isConnected) {
-            sendCode100(parseFloat(currentChannel));
+        try {
+            const response = await fetch('/api/play-tone', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Session-Id': dispatchSessionId || ''
+                },
+                body: JSON.stringify({
+                    frequency: parseFloat(currentChannel),
+                    tone: 'alert_a'  // КЛЮЧЕВОЕ: именно 'alert_a'
+                })
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                toast({ 
+                    title: '🚨 КОД 100', 
+                    description: `SIGNAL 100 отправлен на канал ${currentChannel} MHz` 
+                });
+            } else {
+                toast({ 
+                    title: 'Ошибка', 
+                    description: data.error || 'Не удалось отправить сигнал',
+                    variant: 'destructive' 
+                });
+            }
+        } catch (error) {
+            console.error('Failed to send code 100:', error);
+            toast({ 
+                title: 'Ошибка', 
+                description: 'Не удалось соединиться с сервером',
+                variant: 'destructive' 
+            });
         }
-        
-        toast({ 
-            title: '🚨 КОД 100 - ТРЕВОГА 🚨', 
-            description: `SIGNAL 100 отправлен на канал ${currentChannel} MHz`,
-            variant: 'destructive'
-        });
     };
 
     // Код 10-1 (SIGNAL 3)
