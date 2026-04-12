@@ -418,7 +418,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         socket.on('channelDeleted', handleChannelDeleted);
         socket.on('serverTone', handleServerTone);
         socket.on('voice', handleVoice);
-        socket.on('playGunshot', (data: any) => {
+        socket.on('gunshotDuringTransmission', (data: any) => {
             console.log('[RadioContext] 🔫 Gunshot received:', data);
             
             // Рассчитываем громкость из дистанции (как в Lua)
@@ -471,7 +471,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             () => socket.off('channelDeleted', handleChannelDeleted),
             () => socket.off('serverTone', handleServerTone),
             () => socket.off('voice', handleVoice),
-            () => socket.off('playGunshot'),
+            () => socket.off('gunshotDuringTransmission'),
             () => socket.off('channelAlert'),
             () => socket.off('dispatchAlert'),
         ];
@@ -726,13 +726,21 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
     const startRecording = useCallback(() => {
         setIsRecording(true);
+        if (socketRef.current?.connected && currentChannel) {
+            socketRef.current.emit('setTalking', true);
+            console.log('[RadioContext] setTalking: true sent to server');
+        }
         console.log('[RadioContext] Recording started');
-    }, []);
+    }, [currentChannel]);
 
     const stopRecording = useCallback(() => {
         setIsRecording(false);
+        if (socketRef.current?.connected && currentChannel) {
+            socketRef.current.emit('setTalking', false);
+            console.log('[RadioContext] setTalking: false sent to server');
+        }
         console.log('[RadioContext] Recording stopped');
-    }, []);
+    }, [currentChannel]);
 
     const authenticateDispatch = useCallback(async (callsign: string) => {
         const nacId = process.env.NEXT_PUBLIC_RADIO_DISPATCH_NAC_ID || '141';
