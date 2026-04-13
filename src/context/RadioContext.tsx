@@ -733,7 +733,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                     echoCancellation: true,
                     noiseSuppression: true,
                     autoGainControl: true,
-                    sampleRate: 16000,
+                    sampleRate: 48000,
                     channelCount: 1
                 } 
             });
@@ -742,7 +742,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             
             const mediaRecorder = new MediaRecorder(stream, {
                 mimeType: 'audio/webm; codecs=opus',
-                audioBitsPerSecond: 24000
+                audioBitsPerSecond: 16000
             });
             
             const chunks: Blob[] = [];
@@ -779,9 +779,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                         if (mediaRecorder.state === 'recording') {
                             mediaRecorder.stop();
                         }
-                    }, 200);
+                    }, 100);
                 }
-            }, 200);
+            }, 100);
             
             (window as any).recordInterval = recordInterval;
             
