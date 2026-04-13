@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Radio, Users, Volume2, VolumeX, Signal, Mic, MicOff, Settings, Plus, Trash2, Ear, EarOff, AlertTriangle, Phone, User, MoreVertical } from 'lucide-react';
+import { Radio, Users, Volume2, VolumeX, Signal, Mic, MicOff, Settings, Plus, Trash2, Ear, EarOff, AlertTriangle, Phone, User, MoreVertical, ChevronUp, ChevronDown } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -215,6 +215,7 @@ export default function RadioPanel() {
     const [alertMessage, setAlertMessage] = useState('');
     const [channelMenuOpen, setChannelMenuOpen] = useState<string | null>(null);
     const [hoveredChannel, setHoveredChannel] = useState<string | null>(null);
+    const [expandedChannels, setExpandedChannels] = useState<Set<string>>(new Set());
 
     // Загружаем позывной из localStorage
     useEffect(() => {
@@ -581,6 +582,18 @@ export default function RadioPanel() {
     const openUserAlertModal = (user: RadioUser) => {
         setAlertUser(user);
         setShowUserAlertModal(true);
+    };
+
+    const toggleChannelExpand = (channelId: string) => {
+        setExpandedChannels(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(channelId)) {
+                newSet.delete(channelId);
+            } else {
+                newSet.add(channelId);
+            }
+            return newSet;
+        });
     };
 
     // Clear alert
@@ -1007,6 +1020,19 @@ export default function RadioPanel() {
                                             >
                                                 {isListening ? <Ear className="w-3 h-3" /> : <EarOff className="w-3 h-3" />}
                                             </Button>
+                                            
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-6 w-6 p-0 hover:bg-zinc-700 text-zinc-500"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    toggleChannelExpand(channel.id);
+                                                }}
+                                            >
+                                                {expandedChannels.has(channel.id) ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                            </Button>
+                                            
                                             <div className="relative">
                                                 <Button
                                                     variant="ghost"
@@ -1086,8 +1112,10 @@ export default function RadioPanel() {
                                         </div>
                                     </div>
                                     
-                                    {/* Отображение пользователей на канале */}
-                                    <ChannelUsers frequency={channel.frequency} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onUserAlert={openUserAlertModal} />
+                                    {/* Отображение пользователей на канале при раскрытии */}
+                                    {expandedChannels.has(channel.id) && (
+                                        <ChannelUsers frequency={channel.frequency} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onUserAlert={openUserAlertModal} />
+                                    )}
                                 </div>
                             );
                         })}
