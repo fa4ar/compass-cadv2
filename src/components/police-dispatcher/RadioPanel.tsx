@@ -537,7 +537,7 @@ export default function RadioPanel() {
     };
 
     // Send user alert
-    const handleSendUserAlert = () => {
+    const handleSendUserAlert = async () => {
         if (!alertUser) return;
 
         if (!alertMessage.trim()) {
@@ -549,40 +549,45 @@ export default function RadioPanel() {
             return;
         }
 
-        const radioUrl = process.env.NEXT_PUBLIC_RADIO_SOCKET_URL || 'https://194.87.141.114:7777';
-        
-        if (dispatchSessionId) {
-            fetch(`${radioUrl}/dispatch/user/alert`, {
+        try {
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json'
+            };
+            
+            if (dispatchSessionId) {
+                headers['X-Session-Id'] = dispatchSessionId;
+            }
+
+            const response = await fetch('/api/dispatch/user/alert', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer changeme',
-                    'X-Session-Id': dispatchSessionId
-                },
+                headers,
                 body: JSON.stringify({
                     userId: parseInt(alertUser.id),
                     message: alertMessage,
                     frequency: alertUser.channel
                 })
-            }).then(res => res.json())
-              .then(data => {
-                  if (data.success) {
-                      toast({
-                          title: 'Алерт отправлен',
-                          description: `Сообщение отправлено ${alertUser.name}`
-                      });
-                      setAlertMessage('');
-                      setShowUserAlertModal(false);
-                      setAlertUser(null);
-                  } else {
-                      toast({
-                          title: 'Ошибка',
-                          description: data.error || 'Не удалось отправить алерт',
-                          variant: 'destructive'
-                      });
-                  }
-              })
-              .catch(err => console.error('Failed to send user alert:', err));
+            });
+
+            const data = await response.json();
+            
+            if (response.ok) {
+                toast({
+                    title: 'Алерт отправлен',
+                    description: `Сообщение отправлено ${alertUser.name}`
+                });
+                setAlertMessage('');
+                setShowUserAlertModal(false);
+                setAlertUser(null);
+            } else {
+                throw new Error(data.error || 'Не удалось отправить алерт');
+            }
+        } catch (error: any) {
+            console.error('Failed to send user alert:', error);
+            toast({
+                title: 'Ошибка',
+                description: error.message || 'Не удалось отправить алерт',
+                variant: 'destructive'
+            });
         }
     };
 
