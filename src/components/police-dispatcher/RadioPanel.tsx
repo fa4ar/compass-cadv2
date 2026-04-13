@@ -190,6 +190,7 @@ export default function RadioPanel() {
         setDispatchSession,
         emitServerTone,
         sendCode100,
+        clearChannelAlert,
     } = useRadio();
 
     const [isTalking, setIsTalking] = useState(false);
@@ -605,6 +606,9 @@ export default function RadioPanel() {
             return;
         }
 
+        // Очищаем локальный статус алерта
+        clearChannelAlert(parseFloat(frequency));
+
         if (dispatchSessionId) {
             fetch('/radio/dispatch/alert/clear', {
                 method: 'POST',
@@ -955,6 +959,7 @@ export default function RadioPanel() {
                             const participants = channels.find(ch => ch.frequency === channel.frequency)?.participants || 0;
                             const channelInfo = channels.find(ch => ch.frequency === channel.frequency);
                             const hasPanic = channelInfo?.panic || false;
+                            const alertStatus = channelInfo?.alert;
 
                             return (
                                 <div
@@ -966,6 +971,8 @@ export default function RadioPanel() {
                                             ? 'bg-blue-950/20 border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.1)]' 
                                             : 'bg-zinc-800/30 border-zinc-700 hover:border-zinc-600'}
                                         ${hasPanic ? 'border-red-500 bg-red-950/20' : ''}
+                                        ${alertStatus === 'CODE_100' ? 'border-yellow-500 bg-yellow-950/20' : ''}
+                                        ${alertStatus === 'CODE_5' ? 'border-orange-500 bg-orange-950/20' : ''}
                                         ${draggedUser ? 'border-dashed border-blue-400/50 hover:border-blue-400' : ''}
                                         ${hoveredChannel === channel.frequency && isDragging ? 'bg-green-950/30 border-green-500/50 shadow-[0_0_20px_rgba(34,197,94,0.3)]' : ''}
                                     `}
@@ -991,6 +998,16 @@ export default function RadioPanel() {
                                                     {channel.type === 'trunked' && (
                                                         <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-purple-950/30 border-purple-500/30 text-purple-400">
                                                             TRUNKED
+                                                        </Badge>
+                                                    )}
+                                                    {alertStatus === 'CODE_100' && (
+                                                        <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-yellow-950/30 border-yellow-500/30 text-yellow-400">
+                                                            CODE 100
+                                                        </Badge>
+                                                    )}
+                                                    {alertStatus === 'CODE_5' && (
+                                                        <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-orange-950/30 border-orange-500/30 text-orange-400">
+                                                            CODE 5
                                                         </Badge>
                                                     )}
                                                 </div>

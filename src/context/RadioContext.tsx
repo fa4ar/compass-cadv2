@@ -57,6 +57,7 @@ interface RadioContextType {
     checkSubscription: () => void;
     emitServerTone: (frequency: number, tone: string) => void;
     sendCode100: (frequency: number) => void;
+    clearChannelAlert: (frequency: number) => void;
 }
 
 const RadioContext = createContext<RadioContextType | undefined>(undefined);
@@ -491,6 +492,21 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const handleChannelAlert = (data: any) => {
             console.log('[RadioContext] Channel alert received:', data);
             
+            // Обновляем статус алерта в канале
+            if (data.frequency) {
+                setChannels(prev => {
+                    return prev.map(ch => {
+                        if (ch.frequency === data.frequency.toString()) {
+                            return {
+                                ...ch,
+                                alert: data.type === 'SIGNAL_100' ? 'CODE_100' : data.type || 'CODE_5'
+                            };
+                        }
+                        return ch;
+                    });
+                });
+            }
+            
             // Не воспроизводим если не подключены к сокету или не авторизованы как диспетчер
             if (!socketRef.current?.connected || !dispatchSessionId) {
                 console.log('[RadioContext] ⏭️ Ignoring channel alert - not connected or not authenticated as dispatcher');
@@ -697,6 +713,18 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
+    const clearChannelAlert = useCallback((frequency: number) => {
+        setChannels(prev => {
+            return prev.map(ch => {
+                if (ch.frequency === frequency.toString()) {
+                    return { ...ch, alert: undefined };
+                }
+                return ch;
+            });
+        });
+        console.log('[RadioContext] Cleared alert for channel', frequency);
+    }, []);
+
     useEffect(() => {
         console.log('=== RADIO STATUS ===');
         console.log('Connected:', isConnected);
@@ -877,7 +905,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             setDispatchSession,
             checkSubscription,
             emitServerTone,
-            sendCode100
+            sendCode100,
+            clearChannelAlert
         }}>
             {children}
         </RadioContext.Provider>
