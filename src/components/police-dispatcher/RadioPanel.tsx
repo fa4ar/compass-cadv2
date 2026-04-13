@@ -472,13 +472,17 @@ export default function RadioPanel() {
         if (dispatchSessionId) {
             const payload = {
                 frequency: frequency,
-                type: broadcastType,
-                message: broadcastMessage,
-                tone: broadcastTone
+                alertType: broadcastType,
+                alertConfig: {
+                    name: broadcastMessage,
+                    color: '#126300',
+                    isPersistent: false,
+                    tone: broadcastTone
+                }
             };
             console.log('Broadcast payload:', payload);
             
-            fetch('/radio/dispatch/broadcast', {
+            fetch('/radio/dispatch/alert/trigger', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -501,26 +505,9 @@ export default function RadioPanel() {
                       setShowBroadcastModal(false);
                       setBroadcastChannel('');
                       
-                      // Отправляем тон через /api/play-tone который отправляет через socket.io room канала
-                      fetch('/api/play-tone', {
-                          method: 'POST',
-                          headers: {
-                              'Content-Type': 'application/json',
-                              'Authorization': 'Bearer changeme',
-                              'X-Session-Id': dispatchSessionId
-                          },
-                          body: JSON.stringify({
-                              frequency: frequency,
-                              tone: broadcastTone.toLowerCase()
-                          })
-                      }).then(res => res.json())
-                        .then(toneData => {
-                            console.log('Tone response data:', toneData);
-                            // Проигрываем тон локально для диспетчера
-                            console.log('Broadcast: Playing tone locally for dispatcher:', broadcastTone, '(monitoring channel', frequency, ')');
-                            playTone(broadcastTone);
-                        })
-                        .catch(err => console.error('Failed to send tone:', err));
+                      // Проигрываем тон локально для диспетчера
+                      console.log('Broadcast: Playing tone locally for dispatcher:', broadcastTone, '(monitoring channel', frequency, ')');
+                      playTone(broadcastTone);
                   } else {
                       toast({
                           title: 'Ошибка',
