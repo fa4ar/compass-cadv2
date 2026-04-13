@@ -541,8 +541,10 @@ export default function RadioPanel() {
             return;
         }
 
+        const radioUrl = process.env.NEXT_PUBLIC_RADIO_SOCKET_URL || 'http://194.87.141.114:7777';
+        
         if (dispatchSessionId) {
-            fetch('/dispatch/user/alert', {
+            fetch(`${radioUrl}/dispatch/user/alert`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -550,7 +552,7 @@ export default function RadioPanel() {
                     'X-Session-Id': dispatchSessionId
                 },
                 body: JSON.stringify({
-                    userId: alertUser.id,
+                    userId: parseInt(alertUser.id),
                     message: alertMessage,
                     frequency: alertUser.channel
                 })
@@ -564,6 +566,12 @@ export default function RadioPanel() {
                       setAlertMessage('');
                       setShowUserAlertModal(false);
                       setAlertUser(null);
+                  } else {
+                      toast({
+                          title: 'Ошибка',
+                          description: data.error || 'Не удалось отправить алерт',
+                          variant: 'destructive'
+                      });
                   }
               })
               .catch(err => console.error('Failed to send user alert:', err));
