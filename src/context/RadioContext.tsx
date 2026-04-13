@@ -373,6 +373,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const handleServerTone = (data: any) => {
             console.log('[RadioContext] Server tone received:', data);
             
+            // Не воспроизводим если не подключены к сокету или не авторизованы как диспетчер
+            if (!socketRef.current?.connected || !dispatchSessionId) {
+                console.log('[RadioContext] ⏭️ Ignoring server tone - not connected or not authenticated as dispatcher');
+                return;
+            }
+            
             if (data.tone) {
                 playTone(data.tone);
                 console.log('[RadioContext] Playing tone:', data.tone);
@@ -466,6 +472,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const handleGunshotDuringTransmission = (data: any) => {
             console.log('[RadioContext] 🔫 Gunshot received:', data);
             
+            // Не воспроизводим если не подключены к сокету или не авторизованы как диспетчер
+            if (!socketRef.current?.connected || !dispatchSessionId) {
+                console.log('[RadioContext] ⏭️ Ignoring gunshot - not connected or not authenticated as dispatcher');
+                return;
+            }
+            
             let volume = 0.8;
             const distance = data.distance;
             
@@ -487,6 +499,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const handleChannelAlert = (data: any) => {
             console.log('[RadioContext] Channel alert received:', data);
             
+            // Не воспроизводим если не подключены к сокету или не авторизованы как диспетчер
+            if (!socketRef.current?.connected || !dispatchSessionId) {
+                console.log('[RadioContext] ⏭️ Ignoring channel alert - not connected or not authenticated as dispatcher');
+                return;
+            }
+            
             if (data.tone === 'ALERT_A' || data.type === 'SIGNAL_100') {
                 playTone('ALERT_A');
                 console.log('[RadioContext] Playing ALERT_A for channel alert');
@@ -495,6 +513,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
         const handleDispatchAlert = (data: any) => {
             console.log('[RadioContext] Dispatch alert received:', data);
+            
+            // Не воспроизводим если не подключены к сокету или не авторизованы как диспетчер
+            if (!socketRef.current?.connected || !dispatchSessionId) {
+                console.log('[RadioContext] ⏭️ Ignoring dispatch alert - not connected or not authenticated as dispatcher');
+                return;
+            }
             
             if (data.tone) {
                 playTone(data.tone);
