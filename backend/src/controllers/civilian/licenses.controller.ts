@@ -24,8 +24,8 @@ export class LicensesController {
     addLicense = async (req: Request, res: Response) => {
         try {
             const { id } = req.params;
-            const { licenseId } = req.body;
-            const license = await LicensesService.addLicense(Number(id), Number(licenseId));
+            const { licenseId, licenseData } = req.body;
+            const license = await LicensesService.addLicense(Number(id), Number(licenseId), licenseData);
             res.json(license);
         } catch (error: any) {
             res.status(500).json({ error: error.message });

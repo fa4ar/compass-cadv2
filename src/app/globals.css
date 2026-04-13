@@ -183,6 +183,115 @@ html.ui-scanlines body::after {
     input[type="date"]::-webkit-calendar-picker-indicator:hover {
         filter: invert(1);
     }
+
+    /* Range Slider Styles - темные, прозрачные, неприметные */
+    input[type="range"] {
+        -webkit-appearance: none;
+        appearance: none;
+        background: transparent;
+        cursor: pointer;
+    }
+
+    /* Горизонтальный слайдер - трек */
+    input[type="range"]::-webkit-slider-runnable-track {
+        height: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 2px;
+        border: none;
+    }
+
+    input[type="range"]::-moz-range-track {
+        height: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 2px;
+        border: none;
+    }
+
+    /* Горизонтальный слайдер - ползунок */
+    input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 12px;
+        height: 12px;
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        margin-top: -4px;
+        transition: all 0.2s ease;
+        border: none;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+        width: 12px;
+        height: 12px;
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border: none;
+        transition: all 0.2s ease;
+    }
+
+    /* Hover эффекты */
+    input[type="range"]::-webkit-slider-thumb:hover {
+        background: rgba(255, 255, 255, 0.5);
+        transform: scale(1.1);
+    }
+
+    input[type="range"]::-moz-range-thumb:hover {
+        background: rgba(255, 255, 255, 0.5);
+        transform: scale(1.1);
+    }
+
+    /* Вертикальный слайдер (writing-mode: vertical-lr или writing-mode: vertical-rl) */
+    input[type="range"][style*="vertical"],
+    input[type="range"][writing-mode],
+    .slider-vertical input[type="range"] {
+        width: 4px;
+        height: auto;
+    }
+
+    /* Вертикальный слайдер - трек */
+    input[type="range"][style*="vertical"]::-webkit-slider-runnable-track,
+    input[type="range"][writing-mode]::-webkit-slider-runnable-track,
+    .slider-vertical input[type="range"]::-webkit-slider-runnable-track {
+        width: 4px;
+        height: auto;
+    }
+
+    input[type="range"][style*="vertical"]::-moz-range-track,
+    input[type="range"][writing-mode]::-moz-range-track,
+    .slider-vertical input[type="range"]::-moz-range-track {
+        width: 4px;
+        height: auto;
+    }
+
+    /* Вертикальный слайдер - ползунок */
+    input[type="range"][style*="vertical"]::-webkit-slider-thumb,
+    input[type="range"][writing-mode]::-webkit-slider-thumb,
+    .slider-vertical input[type="range"]::-webkit-slider-thumb {
+        margin-left: -4px;
+        margin-top: 0;
+    }
+
+    input[type="range"][style*="vertical"]::-moz-range-thumb,
+    input[type="range"][writing-mode]::-moz-range-thumb,
+    .slider-vertical input[type="range"]::-moz-range-thumb {
+        margin-left: -4px;
+        margin-top: 0;
+    }
+
+    /* Focus styles */
+    input[type="range"]:focus {
+        outline: none;
+    }
+
+    input[type="range"]:focus::-webkit-slider-thumb {
+        background: rgba(255, 255, 255, 0.6);
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
+    }
+
+    input[type="range"]:focus::-moz-range-thumb {
+        background: rgba(255, 255, 255, 0.6);
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
+    }
 }
 
 .light {

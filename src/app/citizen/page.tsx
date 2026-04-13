@@ -689,6 +689,7 @@ export default function CitizenPage() {
         router.replace("/auth/login");
         return;
       }
+      const licenseData = availableLicenses.find(l => l.id === licenseId);
       const apiUrl = getApiUrl();
       const res = await fetch(
         `${apiUrl}/api/civilian/characters/${selectedCharacter.id}/licenses`,
@@ -701,6 +702,7 @@ export default function CitizenPage() {
           body: JSON.stringify({
             characterId: selectedCharacter.id,
             licenseId,
+            licenseData,
           }),
         },
       );

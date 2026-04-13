@@ -895,7 +895,7 @@ export default function RadioPanel() {
                                     max="100"
                                     value={volume}
                                     onChange={(e) => setVolume(Number(e.target.value))}
-                                    className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                                    className="w-full"
                                 />
                             </div>
                             <div>
@@ -909,7 +909,7 @@ export default function RadioPanel() {
                                     max="100"
                                     value={toneVolume}
                                     onChange={(e) => setToneVolume(Number(e.target.value))}
-                                    className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer"
+                                    className="w-full"
                                 />
                             </div>
                         </div>

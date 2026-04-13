@@ -14,8 +14,31 @@ export class LicensesService {
         });
     }
 
-    static async addLicense(characterId: number, licenseId: number) {
-        // Check if already has it
+    static async addLicense(characterId: number, licenseId: number, licenseData?: any) {
+        // Check if license exists in database
+        let license = await (prisma as any).license.findUnique({
+            where: { id: licenseId }
+        });
+
+        // If license doesn't exist and licenseData is provided, create it
+        if (!license && licenseData) {
+            license = await (prisma as any).license.create({
+                data: {
+                    id: licenseId,
+                    name: licenseData.name,
+                    slug: licenseData.slug,
+                    type: licenseData.category,
+                    description: licenseData.description,
+                    price: licenseData.price || 0
+                }
+            });
+        }
+
+        if (!license) {
+            throw new Error('License not found and no data provided to create it');
+        }
+
+        // Check if character already has it
         const existing = await (prisma as any).characterLicense.findFirst({
             where: { characterId, licenseId }
         });

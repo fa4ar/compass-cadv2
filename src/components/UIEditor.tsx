@@ -105,7 +105,7 @@ export default function UIEditor({ open, onClose }: UIEditorProps) {
                                 step="0.01"
                                 value={settings.borderOpacity}
                                 onChange={handleBorderOpacity}
-                                className="w-full accent-blue-500"
+                                className="w-full"
                             />
                         </div>
 
