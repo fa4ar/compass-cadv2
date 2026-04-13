@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const radioUrl = process.env.NEXT_PUBLIC_RADIO_SOCKET_URL || 'http://194.87.141.114:7777';
+        const radioUrl = process.env.NEXT_PUBLIC_RADIO_SOCKET_URL || 'https://194.87.141.114:7777';
         
         console.log('[API] play-tone request:', body);
         
