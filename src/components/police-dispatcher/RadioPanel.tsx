@@ -285,7 +285,6 @@ export default function RadioPanel() {
         if (isDragging) return;
         setLocalSelectedChannel(channelFrequency);
         setSpeakerChannel(channelFrequency, callsign);
-        toast({ title: 'Канал изменен', description: `Переключено на канал ${channelFrequency} MHz` });
     };
 
     // Синхронизируем локальное состояние с currentChannel из RadioContext
@@ -302,10 +301,8 @@ export default function RadioPanel() {
         
         if (listeningChannels.includes(freq)) {
             removeListeningChannel(freq);
-            toast({ title: 'Прослушивание остановлено', description: `Канал ${freq} MHz удален из прослушиваемых` });
         } else {
             addListeningChannel(freq);
-            toast({ title: 'Прослушивание добавлено', description: `Канал ${freq} MHz добавлен в прослушиваемые` });
         }
     };
 
