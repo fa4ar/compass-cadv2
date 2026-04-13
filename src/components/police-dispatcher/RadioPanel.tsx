@@ -12,6 +12,14 @@ import { Label } from '@/components/ui/label';
 import { useRadio } from '@/context/RadioContext';
 import { toast } from '@/hooks/use-toast';
 
+interface RadioUser {
+    id: string;
+    name: string;
+    callsign: string;
+    isTalking: boolean;
+    channel?: string;
+}
+
 interface ChannelConfig {
     id: string;
     name: string;
@@ -40,7 +48,7 @@ const DEFAULT_CHANNELS: ChannelConfig[] = [
 ];
 
 // Компонент для отображения пользователей на канале
-function ChannelUsers({ frequency }: { frequency: string }) {
+function ChannelUsers({ frequency, onDragStart }: { frequency: string; onDragStart: (user: RadioUser) => void }) {
     const { talkingUsers, channels } = useRadio();
 
     // Получаем информацию о канале из channelState
@@ -56,6 +64,10 @@ function ChannelUsers({ frequency }: { frequency: string }) {
         return null;
     }
 
+    const handleDragStart = (user: RadioUser) => {
+        onDragStart(user);
+    };
+
     return (
         <div className="mt-2 pt-2 border-t border-zinc-700">
             <div className="text-xs text-zinc-500 mb-1">
@@ -70,7 +82,15 @@ function ChannelUsers({ frequency }: { frequency: string }) {
                     </div>
                     <div className="space-y-1">
                         {speakers.map(user => (
-                            <div key={user.id} className="flex items-center gap-2 text-sm bg-green-950/20 px-2 py-1 rounded">
+                            <div 
+                                key={user.id} 
+                                className="flex items-center gap-2 text-sm bg-green-950/20 px-2 py-1 rounded cursor-grab active:cursor-grabbing hover:bg-green-950/30 transition-colors"
+                                draggable
+                                onDragStart={(e) => {
+                                    e.dataTransfer.setData('text/plain', JSON.stringify(user));
+                                    handleDragStart(user);
+                                }}
+                            >
                                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                                 <span className="text-zinc-300 font-mono font-bold">{user.name}</span>
                             </div>
@@ -87,7 +107,15 @@ function ChannelUsers({ frequency }: { frequency: string }) {
                     </div>
                     <div className="space-y-1">
                         {listeners.map(user => (
-                            <div key={user.id} className="flex items-center gap-2 text-sm bg-zinc-800/30 px-2 py-1 rounded">
+                            <div 
+                                key={user.id} 
+                                className="flex items-center gap-2 text-sm bg-zinc-800/30 px-2 py-1 rounded cursor-grab active:cursor-grabbing hover:bg-zinc-700/50 transition-colors"
+                                draggable
+                                onDragStart={(e) => {
+                                    e.dataTransfer.setData('text/plain', JSON.stringify(user));
+                                    handleDragStart(user);
+                                }}
+                            >
                                 <div className="w-2 h-2 bg-zinc-500 rounded-full" />
                                 <span className="text-zinc-400 font-mono font-bold">{user.name}</span>
                             </div>
@@ -144,6 +172,17 @@ export default function RadioPanel() {
     const [broadcastTone, setBroadcastTone] = useState('ALERT_B');
     const [broadcastType, setBroadcastType] = useState('General Alert');
     const [broadcastMessage, setBroadcastMessage] = useState('');
+    const [callsign, setCallsign] = useState('');
+    const [localSelectedChannel, setLocalSelectedChannel] = useState<string>('');
+    const [draggedUser, setDraggedUser] = useState<RadioUser | null>(null);
+
+    // Загружаем позывной из localStorage
+    useEffect(() => {
+        const savedCallsign = localStorage.getItem('dispatcherCallSign');
+        if (savedCallsign) {
+            setCallsign(savedCallsign);
+        }
+    }, []);
 
     // Получаем список уникальных зон
     const zones = Array.from(new Set(customChannels.map(ch => ch.zone).filter(Boolean))) as string[];
@@ -202,9 +241,17 @@ export default function RadioPanel() {
 
     // Переключение канала
     const handleChannelSelect = (channelFrequency: string) => {
-        setSpeakerChannel(channelFrequency);
+        setLocalSelectedChannel(channelFrequency);
+        setSpeakerChannel(channelFrequency, callsign);
         toast({ title: 'Канал изменен', description: `Переключено на канал ${channelFrequency} MHz` });
     };
+
+    // Синхронизируем локальное состояние с currentChannel из RadioContext
+    useEffect(() => {
+        if (currentChannel) {
+            setLocalSelectedChannel(currentChannel);
+        }
+    }, [currentChannel]);
 
     // Добавление канала в прослушиваемые
     const handleAddListening = (channelId: string) => {
@@ -399,6 +446,109 @@ export default function RadioPanel() {
               })
               .catch(err => console.error('Failed to send broadcast:', err));
         }
+    };
+
+    // Clear alert
+    const handleClearAlert = () => {
+        if (!currentChannel) {
+            toast({ 
+                title: 'Ошибка', 
+                description: 'Сначала выберите канал',
+                variant: 'destructive' 
+            });
+            return;
+        }
+
+        if (dispatchSessionId) {
+            fetch('/radio/dispatch/alert/clear', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Session-Id': dispatchSessionId
+                },
+                body: JSON.stringify({
+                    frequency: currentChannel
+                })
+            }).then(res => res.json())
+              .then(data => {
+                  if (data.success) {
+                      toast({
+                          title: 'Алерт очищен',
+                          description: `Код очищен на канале ${currentChannel} MHz`
+                      });
+                  }
+              })
+              .catch(err => console.error('Failed to clear alert:', err));
+        }
+    };
+
+    // DND handlers
+    const handleDragStart = (user: RadioUser) => {
+        setDraggedUser(user);
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+    };
+
+    const handleDrop = async (e: React.DragEvent, targetFrequency: string) => {
+        e.preventDefault();
+        
+        if (!draggedUser) return;
+        
+        if (draggedUser.channel === targetFrequency) {
+            setDraggedUser(null);
+            return;
+        }
+
+        if (!dispatchSessionId) {
+            toast({ 
+                title: 'Ошибка', 
+                description: 'Не авторизован как диспетчер',
+                variant: 'destructive' 
+            });
+            setDraggedUser(null);
+            return;
+        }
+
+        try {
+            const response = await fetch('/radio/dispatch/switchChannel', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer changeme',
+                    'X-Session-Id': dispatchSessionId
+                },
+                body: JSON.stringify({
+                    serverId: parseInt(draggedUser.id),
+                    frequency: targetFrequency,
+                    oldFrequency: draggedUser.channel
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                toast({
+                    title: 'Пользователь перемещен',
+                    description: `${draggedUser.name} перемещен на канал ${targetFrequency} MHz`
+                });
+            } else {
+                toast({
+                    title: 'Ошибка',
+                    description: data.error || 'Не удалось переместить пользователя',
+                    variant: 'destructive'
+                });
+            }
+        } catch (error) {
+            console.error('Failed to switch channel:', error);
+            toast({
+                title: 'Ошибка',
+                description: 'Не удалось соединиться с сервером',
+                variant: 'destructive'
+            });
+        }
+
+        setDraggedUser(null);
     };
 
     // Добавление нового канала
@@ -629,7 +779,7 @@ export default function RadioPanel() {
                         {customChannels
                             .filter(channel => selectedZone === 'all' || channel.zone === selectedZone)
                             .map((channel) => {
-                            const isActive = channel.frequency === currentChannel;
+                            const isActive = channel.frequency === localSelectedChannel;
                             const isListening = listeningChannels.includes(channel.frequency);
                             const participants = channels.find(ch => ch.frequency === channel.frequency)?.participants || 0;
 
@@ -641,8 +791,11 @@ export default function RadioPanel() {
                                         ${isActive 
                                             ? 'bg-blue-950/20 border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.1)]' 
                                             : 'bg-zinc-800/30 border-zinc-700 hover:border-zinc-600'}
+                                        ${draggedUser ? 'border-dashed border-blue-400/50 hover:border-blue-400' : ''}
                                     `}
                                     onClick={() => handleChannelSelect(channel.frequency)}
+                                    onDragOver={handleDragOver}
+                                    onDrop={(e) => handleDrop(e, channel.frequency)}
                                 >
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
@@ -696,7 +849,7 @@ export default function RadioPanel() {
                                     </div>
                                     
                                     {/* Отображение пользователей на канале */}
-                                    <ChannelUsers frequency={channel.frequency} />
+                                    <ChannelUsers frequency={channel.frequency} onDragStart={handleDragStart} />
                                 </div>
                             );
                         })}
@@ -751,6 +904,16 @@ export default function RadioPanel() {
                         >
                             <Phone className="w-4 h-4 mr-1" />
                             CODE 3
+                        </Button>
+                        
+                        {/* CLEAR ALERT */}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-10 text-sm col-span-2 border-green-600 text-green-500 hover:bg-green-950/20"
+                            onClick={handleClearAlert}
+                        >
+                            ✅ ОЧИСТИТЬ КОД
                         </Button>
                     </div>
                     

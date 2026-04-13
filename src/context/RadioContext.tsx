@@ -41,7 +41,7 @@ interface RadioContextType {
     startRecording: () => void;
     stopRecording: () => void;
     authenticateDispatch: (callsign: string) => Promise<void>;
-    setSpeakerChannel: (channelId: string) => void;
+    setSpeakerChannel: (channelId: string, callsign?: string) => void;
     addListeningChannel: (channelId: string) => void;
     removeListeningChannel: (channelId: string) => void;
     listenToUser: (serverId: number) => void;
@@ -496,11 +496,17 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         };
     }, [connect, disconnect]);
 
-    const setSpeakerChannel = useCallback((channelId: string) => {
+    const setSpeakerChannel = useCallback((channelId: string, callsign?: string) => {
         setCurrentChannel(channelId);
         if (socketRef.current?.connected) {
             socketRef.current.emit('setSpeakerChannel', parseFloat(channelId));
             console.log(`[RadioContext] Now SPEAKING on channel ${channelId}`);
+            
+            // Send callsign separately via updateUserInfo
+            if (callsign) {
+                socketRef.current.emit('updateUserInfo', { callsign });
+                console.log(`[RadioContext] Updated callsign to: ${callsign}`);
+            }
         } else {
             console.warn('[RadioContext] Cannot set speaker channel, not connected - attempting to connect');
             connect();
