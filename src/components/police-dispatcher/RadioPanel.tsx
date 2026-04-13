@@ -965,12 +965,13 @@ export default function RadioPanel() {
                                                     className="h-6 w-6 p-0 hover:bg-zinc-700 text-zinc-500"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
+                                                        console.log('Clicked menu button, channel.id:', channel.id, 'current channelMenuOpen:', channelMenuOpen);
                                                         setChannelMenuOpen(channelMenuOpen === channel.id ? null : channel.id);
                                                     }}
                                                 >
                                                     <MoreVertical className="w-3 h-3" />
                                                 </Button>
-                                                {channelMenuOpen === channel.id && dispatchSessionId && (
+                                                {channelMenuOpen === channel.id && (
                                                     <div className="absolute right-0 top-full mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-lg z-50 min-w-[150px]">
                                                         <div className="p-1 space-y-1">
                                                             <Button
