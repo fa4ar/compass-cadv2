@@ -48,7 +48,7 @@ const DEFAULT_CHANNELS: ChannelConfig[] = [
 ];
 
 // Компонент для отображения пользователей на канале
-function ChannelUsers({ frequency, onDragStart }: { frequency: string; onDragStart: (user: RadioUser) => void }) {
+function ChannelUsers({ frequency, onDragStart, onDragEnd }: { frequency: string; onDragStart: (user: RadioUser) => void; onDragEnd: () => void }) {
     const { talkingUsers, channels } = useRadio();
 
     // Получаем информацию о канале из channelState
@@ -90,6 +90,9 @@ function ChannelUsers({ frequency, onDragStart }: { frequency: string; onDragSta
                                     e.dataTransfer.setData('text/plain', JSON.stringify(user));
                                     handleDragStart(user);
                                 }}
+                                onDragEnd={() => {
+                                    onDragEnd();
+                                }}
                             >
                                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                                 <span className="text-zinc-300 font-mono font-bold">{user.name}</span>
@@ -114,6 +117,9 @@ function ChannelUsers({ frequency, onDragStart }: { frequency: string; onDragSta
                                 onDragStart={(e) => {
                                     e.dataTransfer.setData('text/plain', JSON.stringify(user));
                                     handleDragStart(user);
+                                }}
+                                onDragEnd={() => {
+                                    onDragEnd();
                                 }}
                             >
                                 <div className="w-2 h-2 bg-zinc-500 rounded-full" />
@@ -176,6 +182,7 @@ export default function RadioPanel() {
     const [localSelectedChannel, setLocalSelectedChannel] = useState<string>('');
     const [draggedUser, setDraggedUser] = useState<RadioUser | null>(null);
     const [showBroadcastModal, setShowBroadcastModal] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
 
     // Загружаем позывной из localStorage
     useEffect(() => {
@@ -242,6 +249,7 @@ export default function RadioPanel() {
 
     // Переключение канала
     const handleChannelSelect = (channelFrequency: string) => {
+        if (isDragging) return;
         setLocalSelectedChannel(channelFrequency);
         setSpeakerChannel(channelFrequency, callsign);
         toast({ title: 'Канал изменен', description: `Переключено на канал ${channelFrequency} MHz` });
@@ -487,6 +495,12 @@ export default function RadioPanel() {
     // DND handlers
     const handleDragStart = (user: RadioUser) => {
         setDraggedUser(user);
+        setIsDragging(true);
+    };
+
+    const handleDragEnd = () => {
+        setIsDragging(false);
+        setDraggedUser(null);
     };
 
     const handleDragOver = (e: React.DragEvent) => {
@@ -500,6 +514,7 @@ export default function RadioPanel() {
         
         if (draggedUser.channel === targetFrequency) {
             setDraggedUser(null);
+            setIsDragging(false);
             return;
         }
 
@@ -510,6 +525,7 @@ export default function RadioPanel() {
                 variant: 'destructive' 
             });
             setDraggedUser(null);
+            setIsDragging(false);
             return;
         }
 
@@ -551,6 +567,7 @@ export default function RadioPanel() {
         }
 
         setDraggedUser(null);
+        setIsDragging(false);
     };
 
     // Добавление нового канала
@@ -793,8 +810,11 @@ export default function RadioPanel() {
                                         ${isActive 
                                             ? 'bg-blue-950/20 border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.1)]' 
                                             : 'bg-zinc-800/30 border-zinc-700 hover:border-zinc-600'}
+                                        ${draggedUser ? 'border-dashed border-blue-400/50 hover:border-blue-400' : ''}
                                     `}
                                     onClick={() => handleChannelSelect(channel.frequency)}
+                                    onDragOver={handleDragOver}
+                                    onDrop={(e) => handleDrop(e, channel.frequency)}
                                 >
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
@@ -848,7 +868,7 @@ export default function RadioPanel() {
                                     </div>
                                     
                                     {/* Отображение пользователей на канале */}
-                                    <ChannelUsers frequency={channel.frequency} onDragStart={handleDragStart} />
+                                    <ChannelUsers frequency={channel.frequency} onDragStart={handleDragStart} onDragEnd={handleDragEnd} />
                                 </div>
                             );
                         })}
