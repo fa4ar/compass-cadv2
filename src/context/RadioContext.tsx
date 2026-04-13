@@ -559,6 +559,16 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         socket.on('channelAlert', handleChannelAlert);
         socket.on('dispatchAlert', handleDispatchAlert);
 
+        // Catch-all listener для отладки
+        const onevent = socket.onevent;
+        socket.onevent = function (packet: any) {
+            const args = packet.data || [];
+            if (packet.data && packet.data[0]) {
+                console.log('[RadioContext] 📨 Socket event received:', packet.data[0], args.slice(1));
+            }
+            onevent.call(this, packet);
+        };
+
         cleanupRef.current = [
             () => socket.off('connect', handleConnect),
             () => socket.off('disconnect', handleDisconnect),
