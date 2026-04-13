@@ -283,11 +283,16 @@ function DispatcherPageContent() {
         const savedOnDuty = localStorage.getItem('dispatcherOnDuty') === 'true';
 
         if (savedCallSign) setCallSign(savedCallSign);
-        if (savedOnDuty) {
+        if (savedOnDuty && savedCallSign) {
             setOnDuty(true);
             setShowDutyModal(false);
+            // Автоматически авторизуемся в радио системе если уже на смене
+            authenticateDispatch(savedCallSign.toUpperCase()).catch(error => {
+                console.error('[Dispatcher] Auto-auth failed:', error);
+                toast({ title: 'Ошибка авто-авторизации', description: 'Не удалось авторизоваться в радио системе', variant: 'destructive' });
+            });
         }
-    }, []);
+    }, [authenticateDispatch]);
 
     // Save to localStorage when state changes
     useEffect(() => {
