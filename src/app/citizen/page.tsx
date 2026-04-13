@@ -1424,10 +1424,9 @@ export default function CitizenPage() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
-              {availableLicenses.map((license) => {
-                const hasLicense = charLicenses.some(
-                  (cl) => cl.licenseId === license.id,
-                );
+              {availableLicenses
+                .filter((license) => !charLicenses.some((cl) => cl.licenseId === license.id))
+                .map((license) => {
                 return (
                   <div
                     key={license.id}
@@ -1439,11 +1438,6 @@ export default function CitizenPage() {
                           <p className="text-base font-bold text-zinc-100">
                             {license.name}
                           </p>
-                          {hasLicense && (
-                            <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[9px] px-1.5 py-0 h-4">
-                              ACTIVE
-                            </Badge>
-                          )}
                         </div>
                         <p className="text-xs text-zinc-500 leading-relaxed mb-3">
                           {license.description}
@@ -1465,19 +1459,11 @@ export default function CitizenPage() {
                       </div>
                       <Button
                         size="sm"
-                        variant={hasLicense ? "destructive" : "default"}
-                        className={
-                          hasLicense
-                            ? "bg-rose-600 hover:bg-rose-500 h-8 px-4"
-                            : "bg-blue-600 hover:bg-blue-500 h-8 px-4 shadow-lg shadow-blue-900/20"
-                        }
-                        onClick={() =>
-                          hasLicense
-                            ? handleLicenseRemove(license.id)
-                            : handleLicenseAdd(license.id)
-                        }
+                        variant="default"
+                        className="bg-blue-600 hover:bg-blue-500 h-8 px-4 shadow-lg shadow-blue-900/20"
+                        onClick={() => handleLicenseAdd(license.id)}
                       >
-                        {hasLicense ? "Revoke" : "Apply"}
+                        Apply
                       </Button>
                     </div>
                   </div>
