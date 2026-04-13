@@ -213,6 +213,7 @@ export default function RadioPanel() {
     const [showUserAlertModal, setShowUserAlertModal] = useState(false);
     const [alertUser, setAlertUser] = useState<RadioUser | null>(null);
     const [alertMessage, setAlertMessage] = useState('');
+    const [channelMenuOpen, setChannelMenuOpen] = useState<string | null>(null);
 
     // Загружаем позывной из localStorage
     useEffect(() => {
@@ -314,7 +315,8 @@ export default function RadioPanel() {
 
     // 🚨 КОД 100 - ТРЕВОГА (исправлено: ALERT_A)
     const handleCode100 = async () => {
-        if (!currentChannel) {
+        const frequency = broadcastChannel || currentChannel;
+        if (!frequency) {
             toast({
                 title: 'Ошибка',
                 description: 'Сначала выберите канал',
@@ -332,7 +334,7 @@ export default function RadioPanel() {
                     'X-Session-Id': dispatchSessionId || ''
                 },
                 body: JSON.stringify({
-                    frequency: parseFloat(currentChannel),
+                    frequency: parseFloat(frequency),
                     tone: 'alert_a'
                 })
             });
@@ -341,7 +343,7 @@ export default function RadioPanel() {
             if (data.success) {
                 toast({
                     title: '🚨 КОД 100',
-                    description: `SIGNAL 100 отправлен на канал ${currentChannel} MHz`
+                    description: `SIGNAL 100 отправлен на канал ${frequency} MHz`
                 });
             } else {
                 toast({
@@ -362,7 +364,8 @@ export default function RadioPanel() {
 
     // CODE 3
     const handleCode3 = () => {
-        if (!currentChannel) {
+        const frequency = broadcastChannel || currentChannel;
+        if (!frequency) {
             toast({ 
                 title: 'Ошибка', 
                 description: 'Сначала выберите канал',
@@ -378,10 +381,11 @@ export default function RadioPanel() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': 'Bearer changeme',
                     'X-Session-Id': dispatchSessionId
                 },
                 body: JSON.stringify({
-                    frequency: currentChannel,
+                    frequency: frequency,
                     alertType: 'CODE 3',
                     alertConfig: {
                         name: 'CODE 3',
@@ -395,7 +399,7 @@ export default function RadioPanel() {
         
         toast({ 
             title: '⚠️ CODE 3', 
-            description: `Оповещение отправлено на канал ${currentChannel} MHz`,
+            description: `Оповещение отправлено на канал ${frequency} MHz`,
             variant: 'default'
         });
     };
@@ -546,7 +550,8 @@ export default function RadioPanel() {
 
     // Clear alert
     const handleClearAlert = () => {
-        if (!currentChannel) {
+        const frequency = broadcastChannel || currentChannel;
+        if (!frequency) {
             toast({ 
                 title: 'Ошибка', 
                 description: 'Сначала выберите канал',
@@ -564,14 +569,14 @@ export default function RadioPanel() {
                     'X-Session-Id': dispatchSessionId
                 },
                 body: JSON.stringify({
-                    frequency: currentChannel
+                    frequency: frequency
                 })
             }).then(res => res.json())
               .then(data => {
                   if (data.success) {
                       toast({
                           title: 'Алерт очищен',
-                          description: `Код очищен на канале ${currentChannel} MHz`
+                          description: `Код очищен на канале ${frequency} MHz`
                       });
                   }
               })
@@ -953,17 +958,76 @@ export default function RadioPanel() {
                                             >
                                                 {isListening ? <Ear className="w-3 h-3" /> : <EarOff className="w-3 h-3" />}
                                             </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-6 w-6 p-0 hover:bg-zinc-700 text-zinc-500"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    openBroadcastModal(channel.frequency);
-                                                }}
-                                            >
-                                                <MoreVertical className="w-3 h-3" />
-                                            </Button>
+                                            <div className="relative">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-6 w-6 p-0 hover:bg-zinc-700 text-zinc-500"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setChannelMenuOpen(channelMenuOpen === channel.id ? null : channel.id);
+                                                    }}
+                                                >
+                                                    <MoreVertical className="w-3 h-3" />
+                                                </Button>
+                                                {channelMenuOpen === channel.id && dispatchSessionId && (
+                                                    <div className="absolute right-0 top-full mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-lg z-50 min-w-[150px]">
+                                                        <div className="p-1 space-y-1">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="w-full h-8 text-xs justify-start hover:bg-zinc-700 text-left"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setChannelMenuOpen(null);
+                                                                    openBroadcastModal(channel.frequency);
+                                                                }}
+                                                            >
+                                                                📢 Broadcast
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="w-full h-8 text-xs justify-start hover:bg-zinc-700 text-left text-red-400"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setChannelMenuOpen(null);
+                                                                    setBroadcastChannel(channel.frequency);
+                                                                    handleCode100();
+                                                                }}
+                                                            >
+                                                                🚨 КОД 100
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="w-full h-8 text-xs justify-start hover:bg-zinc-700 text-left text-blue-400"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setChannelMenuOpen(null);
+                                                                    setBroadcastChannel(channel.frequency);
+                                                                    handleCode3();
+                                                                }}
+                                                            >
+                                                                📞 CODE 3
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="w-full h-8 text-xs justify-start hover:bg-zinc-700 text-left text-green-400"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setChannelMenuOpen(null);
+                                                                    setBroadcastChannel(channel.frequency);
+                                                                    handleClearAlert();
+                                                                }}
+                                                            >
+                                                                ✅ ОЧИСТИТЬ КОД
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                     
@@ -997,45 +1061,8 @@ export default function RadioPanel() {
                     </div>
                 )}
 
-                {/* Тоны и экстренные кнопки */}
+                {/* Тоны */}
                 <div className="bg-zinc-800/50 rounded-lg p-3 border border-zinc-700">
-                    <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-2">
-                        Экстренные кнопки
-                    </span>
-                    <div className="grid grid-cols-2 gap-2 mb-3">
-                        {/* 🚨 КОД 100 - ТРЕВОГА (ALERT_A) */}
-                        <Button
-                            variant="destructive"
-                            size="sm"
-                            className="h-10 text-sm font-bold bg-red-600 hover:bg-red-500"
-                            onClick={handleCode100}
-                        >
-                            <AlertTriangle className="w-4 h-4 mr-1" />
-                            КОД 100
-                        </Button>
-                        
-                        {/* CODE 3 (ALERT_B) */}
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-10 text-sm border-blue-600 text-blue-500 hover:bg-blue-950/20"
-                            onClick={handleCode3}
-                        >
-                            <Phone className="w-4 h-4 mr-1" />
-                            CODE 3
-                        </Button>
-                        
-                        {/* CLEAR ALERT */}
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-10 text-sm col-span-2 border-green-600 text-green-500 hover:bg-green-950/20"
-                            onClick={handleClearAlert}
-                        >
-                            ✅ ОЧИСТИТЬ КОД
-                        </Button>
-                    </div>
-                    
                     <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-2">
                         Тоны
                     </span>
