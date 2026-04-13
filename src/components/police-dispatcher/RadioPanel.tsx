@@ -1007,7 +1007,7 @@ export default function RadioPanel() {
                                                     )}
                                                     {alertStatus === 'CODE_5' && (
                                                         <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-orange-950/30 border-orange-500/30 text-orange-400">
-                                                            CODE 5
+                                                            CODE 3
                                                         </Badge>
                                                     )}
                                                 </div>
