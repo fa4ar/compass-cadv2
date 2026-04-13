@@ -710,8 +710,8 @@ function DispatcherPageContent() {
         };
         const statusText: Record<string, string> = {
             'Available': 'ДОСТУПЕН',
-            'Busy': 'ЗАНЯТ',
             'Enroute': 'В ПУТИ',
+            'Busy': 'ЗАНЯТ',
             'On Scene': 'НА МЕСТЕ',
             'Dispatched': 'НАЗНАЧЕН',
             'Resolving': 'ОБРАБАТЫВАЕТСЯ'
@@ -936,9 +936,9 @@ function DispatcherPageContent() {
                                                                 <Button
                                                                     size="icon"
                                                                     variant="ghost"
-                                                                    title="Занят"
+                                                                    title="В пути"
                                                                     className="h-7 w-7 text-amber-500 hover:bg-amber-500/10"
-                                                                    onClick={(e) => { e.stopPropagation(); handleUpdateUnitStatus(u.characterId, u.userId, 'Busy'); }}
+                                                                    onClick={(e) => { e.stopPropagation(); handleUpdateUnitStatus(u.characterId, u.userId, 'Enroute'); }}
                                                                 >
                                                                     <Siren className="w-3.5 h-3.5" />
                                                                 </Button>
