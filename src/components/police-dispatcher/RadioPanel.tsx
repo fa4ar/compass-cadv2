@@ -140,6 +140,10 @@ export default function RadioPanel() {
     const [newChannelFreq, setNewChannelFreq] = useState('');
     const [isPTTPressed, setIsPTTPressed] = useState(false);
     const [selectedZone, setSelectedZone] = useState<string>('all');
+    const [selectedOneshotTone, setSelectedOneshotTone] = useState('BEEP');
+    const [broadcastTone, setBroadcastTone] = useState('ALERT_B');
+    const [broadcastType, setBroadcastType] = useState('General Alert');
+    const [broadcastMessage, setBroadcastMessage] = useState('');
 
     // Получаем список уникальных зон
     const zones = Array.from(new Set(customChannels.map(ch => ch.zone).filter(Boolean))) as string[];
@@ -308,6 +312,93 @@ export default function RadioPanel() {
             description: `Оповещение отправлено на канал ${currentChannel} MHz`,
             variant: 'default'
         });
+    };
+
+    // Oneshot tones (beeps/bops)
+    const handleOneshotTone = () => {
+        if (!currentChannel) {
+            toast({ 
+                title: 'Ошибка', 
+                description: 'Сначала выберите канал',
+                variant: 'destructive' 
+            });
+            return;
+        }
+
+        if (dispatchSessionId) {
+            fetch('/radio/dispatch/alert/oneshot', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Session-Id': dispatchSessionId
+                },
+                body: JSON.stringify({
+                    frequency: currentChannel,
+                    alertConfig: {
+                        name: selectedOneshotTone,
+                        color: '#ffffff',
+                        isPersistent: false,
+                        tone: selectedOneshotTone
+                    }
+                })
+            }).then(res => res.json())
+              .then(data => {
+                  if (data.success) {
+                      toast({
+                          title: 'Тон отправлен',
+                          description: `${selectedOneshotTone} на канале ${currentChannel} MHz`
+                      });
+                  }
+              })
+              .catch(err => console.error('Failed to send oneshot tone:', err));
+        }
+    };
+
+    // Broadcast alert
+    const handleBroadcastAlert = () => {
+        if (!currentChannel) {
+            toast({ 
+                title: 'Ошибка', 
+                description: 'Сначала выберите канал',
+                variant: 'destructive' 
+            });
+            return;
+        }
+
+        if (!broadcastMessage.trim()) {
+            toast({ 
+                title: 'Ошибка', 
+                description: 'Введите сообщение',
+                variant: 'destructive' 
+            });
+            return;
+        }
+
+        if (dispatchSessionId) {
+            fetch('/radio/dispatch/broadcast', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Session-Id': dispatchSessionId
+                },
+                body: JSON.stringify({
+                    frequency: currentChannel,
+                    type: broadcastType,
+                    message: broadcastMessage,
+                    tone: broadcastTone
+                })
+            }).then(res => res.json())
+              .then(data => {
+                  if (data.success) {
+                      toast({
+                          title: 'Broadcast отправлен',
+                          description: `${broadcastType} на канале ${currentChannel} MHz`
+                      });
+                      setBroadcastMessage('');
+                  }
+              })
+              .catch(err => console.error('Failed to send broadcast:', err));
+        }
     };
 
     // Добавление нового канала
@@ -666,7 +757,7 @@ export default function RadioPanel() {
                     <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-2">
                         Тоны
                     </span>
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-4 gap-2 mb-3">
                         <Button
                             variant="outline"
                             size="sm"
@@ -698,6 +789,79 @@ export default function RadioPanel() {
                             onClick={() => handlePlayTone('ALERT_C')}
                         >
                             ALERT C
+                        </Button>
+                    </div>
+
+                    <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-2">
+                        Oneshot Tones
+                    </span>
+                    <div className="flex gap-2 mb-3">
+                        <select
+                            value={selectedOneshotTone}
+                            onChange={(e) => setSelectedOneshotTone(e.target.value)}
+                            className="flex-1 h-8 text-xs bg-zinc-900 border-zinc-700 rounded px-2"
+                        >
+                            <option value="PTT">PTT</option>
+                            <option value="PTT_END">PTT_END</option>
+                            <option value="TX_START">TX_START</option>
+                            <option value="TX_END">TX_END</option>
+                            <option value="BEEP">BEEP</option>
+                            <option value="BONK">BONK</option>
+                            <option value="CHIRP">CHIRP</option>
+                            <option value="PANIC">PANIC</option>
+                            <option value="ALERT_A">ALERT_A</option>
+                            <option value="ALERT_B">ALERT_B</option>
+                        </select>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs border-zinc-700 bg-zinc-800 hover:bg-zinc-700"
+                            onClick={handleOneshotTone}
+                        >
+                            Отправить
+                        </Button>
+                    </div>
+
+                    <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-2">
+                        Broadcast Alert
+                    </span>
+                    <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                            <select
+                                value={broadcastTone}
+                                onChange={(e) => setBroadcastTone(e.target.value)}
+                                className="h-8 text-xs bg-zinc-900 border-zinc-700 rounded px-2"
+                            >
+                                <option value="ALERT_A">ALERT_A</option>
+                                <option value="ALERT_B">ALERT_B</option>
+                                <option value="PANIC">PANIC</option>
+                                <option value="BEEP">BEEP</option>
+                                <option value="CHIRP">CHIRP</option>
+                            </select>
+                            <select
+                                value={broadcastType}
+                                onChange={(e) => setBroadcastType(e.target.value)}
+                                className="h-8 text-xs bg-zinc-900 border-zinc-700 rounded px-2"
+                            >
+                                <option value="General Alert">General Alert</option>
+                                <option value="Information">Information</option>
+                                <option value="Priority">Priority</option>
+                                <option value="Emergency">Emergency</option>
+                            </select>
+                        </div>
+                        <Input
+                            placeholder="Введите сообщение..."
+                            value={broadcastMessage}
+                            onChange={(e) => setBroadcastMessage(e.target.value)}
+                            className="h-8 text-sm bg-zinc-900 border-zinc-700"
+                        />
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full h-8 text-xs border-green-600 text-green-500 hover:bg-green-950/20"
+                            onClick={handleBroadcastAlert}
+                        >
+                            Отправить Broadcast
                         </Button>
                     </div>
                 </div>
