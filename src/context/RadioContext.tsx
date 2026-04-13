@@ -110,12 +110,23 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const playGunshotSound = useCallback((volume: number = 0.8) => {
-        const sound = new Howl({
-            src: ['/audio/bgShot.wav'],
-            format: ['wav'],
-            volume: Math.min(1, Math.max(0, volume))
-        });
-        sound.play();
+        if (!gunshotSoundRef.current) {
+            gunshotSoundRef.current = new Howl({
+                src: ['/audio/bgShot.wav'],
+                format: ['wav'],
+                volume: Math.min(1, Math.max(0, volume)),
+                preload: true,
+                pool: 5
+            });
+        }
+        
+        // Останавливаем предыдущее воспроизведение если есть
+        if (gunshotSoundRef.current.playing()) {
+            gunshotSoundRef.current.stop();
+        }
+        
+        gunshotSoundRef.current.volume(Math.min(1, Math.max(0, volume)));
+        gunshotSoundRef.current.play();
     }, []);
 
     const connect = useCallback(() => {
