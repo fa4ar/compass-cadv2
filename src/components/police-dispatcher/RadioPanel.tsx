@@ -270,8 +270,8 @@ export default function RadioPanel() {
         }
     };
 
-    // Код 10-1 (SIGNAL 3)
-    const handleCode101 = () => {
+    // CODE 3
+    const handleCode3 = () => {
         if (!currentChannel) {
             toast({ 
                 title: 'Ошибка', 
@@ -292,10 +292,10 @@ export default function RadioPanel() {
                 },
                 body: JSON.stringify({
                     frequency: currentChannel,
-                    alertType: 'SIGNAL 3',
+                    alertType: 'CODE 3',
                     alertConfig: {
-                        name: 'SIGNAL 3',
-                        color: '#0049d1',
+                        name: 'CODE 3',
+                        color: '#0066ff',
                         isPersistent: true,
                         tone: 'ALERT_B'
                     }
@@ -304,7 +304,7 @@ export default function RadioPanel() {
         }
         
         toast({ 
-            title: '⚠️ КОД 10-1 (SIGNAL 3)', 
+            title: '⚠️ CODE 3', 
             description: `Оповещение отправлено на канал ${currentChannel} MHz`,
             variant: 'default'
         });
@@ -651,15 +651,15 @@ export default function RadioPanel() {
                             КОД 100
                         </Button>
                         
-                        {/* КОД 10-1 (ALERT_B) */}
+                        {/* CODE 3 (ALERT_B) */}
                         <Button
                             variant="outline"
                             size="sm"
-                            className="h-10 text-sm border-yellow-600 text-yellow-500 hover:bg-yellow-950/20"
-                            onClick={handleCode101}
+                            className="h-10 text-sm border-blue-600 text-blue-500 hover:bg-blue-950/20"
+                            onClick={handleCode3}
                         >
                             <Phone className="w-4 h-4 mr-1" />
-                            КОД 10-1
+                            CODE 3
                         </Button>
                     </div>
                     
