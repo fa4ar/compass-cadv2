@@ -84,7 +84,7 @@ function ChannelUsers({ frequency, onDragStart, onDragEnd, onUserAlert }: { freq
                         {speakers.map(user => (
                             <div 
                                 key={user.id} 
-                                className="flex items-center justify-between gap-2 text-sm bg-green-950/20 px-2 py-1 rounded cursor-grab active:cursor-grabbing hover:bg-green-950/30 transition-colors"
+                                className="flex items-center justify-between gap-2 text-sm bg-green-950/20 px-2 py-1 rounded cursor-grab active:cursor-grabbing hover:bg-green-950/30 transition-colors animate-pulse border border-green-500/30"
                                 draggable
                                 onDragStart={(e) => {
                                     e.dataTransfer.setData('text/plain', JSON.stringify(user));
@@ -95,7 +95,7 @@ function ChannelUsers({ frequency, onDragStart, onDragEnd, onUserAlert }: { freq
                                 }}
                             >
                                 <div className="flex items-center gap-2">
-                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-ping" />
                                     <span className="text-zinc-300 font-mono font-bold">{user.name}</span>
                                 </div>
                                 <Button
@@ -214,6 +214,7 @@ export default function RadioPanel() {
     const [alertUser, setAlertUser] = useState<RadioUser | null>(null);
     const [alertMessage, setAlertMessage] = useState('');
     const [channelMenuOpen, setChannelMenuOpen] = useState<string | null>(null);
+    const [hoveredChannel, setHoveredChannel] = useState<string | null>(null);
 
     // Загружаем позывной из localStorage
     useEffect(() => {
@@ -623,10 +624,21 @@ export default function RadioPanel() {
 
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
+        if (isDragging) {
+            const frequency = e.currentTarget.getAttribute('data-frequency');
+            if (frequency) {
+                setHoveredChannel(frequency);
+            }
+        }
+    };
+
+    const handleDragLeave = () => {
+        setHoveredChannel(null);
     };
 
     const handleDrop = async (e: React.DragEvent, targetFrequency: string) => {
         e.preventDefault();
+        setHoveredChannel(null);
         
         if (!draggedUser) return;
         
@@ -929,6 +941,7 @@ export default function RadioPanel() {
                             return (
                                 <div
                                     key={channel.id}
+                                    data-frequency={channel.frequency}
                                     className={`
                                         p-2 rounded-lg border transition-all duration-200 cursor-pointer
                                         ${isActive 
@@ -936,9 +949,11 @@ export default function RadioPanel() {
                                             : 'bg-zinc-800/30 border-zinc-700 hover:border-zinc-600'}
                                         ${hasPanic ? 'border-red-500 bg-red-950/20' : ''}
                                         ${draggedUser ? 'border-dashed border-blue-400/50 hover:border-blue-400' : ''}
+                                        ${hoveredChannel === channel.frequency && isDragging ? 'bg-green-950/30 border-green-500/50 shadow-[0_0_20px_rgba(34,197,94,0.3)]' : ''}
                                     `}
                                     onClick={() => handleChannelSelect(channel.frequency)}
                                     onDragOver={handleDragOver}
+                                    onDragLeave={handleDragLeave}
                                     onDrop={(e) => handleDrop(e, channel.frequency)}
                                 >
                                     <div className="flex items-center justify-between">

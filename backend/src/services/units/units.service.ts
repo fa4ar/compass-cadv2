@@ -161,6 +161,29 @@ export class UnitsService {
                 unitCallSign: unit.callSign
             });
             console.log(`[updateStatusById] Event emitted`);
+            
+            // If unit has a partner, also update partner's status
+            if (unit.partnerUserId) {
+                console.log(`[updateStatusById] Updating partner userId: ${unit.partnerUserId} to status: ${status}`);
+                const partnerUnit = await (prisma as any).unit.findUnique({
+                    where: { userId: unit.partnerUserId }
+                });
+                if (partnerUnit) {
+                    await (prisma as any).unit.update({
+                        where: { id: partnerUnit.id },
+                        data: { 
+                            status,
+                            lastStatusAt: new Date()
+                        }
+                    });
+                    io.emit('unit_status_changed', {
+                        userId: partnerUnit.userId,
+                        status,
+                        unitCallSign: partnerUnit.callSign
+                    });
+                    console.log(`[updateStatusById] Partner status updated and emitted`);
+                }
+            }
         } else {
             console.log(`[updateStatusById] IO IS NULL!`);
         }

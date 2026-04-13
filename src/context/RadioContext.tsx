@@ -173,31 +173,36 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                 
                 // Обновляем или добавляем пользователей на канале
                 if (data.speakers && data.speakers.length > 0) {
-                    data.speakers.forEach((speakerId: number) => {
+                    data.speakers.forEach((speaker: any) => {
+                        const speakerId = typeof speaker === 'object' ? speaker.serverId : speaker;
                         const speakerIdStr = speakerId.toString();
                         const existingUser = updated.find(u => u.id === speakerIdStr);
+                        
+                        // 🔥 БЕРЕМ ПОЗЫВНОЙ ИЗ userState.name если есть
+                        const callsign = speaker?.userState?.name || speaker?.callsign || speaker?.name || 
+                                        (speakerId < 0 ? `DISP-${Math.abs(speakerId)}` : `User ${speakerId}`);
                         
                         if (existingUser) {
                             // Обновляем существующего пользователя
                             updated = updated.map(u => 
                                 u.id === speakerIdStr 
                                     ? { ...u, 
-                                        name: data.userCallsigns?.[speakerId] || u.name,
-                                        callsign: data.userCallsigns?.[speakerId] || u.callsign,
-                                        isTalking: data.activeTalkers?.includes(speakerId) || false,
+                                        name: callsign,
+                                        callsign: speaker?.userState?.name || speaker?.callsign || '',
+                                        isTalking: true,
                                         channel: freqStr
-                                      }
+                                      } 
                                     : u
                             );
                         } else {
-                            // Добавляем нового пользователя с позывным из данных
-                            updated = [...updated, {
+                            // Добавляем нового пользователя
+                            updated.push({
                                 id: speakerIdStr,
-                                name: data.userCallsigns?.[speakerId] || `Player ${speakerId}`,
-                                callsign: data.userCallsigns?.[speakerId] || '',
-                                isTalking: data.activeTalkers?.includes(speakerId) || false,
+                                name: callsign,
+                                callsign: speaker?.userState?.name || speaker?.callsign || '',
+                                isTalking: true,
                                 channel: freqStr
-                            }];
+                            });
                         }
                     });
                 }
@@ -240,18 +245,22 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
         const handleTalkingState = (data: any) => {
             console.log('[RadioContext] Talking state updated:', data);
+            console.log('[RadioContext] Data keys:', Object.keys(data));
+            console.log('[RadioContext] data.callsign:', data.callsign);
+            console.log('[RadioContext] data.name:', data.name);
+            console.log('[RadioContext] data.userState:', data.userState);
             
             setTalkingUsers(prev => {
                 const existingIndex = prev.findIndex(u => u.id === data.serverId?.toString());
                 
                 // 🔥 БЕРЕМ ПОЗЫВНОЙ ИЗ ДАННЫХ
-                const callsign = data.callsign || data.name || 
+                const callsign = data.userState?.name || data.callsign || data.name || 
                                 (data.serverId < 0 ? `DISP-${Math.abs(data.serverId)}` : `Player ${data.serverId}`);
                 
                 const userData = {
                     id: data.serverId?.toString() || '',
                     name: callsign,
-                    callsign: data.callsign || '',
+                    callsign: data.userState?.name || data.callsign || '',
                     isTalking: data.state,
                     channel: data.frequency?.toString()
                 };
@@ -268,18 +277,19 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
         const handleSpeakerJoined = (data: any) => {
             console.log('[RadioContext] Speaker joined:', data);
+            console.log('[RadioContext] data.userState:', data.userState);
             
             setTalkingUsers(prev => {
                 if (prev.find(u => u.id === data.serverId?.toString())) return prev;
                 
-                // 🔥 БЕРЕМ ПОЗЫВНОЙ
-                const callsign = data.callsign || data.name || 
+                // 🔥 БЕРЕМ ПОЗЫВНОЙ ИЗ userState.name
+                const callsign = data.userState?.name || data.callsign || data.name || 
                                 (data.serverId < 0 ? `DISP-${Math.abs(data.serverId)}` : `Player ${data.serverId}`);
                 
                 return [...prev, {
                     id: data.serverId?.toString() || '',
                     name: callsign,
-                    callsign: data.callsign || '',
+                    callsign: data.userState?.name || data.callsign || '',
                     isTalking: false,
                     channel: data.frequency?.toString()
                 }];
