@@ -329,11 +329,15 @@ export default function RadioPanel() {
         // Оптимистичное обновление локального статуса
         setChannelAlert(parseFloat(frequency), 'CODE_100');
 
-        try {
-            const response = await fetch('/api/play-tone', {
+        playTone('ALERT_A');
+
+        if (dispatchSessionId) {
+            fetch('/radio/dispatch/alert/trigger', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': 'Bearer changeme',
+                    'X-Session-Id': dispatchSessionId
                 },
                 body: JSON.stringify({
                     frequency: frequency,
@@ -342,33 +346,29 @@ export default function RadioPanel() {
                         name: 'CODE 100',
                         color: '#f5e504',
                         isPersistent: true,
-                        tone: broadcastTone
+                        tone: 'ALERT_A'
                     }
                 })
+            }).catch(err => {
+                console.error('Failed to trigger CODE 100:', err);
+                toast({
+                    title: 'Ошибка',
+                    description: 'Не удалось отправить CODE 100',
+                    variant: 'destructive'
+                });
+                // Откатываем статус при ошибке
+                clearChannelAlert(parseFloat(frequency));
             });
-
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.error || 'Не удалось отправить сигнал');
-            }
-
-            toast({
-                title: 'КОД 100 активирован',
-                description: `Частота: ${frequency} MHz`
-            });
-
-            // Отправляем сигнал через сокет
-            sendCode100(parseFloat(frequency));
-        } catch (error: any) {
-            console.error('Failed to send code 100:', error);
-            toast({
-                title: 'Ошибка',
-                description: error.message || 'Не удалось отправить сигнал',
-                variant: 'destructive'
-            });
-            // Откатываем статус при ошибке
-            clearChannelAlert(parseFloat(frequency));
         }
+
+        toast({
+            title: '🚨 CODE 100',
+            description: `Оповещение отправлено на канал ${frequency} MHz`,
+            variant: 'default'
+        });
+
+        // Отправляем сигнал через сокет
+        sendCode100(parseFloat(frequency));
     };
 
     // CODE 3
