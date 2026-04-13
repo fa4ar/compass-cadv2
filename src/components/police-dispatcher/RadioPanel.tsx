@@ -540,15 +540,12 @@ export default function RadioPanel() {
             });
             return;
         }
-
-        const radioUrl = process.env.NEXT_PUBLIC_RADIO_SOCKET_URL || 'http://194.87.141.114:7777';
         
         if (dispatchSessionId) {
-            fetch(`${radioUrl}/dispatch/user/alert`, {
+            fetch('/api/dispatch/user/alert', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': 'Bearer changeme',
                     'X-Session-Id': dispatchSessionId
                 },
                 body: JSON.stringify({

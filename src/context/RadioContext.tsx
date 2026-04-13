@@ -159,36 +159,41 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
         const handleChannelState = (data: any) => {
             console.log('[RadioContext] Channel state updated:', data);
+            console.log('[RadioContext] Speakers array:', data.speakers);
+            console.log('[RadioContext] Active talkers array:', data.activeTalkers);
+            console.log('[RadioContext] First speaker:', data.speakers?.[0]);
+            console.log('[RadioContext] First active talker:', data.activeTalkers?.[0]);
             
             // Пакетное обновление talkingUsers для реального времени
             setTalkingUsers(prev => {
                 const freqStr = data.frequency?.toString();
-                const usersOnChannel = data.speakers || [];
-                const userIdsOnChannel = usersOnChannel.map((id: number) => id.toString());
+                // 🔥 ИСПОЛЬЗУЕМ activeTalkers вместо speakers - activeTalkers это те кто сейчас говорит
+                const activeTalkers = data.activeTalkers || [];
+                const activeTalkerIds = activeTalkers.map((id: number) => id.toString());
                 
-                // Удаляем пользователей которые больше не на канале
+                // Удаляем пользователей с этого канала которые больше не активны
                 let updated = prev.filter(user => 
-                    !freqStr || user.channel !== freqStr || userIdsOnChannel.includes(user.id)
+                    !freqStr || user.channel !== freqStr || activeTalkerIds.includes(user.id)
                 );
                 
-                // Обновляем или добавляем пользователей на канале
-                if (data.speakers && data.speakers.length > 0) {
-                    data.speakers.forEach((speaker: any) => {
-                        const speakerId = typeof speaker === 'object' ? speaker.serverId : speaker;
-                        const speakerIdStr = speakerId.toString();
-                        const existingUser = updated.find(u => u.id === speakerIdStr);
+                // Обновляем или добавляем активных говорящих на канале
+                if (activeTalkers.length > 0) {
+                    activeTalkers.forEach((talker: any) => {
+                        const talkerId = typeof talker === 'object' ? talker.serverId : talker;
+                        const talkerIdStr = talkerId.toString();
+                        const existingUser = updated.find(u => u.id === talkerIdStr);
                         
                         // 🔥 БЕРЕМ ПОЗЫВНОЙ ИЗ userState.name если есть
-                        const callsign = speaker?.userState?.name || speaker?.callsign || speaker?.name || 
-                                        (speakerId < 0 ? `DISP-${Math.abs(speakerId)}` : `User ${speakerId}`);
+                        const callsign = talker?.userState?.name || talker?.callsign || talker?.name || 
+                                        (talkerId < 0 ? `DISP-${Math.abs(talkerId)}` : `User ${talkerId}`);
                         
                         if (existingUser) {
                             // Обновляем существующего пользователя
                             updated = updated.map(u => 
-                                u.id === speakerIdStr 
+                                u.id === talkerIdStr 
                                     ? { ...u, 
                                         name: callsign,
-                                        callsign: speaker?.userState?.name || speaker?.callsign || '',
+                                        callsign: talker?.userState?.name || talker?.callsign || '',
                                         isTalking: true,
                                         channel: freqStr
                                       } 
@@ -197,9 +202,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                         } else {
                             // Добавляем нового пользователя
                             updated.push({
-                                id: speakerIdStr,
+                                id: talkerIdStr,
                                 name: callsign,
-                                callsign: speaker?.userState?.name || speaker?.callsign || '',
+                                callsign: talker?.userState?.name || talker?.callsign || '',
                                 isTalking: true,
                                 channel: freqStr
                             });
