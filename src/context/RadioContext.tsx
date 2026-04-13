@@ -58,6 +58,7 @@ interface RadioContextType {
     emitServerTone: (frequency: number, tone: string) => void;
     sendCode100: (frequency: number) => void;
     clearChannelAlert: (frequency: number) => void;
+    setChannelAlert: (frequency: number, alertType: string) => void;
 }
 
 const RadioContext = createContext<RadioContextType | undefined>(undefined);
@@ -542,6 +543,28 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             }
         };
 
+        const handleDispatchNotification = (data: any) => {
+            console.log('[RadioContext] Dispatch notification received:', data);
+            
+            // Проверяем, содержит ли уведомление информацию об алерте
+            if (data.frequency && data.alert) {
+                const freqStr = data.frequency.toString();
+                setChannels(prev => {
+                    return prev.map(ch => {
+                        if (ch.frequency === freqStr) {
+                            const alertType = data.alert === 'SIGNAL_100' ? 'CODE_100' : data.alert || 'CODE_5';
+                            console.log('[RadioContext] Updating alert from notification for channel', ch.frequency, 'to', alertType);
+                            return {
+                                ...ch,
+                                alert: alertType
+                            };
+                        }
+                        return ch;
+                    });
+                });
+            }
+        };
+
         socket.on('connect', handleConnect);
         socket.on('disconnect', handleDisconnect);
         socket.on('connect_error', handleConnectError);
@@ -558,6 +581,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         socket.on('gunshotDuringTransmission', handleGunshotDuringTransmission);
         socket.on('channelAlert', handleChannelAlert);
         socket.on('dispatchAlert', handleDispatchAlert);
+        socket.on('dispatchNotification', handleDispatchNotification);
 
         // Catch-all listener для отладки
         const onevent = socket.onevent;
@@ -586,6 +610,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             () => socket.off('gunshotDuringTransmission', handleGunshotDuringTransmission),
             () => socket.off('channelAlert', handleChannelAlert),
             () => socket.off('dispatchAlert', handleDispatchAlert),
+            () => socket.off('dispatchNotification', handleDispatchNotification),
         ];
 
         setIsInitialized(true);
@@ -742,6 +767,18 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             });
         });
         console.log('[RadioContext] Cleared alert for channel', frequency);
+    }, []);
+
+    const setChannelAlert = useCallback((frequency: number, alertType: string) => {
+        setChannels(prev => {
+            return prev.map(ch => {
+                if (ch.frequency === frequency.toString()) {
+                    return { ...ch, alert: alertType };
+                }
+                return ch;
+            });
+        });
+        console.log('[RadioContext] Set alert for channel', frequency, 'to', alertType);
     }, []);
 
     useEffect(() => {
@@ -925,7 +962,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             checkSubscription,
             emitServerTone,
             sendCode100,
-            clearChannelAlert
+            clearChannelAlert,
+            setChannelAlert
         }}>
             {children}
         </RadioContext.Provider>
