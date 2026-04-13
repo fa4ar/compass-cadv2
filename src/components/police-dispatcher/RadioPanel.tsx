@@ -175,6 +175,7 @@ export default function RadioPanel() {
     const [callsign, setCallsign] = useState('');
     const [localSelectedChannel, setLocalSelectedChannel] = useState<string>('');
     const [draggedUser, setDraggedUser] = useState<RadioUser | null>(null);
+    const [showBroadcastModal, setShowBroadcastModal] = useState(false);
 
     // Загружаем позывной из localStorage
     useEffect(() => {
@@ -442,6 +443,7 @@ export default function RadioPanel() {
                           description: `${broadcastType} на канале ${currentChannel} MHz`
                       });
                       setBroadcastMessage('');
+                      setShowBroadcastModal(false);
                   }
               })
               .catch(err => console.error('Failed to send broadcast:', err));
@@ -791,11 +793,8 @@ export default function RadioPanel() {
                                         ${isActive 
                                             ? 'bg-blue-950/20 border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.1)]' 
                                             : 'bg-zinc-800/30 border-zinc-700 hover:border-zinc-600'}
-                                        ${draggedUser ? 'border-dashed border-blue-400/50 hover:border-blue-400' : ''}
                                     `}
                                     onClick={() => handleChannelSelect(channel.frequency)}
-                                    onDragOver={handleDragOver}
-                                    onDrop={(e) => handleDrop(e, channel.frequency)}
                                 >
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
@@ -955,79 +954,73 @@ export default function RadioPanel() {
                         </Button>
                     </div>
 
-                    <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-2">
-                        Oneshot Tones
-                    </span>
-                    <div className="flex gap-2 mb-3">
-                        <select
-                            value={selectedOneshotTone}
-                            onChange={(e) => setSelectedOneshotTone(e.target.value)}
-                            className="flex-1 h-8 text-xs bg-zinc-900 border-zinc-700 rounded px-2"
-                        >
-                            <option value="PTT">PTT</option>
-                            <option value="PTT_END">PTT_END</option>
-                            <option value="TX_START">TX_START</option>
-                            <option value="TX_END">TX_END</option>
-                            <option value="BEEP">BEEP</option>
-                            <option value="BONK">BONK</option>
-                            <option value="CHIRP">CHIRP</option>
-                            <option value="PANIC">PANIC</option>
-                            <option value="ALERT_A">ALERT_A</option>
-                            <option value="ALERT_B">ALERT_B</option>
-                        </select>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs border-zinc-700 bg-zinc-800 hover:bg-zinc-700"
-                            onClick={handleOneshotTone}
-                        >
-                            Отправить
-                        </Button>
-                    </div>
-
-                    <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-2">
-                        Broadcast Alert
-                    </span>
-                    <div className="space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
-                            <select
-                                value={broadcastTone}
-                                onChange={(e) => setBroadcastTone(e.target.value)}
-                                className="h-8 text-xs bg-zinc-900 border-zinc-700 rounded px-2"
-                            >
-                                <option value="ALERT_A">ALERT_A</option>
-                                <option value="ALERT_B">ALERT_B</option>
-                                <option value="PANIC">PANIC</option>
-                                <option value="BEEP">BEEP</option>
-                                <option value="CHIRP">CHIRP</option>
-                            </select>
-                            <select
-                                value={broadcastType}
-                                onChange={(e) => setBroadcastType(e.target.value)}
-                                className="h-8 text-xs bg-zinc-900 border-zinc-700 rounded px-2"
-                            >
-                                <option value="General Alert">General Alert</option>
-                                <option value="Information">Information</option>
-                                <option value="Priority">Priority</option>
-                                <option value="Emergency">Emergency</option>
-                            </select>
-                        </div>
-                        <Input
-                            placeholder="Введите сообщение..."
-                            value={broadcastMessage}
-                            onChange={(e) => setBroadcastMessage(e.target.value)}
-                            className="h-8 text-sm bg-zinc-900 border-zinc-700"
-                        />
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full h-8 text-xs border-green-600 text-green-500 hover:bg-green-950/20"
-                            onClick={handleBroadcastAlert}
-                        >
-                            Отправить Broadcast
-                        </Button>
-                    </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full h-8 text-xs border-purple-600 text-purple-500 hover:bg-purple-950/20 mb-3"
+                        onClick={() => setShowBroadcastModal(true)}
+                    >
+                        📢 Broadcast Alert
+                    </Button>
                 </div>
+
+                {/* Broadcast Modal */}
+                {showBroadcastModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-6 w-full max-w-md">
+                            <h3 className="text-lg font-semibold text-zinc-200 mb-4">Broadcast Alert</h3>
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-2">
+                                    <select
+                                        value={broadcastTone}
+                                        onChange={(e) => setBroadcastTone(e.target.value)}
+                                        className="h-8 text-xs bg-zinc-800 border-zinc-700 rounded px-2"
+                                    >
+                                        <option value="ALERT_A">ALERT_A</option>
+                                        <option value="ALERT_B">ALERT_B</option>
+                                        <option value="PANIC">PANIC</option>
+                                        <option value="BEEP">BEEP</option>
+                                        <option value="CHIRP">CHIRP</option>
+                                    </select>
+                                    <select
+                                        value={broadcastType}
+                                        onChange={(e) => setBroadcastType(e.target.value)}
+                                        className="h-8 text-xs bg-zinc-800 border-zinc-700 rounded px-2"
+                                    >
+                                        <option value="General Alert">General Alert</option>
+                                        <option value="Information">Information</option>
+                                        <option value="Priority">Priority</option>
+                                        <option value="Emergency">Emergency</option>
+                                    </select>
+                                </div>
+                                <Input
+                                    placeholder="Введите сообщение..."
+                                    value={broadcastMessage}
+                                    onChange={(e) => setBroadcastMessage(e.target.value)}
+                                    className="h-8 text-sm bg-zinc-800 border-zinc-700"
+                                />
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex-1 h-8 text-xs border-zinc-700 bg-zinc-800 hover:bg-zinc-700"
+                                        onClick={() => setShowBroadcastModal(false)}
+                                    >
+                                        Отмена
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex-1 h-8 text-xs border-green-600 text-green-500 hover:bg-green-950/20"
+                                        onClick={handleBroadcastAlert}
+                                    >
+                                        Отправить
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Конфигурация каналов */}
                 {showChannelConfig && (
