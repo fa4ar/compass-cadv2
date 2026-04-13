@@ -491,19 +491,28 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
         const handleChannelAlert = (data: any) => {
             console.log('[RadioContext] Channel alert received:', data);
+            console.log('[RadioContext] Current channels:', channels);
             
             // Обновляем статус алерта в канале
             if (data.frequency) {
+                const freqStr = data.frequency.toString();
+                console.log('[RadioContext] Looking for channel with frequency:', freqStr);
+                
                 setChannels(prev => {
-                    return prev.map(ch => {
-                        if (ch.frequency === data.frequency.toString()) {
+                    const updated = prev.map(ch => {
+                        console.log('[RadioContext] Checking channel:', ch.frequency, 'vs', freqStr, 'match:', ch.frequency === freqStr);
+                        if (ch.frequency === freqStr) {
+                            const alertType = data.type === 'SIGNAL_100' ? 'CODE_100' : data.type || 'CODE_5';
+                            console.log('[RadioContext] Updating alert for channel', ch.frequency, 'to', alertType);
                             return {
                                 ...ch,
-                                alert: data.type === 'SIGNAL_100' ? 'CODE_100' : data.type || 'CODE_5'
+                                alert: alertType
                             };
                         }
                         return ch;
                     });
+                    console.log('[RadioContext] Updated channels:', updated);
+                    return updated;
                 });
             }
             
