@@ -30,6 +30,7 @@ interface RadioContextType {
     currentChannel: string | null;
     listeningChannels: string[];
     talkingUsers: RadioUser[];
+    channelUsers: RadioUser[];
     channels: RadioChannel[];
     volume: number;
     toneVolume: number;
@@ -66,6 +67,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const [currentChannel, setCurrentChannel] = useState<string | null>(null);
     const [listeningChannels, setListeningChannels] = useState<string[]>([]);
     const [talkingUsers, setTalkingUsers] = useState<RadioUser[]>([]);
+    const [channelUsers, setChannelUsers] = useState<RadioUser[]>([]);
     const [channels, setChannels] = useState<RadioChannel[]>([]);
     const [volume, setVolumeState] = useState(100);
     const [toneVolume, setToneVolumeState] = useState(100);
@@ -105,6 +107,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             return '';
         }
         return radioUrl;
+    }, []);
+
+    const playGunshotSound = useCallback((volume: number = 0.8) => {
+        const sound = new Howl({
+            src: ['/audio/bgShot.wav'],
+            format: ['wav'],
+            volume: Math.min(1, Math.max(0, volume))
+        });
+        sound.play();
     }, []);
 
     const connect = useCallback(() => {
@@ -159,36 +170,73 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
         const handleChannelState = (data: any) => {
             console.log('[RadioContext] Channel state updated:', data);
-            console.log('[RadioContext] Speakers array:', data.speakers);
-            console.log('[RadioContext] Active talkers array:', data.activeTalkers);
-            console.log('[RadioContext] First speaker:', data.speakers?.[0]);
-            console.log('[RadioContext] First active talker:', data.activeTalkers?.[0]);
             
-            // Пакетное обновление talkingUsers для реального времени
+            const freqStr = data.frequency?.toString();
+            
+            setChannelUsers(prev => {
+                const allSpeakers = data.speakers || [];
+                const speakerIds = allSpeakers.map((id: number) => id.toString());
+                
+                let updated = prev.filter(user => 
+                    !freqStr || user.channel !== freqStr || speakerIds.includes(user.id)
+                );
+                
+                if (allSpeakers.length > 0) {
+                    allSpeakers.forEach((speaker: any) => {
+                        const speakerId = typeof speaker === 'object' ? speaker.serverId : speaker;
+                        const speakerIdStr = speakerId.toString();
+                        const existingUser = updated.find(u => u.id === speakerIdStr);
+                        
+                        const callsign = speaker?.userState?.name || speaker?.callsign || speaker?.name || 
+                                        (speakerId < 0 ? `DISP-${Math.abs(speakerId)}` : `User ${speakerId}`);
+                        
+                        const activeTalkers = data.activeTalkers || [];
+                        const isActive = activeTalkers.includes(speakerId);
+                        
+                        if (existingUser) {
+                            updated = updated.map(u => 
+                                u.id === speakerIdStr 
+                                    ? { ...u, 
+                                        name: callsign,
+                                        callsign: speaker?.userState?.name || speaker?.callsign || '',
+                                        isTalking: isActive,
+                                        channel: freqStr
+                                      } 
+                                    : u
+                            );
+                        } else {
+                            updated.push({
+                                id: speakerIdStr,
+                                name: callsign,
+                                callsign: speaker?.userState?.name || speaker?.callsign || '',
+                                isTalking: isActive,
+                                channel: freqStr
+                            });
+                        }
+                    });
+                }
+                
+                return updated;
+            });
+            
             setTalkingUsers(prev => {
-                const freqStr = data.frequency?.toString();
-                // 🔥 ИСПОЛЬЗУЕМ activeTalkers вместо speakers - activeTalkers это те кто сейчас говорит
                 const activeTalkers = data.activeTalkers || [];
                 const activeTalkerIds = activeTalkers.map((id: number) => id.toString());
                 
-                // Удаляем пользователей с этого канала которые больше не активны
                 let updated = prev.filter(user => 
                     !freqStr || user.channel !== freqStr || activeTalkerIds.includes(user.id)
                 );
                 
-                // Обновляем или добавляем активных говорящих на канале
                 if (activeTalkers.length > 0) {
                     activeTalkers.forEach((talker: any) => {
                         const talkerId = typeof talker === 'object' ? talker.serverId : talker;
                         const talkerIdStr = talkerId.toString();
                         const existingUser = updated.find(u => u.id === talkerIdStr);
                         
-                        // 🔥 БЕРЕМ ПОЗЫВНОЙ ИЗ userState.name если есть
                         const callsign = talker?.userState?.name || talker?.callsign || talker?.name || 
                                         (talkerId < 0 ? `DISP-${Math.abs(talkerId)}` : `User ${talkerId}`);
                         
                         if (existingUser) {
-                            // Обновляем существующего пользователя
                             updated = updated.map(u => 
                                 u.id === talkerIdStr 
                                     ? { ...u, 
@@ -200,7 +248,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                                     : u
                             );
                         } else {
-                            // Добавляем нового пользователя
                             updated.push({
                                 id: talkerIdStr,
                                 name: callsign,
@@ -215,7 +262,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                 return updated;
             });
             
-            // 🔥 Автоматически подписываемся на канал если есть говорящие
             if (data.frequency && data.speakers?.length > 0) {
                 const freqStr = data.frequency.toString();
                 if (!listeningChannels.includes(freqStr) && currentChannel !== freqStr) {
@@ -250,14 +296,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
         const handleTalkingState = (data: any) => {
             console.log('[RadioContext] Talking state updated:', data);
-            console.log('[RadioContext] Data keys:', Object.keys(data));
-            console.log('[RadioContext] data.callsign:', data.callsign);
-            console.log('[RadioContext] data.name:', data.name);
-            console.log('[RadioContext] data.userState:', data.userState);
-            console.log('[RadioContext] data.state (isTalking):', data.state);
-            console.log('[RadioContext] data.serverId:', data.serverId);
             
-            // Если state=false, удаляем пользователя из списка говорящих
             if (data.state === false) {
                 console.log('[RadioContext] User stopped talking, removing from talkingUsers');
                 setTalkingUsers(prev => prev.filter(u => u.id !== data.serverId?.toString()));
@@ -267,7 +306,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             setTalkingUsers(prev => {
                 const existingIndex = prev.findIndex(u => u.id === data.serverId?.toString());
                 
-                // 🔥 БЕРЕМ ПОЗЫВНОЙ ИЗ ДАННЫХ
                 const callsign = data.userState?.name || data.callsign || data.name || 
                                 (data.serverId < 0 ? `DISP-${Math.abs(data.serverId)}` : `Player ${data.serverId}`);
                 
@@ -291,12 +329,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
         const handleSpeakerJoined = (data: any) => {
             console.log('[RadioContext] Speaker joined:', data);
-            console.log('[RadioContext] data.userState:', data.userState);
             
             setTalkingUsers(prev => {
                 if (prev.find(u => u.id === data.serverId?.toString())) return prev;
                 
-                // 🔥 БЕРЕМ ПОЗЫВНОЙ ИЗ userState.name
                 const callsign = data.userState?.name || data.callsign || data.name || 
                                 (data.serverId < 0 ? `DISP-${Math.abs(data.serverId)}` : `Player ${data.serverId}`);
                 
@@ -343,7 +379,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             }
         };
 
-        // 🔥 ИСПРАВЛЕННЫЙ handleVoice с лучшей обработкой ошибок
         const handleVoice = (data: any) => {
             console.log('[RadioContext] 🎙️ Voice packet received:', {
                 serverId: data.serverId,
@@ -353,7 +388,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                 currentVolume: volume
             });
             
-            // 🔥 Проверка: игнорируем ли мы свой голос (диспетчера)?
             if (data.serverId === -1) {
                 console.log('[RadioContext] ⏭️ Ignoring own voice (dispatcher)');
                 return;
@@ -398,7 +432,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                     },
                     onplayerror: (id, error) => {
                         console.error('[RadioContext] ❌ Howl play error:', error);
-                        // Retry once on play error
                         setTimeout(() => {
                             try {
                                 sound.play();
@@ -410,7 +443,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                     }
                 });
                 
-                // Wait for audio to load before playing
                 sound.once('load', () => {
                     console.log('[RadioContext] ▶️ Starting playback');
                     const playResult = sound.play();
@@ -419,7 +451,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                     }
                 });
                 
-                // Fallback: if load takes too long, try playing anyway
                 setTimeout(() => {
                     if (sound.state() !== 'loaded') {
                         console.warn('[RadioContext] ⏱️ Audio load timeout, attempting playback anyway');
@@ -432,23 +463,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             }
         };
 
-        socket.on('connect', handleConnect);
-        socket.on('disconnect', handleDisconnect);
-        socket.on('connect_error', handleConnectError);
-        socket.on('reconnect', handleReconnect);
-        socket.on('channelState', handleChannelState);
-        socket.on('talkingState', handleTalkingState);
-        socket.on('speakerJoined', handleSpeakerJoined);
-        socket.on('speakerLeft', handleSpeakerLeft);
-        socket.on('listenerJoined', handleListenerJoined);
-        socket.on('listenerLeft', handleListenerLeft);
-        socket.on('channelDeleted', handleChannelDeleted);
-        socket.on('serverTone', handleServerTone);
-        socket.on('voice', handleVoice);
-        socket.on('gunshotDuringTransmission', (data: any) => {
+        const handleGunshotDuringTransmission = (data: any) => {
             console.log('[RadioContext] 🔫 Gunshot received:', data);
             
-            // Рассчитываем громкость из дистанции (как в Lua)
             let volume = 0.8;
             const distance = data.distance;
             
@@ -465,24 +482,41 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             if (volume > 0) {
                 playGunshotSound(volume);
             }
-        });
-        
-        socket.on('channelAlert', (data: any) => {
+        };
+
+        const handleChannelAlert = (data: any) => {
             console.log('[RadioContext] Channel alert received:', data);
             
             if (data.tone === 'ALERT_A' || data.type === 'SIGNAL_100') {
                 playTone('ALERT_A');
                 console.log('[RadioContext] Playing ALERT_A for channel alert');
             }
-        });
-        
-        socket.on('dispatchAlert', (data: any) => {
+        };
+
+        const handleDispatchAlert = (data: any) => {
             console.log('[RadioContext] Dispatch alert received:', data);
             
             if (data.tone) {
                 playTone(data.tone);
             }
-        });
+        };
+
+        socket.on('connect', handleConnect);
+        socket.on('disconnect', handleDisconnect);
+        socket.on('connect_error', handleConnectError);
+        socket.on('reconnect', handleReconnect);
+        socket.on('channelState', handleChannelState);
+        socket.on('talkingState', handleTalkingState);
+        socket.on('speakerJoined', handleSpeakerJoined);
+        socket.on('speakerLeft', handleSpeakerLeft);
+        socket.on('listenerJoined', handleListenerJoined);
+        socket.on('listenerLeft', handleListenerLeft);
+        socket.on('channelDeleted', handleChannelDeleted);
+        socket.on('serverTone', handleServerTone);
+        socket.on('voice', handleVoice);
+        socket.on('gunshotDuringTransmission', handleGunshotDuringTransmission);
+        socket.on('channelAlert', handleChannelAlert);
+        socket.on('dispatchAlert', handleDispatchAlert);
 
         cleanupRef.current = [
             () => socket.off('connect', handleConnect),
@@ -498,9 +532,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             () => socket.off('channelDeleted', handleChannelDeleted),
             () => socket.off('serverTone', handleServerTone),
             () => socket.off('voice', handleVoice),
-            () => socket.off('gunshotDuringTransmission'),
-            () => socket.off('channelAlert'),
-            () => socket.off('dispatchAlert'),
+            () => socket.off('gunshotDuringTransmission', handleGunshotDuringTransmission),
+            () => socket.off('channelAlert', handleChannelAlert),
+            () => socket.off('dispatchAlert', handleDispatchAlert),
         ];
 
         setIsInitialized(true);
@@ -528,7 +562,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             socketRef.current.emit('setSpeakerChannel', parseFloat(channelId));
             console.log(`[RadioContext] Now SPEAKING on channel ${channelId}`);
             
-            // Send callsign separately via updateUserInfo
             if (callsign) {
                 socketRef.current.emit('updateUserInfo', { callsign });
                 console.log(`[RadioContext] Updated callsign to: ${callsign}`);
@@ -541,7 +574,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
     const addListeningChannel = useCallback((channelId: string) => {
         if (socketRef.current?.connected) {
-            // ✅ ИСПРАВЛЕНО: отправляем число
             socketRef.current.emit('addListeningChannel', parseFloat(channelId));
             setListeningChannels(prev => [...prev, channelId]);
         } else {
@@ -551,7 +583,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
     const removeListeningChannel = useCallback((channelId: string) => {
         if (socketRef.current?.connected) {
-            // ✅ ИСПРАВЛЕНО: отправляем число
             socketRef.current.emit('removeListeningChannel', parseFloat(channelId));
             setListeningChannels(prev => prev.filter(ch => ch !== channelId));
         } else {
@@ -613,7 +644,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
-    // ✅ ДОБАВЛЕН МЕТОД checkSubscription
     const checkSubscription = useCallback(() => {
         console.log('=== RADIO SUBSCRIPTION CHECK ===');
         console.log('Socket connected:', socketRef.current?.connected);
@@ -651,16 +681,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
-    const playGunshotSound = useCallback((volume: number = 0.8) => {
-        const sound = new Howl({
-            src: ['/audio/bgShot.wav'],
-            format: ['wav'],
-            volume: Math.min(1, Math.max(0, volume))
-        });
-        sound.play();
-    }, []);
-
-    // Debug useEffect для проверки статуса радио системы
     useEffect(() => {
         console.log('=== RADIO STATUS ===');
         console.log('Connected:', isConnected);
@@ -815,6 +835,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             currentChannel,
             listeningChannels,
             talkingUsers,
+            channelUsers,
             channels,
             volume,
             toneVolume,
@@ -840,7 +861,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             setDispatchSession,
             checkSubscription,
             emitServerTone,
-            sendCode100,
+            sendCode100
         }}>
             {children}
         </RadioContext.Provider>

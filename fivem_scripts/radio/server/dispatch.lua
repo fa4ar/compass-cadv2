@@ -46,6 +46,7 @@ L0_1(L1_1)
 local function L3_1()
   local L0_2, L1_2, L2_2, L3_2, L4_2
   L0_2 = source
+  L0_2 = tonumber(L0_2)
   if not L0_2 or L0_2 <= 0 then
     L1_2 = true
     return L1_2

@@ -235,7 +235,7 @@ function DispatcherPageContent() {
     // ========== UPDATE CALL STATUS ==========
     const updateCallStatusMutation = useMutation({
         mutationFn: async ({ callId, status }: { callId: number; status: string }) => {
-            const res = await api.patch(`/api/calls911/${callId}/status`, { status });
+            const res = await api.patch(`/api/calls911/${callId}`, { status });
             return res.data;
         },
         onSuccess: (data, variables) => {

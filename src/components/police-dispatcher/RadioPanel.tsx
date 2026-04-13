@@ -49,13 +49,13 @@ const DEFAULT_CHANNELS: ChannelConfig[] = [
 
 // Компонент для отображения пользователей на канале
 function ChannelUsers({ frequency, onDragStart, onDragEnd, onUserAlert }: { frequency: string; onDragStart: (user: RadioUser) => void; onDragEnd: () => void; onUserAlert: (user: RadioUser) => void }) {
-    const { talkingUsers, channels } = useRadio();
+    const { channelUsers, channels } = useRadio();
 
     // Получаем информацию о канале из channelState
     const channelInfo = channels.find(ch => ch.frequency === frequency);
 
     // Фильтруем пользователей на этом канале
-    const usersOnChannel = talkingUsers.filter(u => u.channel === frequency);
+    const usersOnChannel = channelUsers.filter(u => u.channel === frequency);
 
     const speakers = usersOnChannel.filter(u => u.isTalking);
     const listeners = usersOnChannel.filter(u => !u.isTalking);
