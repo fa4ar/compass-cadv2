@@ -446,6 +446,8 @@ export default function RadioPanel() {
 
     // Broadcast alert
     const handleBroadcastAlert = () => {
+        console.log('handleBroadcastAlert called:', { broadcastChannel, currentChannel, broadcastMessage, broadcastType, broadcastTone, dispatchSessionId });
+        
         if (!broadcastChannel && !currentChannel) {
             toast({ 
                 title: 'Ошибка', 
@@ -465,8 +467,17 @@ export default function RadioPanel() {
         }
 
         const frequency = broadcastChannel || currentChannel;
+        console.log('Using frequency:', frequency);
 
         if (dispatchSessionId) {
+            const payload = {
+                frequency: frequency,
+                type: broadcastType,
+                message: broadcastMessage,
+                tone: broadcastTone
+            };
+            console.log('Broadcast payload:', payload);
+            
             fetch('/radio/dispatch/broadcast', {
                 method: 'POST',
                 headers: {
@@ -474,14 +485,13 @@ export default function RadioPanel() {
                     'Authorization': 'Bearer changeme',
                     'X-Session-Id': dispatchSessionId
                 },
-                body: JSON.stringify({
-                    frequency: frequency,
-                    type: broadcastType,
-                    message: broadcastMessage,
-                    tone: broadcastTone
-                })
-            }).then(res => res.json())
+                body: JSON.stringify(payload)
+            }).then(res => {
+                console.log('Broadcast response status:', res.status);
+                return res.json();
+            })
               .then(data => {
+                  console.log('Broadcast response data:', data);
                   if (data.success) {
                       toast({
                           title: 'Broadcast отправлен',
@@ -490,9 +500,17 @@ export default function RadioPanel() {
                       setBroadcastMessage('');
                       setShowBroadcastModal(false);
                       setBroadcastChannel('');
+                  } else {
+                      toast({
+                          title: 'Ошибка',
+                          description: data.error || 'Не удалось отправить broadcast',
+                          variant: 'destructive'
+                      });
                   }
               })
               .catch(err => console.error('Failed to send broadcast:', err));
+        } else {
+            console.error('No dispatchSessionId');
         }
     };
 
@@ -962,8 +980,9 @@ export default function RadioPanel() {
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
-                                                    className="h-6 w-6 p-0 hover:bg-zinc-700 text-zinc-500"
+                                                    className="h-6 w-6 p-0 hover:bg-zinc-700 text-zinc-500 z-10"
                                                     onClick={(e) => {
+                                                        e.preventDefault();
                                                         e.stopPropagation();
                                                         console.log('Clicked menu button, channel.id:', channel.id, 'current channelMenuOpen:', channelMenuOpen);
                                                         setChannelMenuOpen(channelMenuOpen === channel.id ? null : channel.id);
@@ -979,6 +998,7 @@ export default function RadioPanel() {
                                                                 size="sm"
                                                                 className="w-full h-8 text-xs justify-start hover:bg-zinc-700 text-left"
                                                                 onClick={(e) => {
+                                                                    e.preventDefault();
                                                                     e.stopPropagation();
                                                                     setChannelMenuOpen(null);
                                                                     openBroadcastModal(channel.frequency);
@@ -991,6 +1011,7 @@ export default function RadioPanel() {
                                                                 size="sm"
                                                                 className="w-full h-8 text-xs justify-start hover:bg-zinc-700 text-left text-red-400"
                                                                 onClick={(e) => {
+                                                                    e.preventDefault();
                                                                     e.stopPropagation();
                                                                     setChannelMenuOpen(null);
                                                                     setBroadcastChannel(channel.frequency);
@@ -1004,6 +1025,7 @@ export default function RadioPanel() {
                                                                 size="sm"
                                                                 className="w-full h-8 text-xs justify-start hover:bg-zinc-700 text-left text-blue-400"
                                                                 onClick={(e) => {
+                                                                    e.preventDefault();
                                                                     e.stopPropagation();
                                                                     setChannelMenuOpen(null);
                                                                     setBroadcastChannel(channel.frequency);
@@ -1017,6 +1039,7 @@ export default function RadioPanel() {
                                                                 size="sm"
                                                                 className="w-full h-8 text-xs justify-start hover:bg-zinc-700 text-left text-green-400"
                                                                 onClick={(e) => {
+                                                                    e.preventDefault();
                                                                     e.stopPropagation();
                                                                     setChannelMenuOpen(null);
                                                                     setBroadcastChannel(channel.frequency);
