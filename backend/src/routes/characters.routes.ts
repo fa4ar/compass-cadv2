@@ -129,7 +129,7 @@ router.delete('/:id', authMiddleware as RequestHandler, async (req, res) => {
 router.post('/:id/tags', authMiddleware as RequestHandler, async (req, res) => {
     try {
         const { id } = req.params;
-        const { tagKey, label, description, expiresInDays, reason } = req.body;
+        const { tagKey, label, description, expiresInDays, reason, isCustom, tagName, color } = req.body;
         const userId = (req as any).user?.userId;
         const userRoles = (req as any).user?.roles || [];
 
@@ -147,6 +147,37 @@ router.post('/:id/tags', authMiddleware as RequestHandler, async (req, res) => {
 
         if (!isOwner && !isAdmin) {
             return res.status(403).json({ error: 'You can only add tags to your own characters' });
+        }
+
+        // Handle custom tags (no pre-existing definition required)
+        if (isCustom) {
+            if (!tagName) {
+                return res.status(400).json({ error: 'Tag name is required for custom tags' });
+            }
+
+            // Generate a unique tag key for custom tags
+            const customTagKey = `custom_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+            const tag = await (prisma as any).characterRoleplayTag.create({
+                data: {
+                    characterId: parseInt(id),
+                    tagKey: customTagKey,
+                    label: tagName,
+                    description: description || 'Custom tag',
+                    reason: reason || 'Self-applied',
+                    expiresAt: null,
+                    addedBy: userId,
+                    isActive: true,
+                    color: color || '#3b82f6'
+                }
+            });
+
+            return res.json(tag);
+        }
+
+        // Handle predefined tags
+        if (!tagKey) {
+            return res.status(400).json({ error: 'tagKey is required' });
         }
 
         // Get tag definition

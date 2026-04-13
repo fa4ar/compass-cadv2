@@ -224,7 +224,69 @@ export default function CitizenPage() {
   const [charWeapons, setCharWeapons] = useState<Weapon[]>([]);
   const [charLicenses, setCharLicenses] = useState<any[]>([]);
   const [charFines, setCharFines] = useState<any[]>([]);
-  const [availableLicenses, setAvailableLicenses] = useState<any[]>([]);
+
+  const availableLicenses = [
+    // Оружие и безопасность
+    { id: 1, name: "CCW License", slug: 'ccw', category: 'weapon', description: 'Разрешение на скрытое ношение пистолета в публичных местах.', price: 1000 },
+    { id: 2, name: "Firearm Safety Certificate (FSC)", slug: 'fsc', category: 'weapon', description: 'Обязательная карточка для покупки любого огнестрельного оружия.', price: 50 },
+    { id: 3, name: "Certificate of Eligibility (COE)", slug: 'coe', category: 'weapon', description: 'Проверка благонадёжности для коллекционеров оружия или работников оружейных магазинов.', price: 200 },
+    { id: 4, name: "CFD License", slug: 'cfd', category: 'weapon', description: 'Лицензия штата на ведение бизнеса по продаже оружия (дополнение к федеральной FFL).', price: 5000 },
+    { id: 5, name: "Ammunition Vendor License", slug: 'ammo-vendor', category: 'weapon', description: 'Разрешение магазину на розничную продажу патронов.', price: 3000 },
+    { id: 6, name: "Guard Card", slug: 'guard-card', category: 'weapon', description: 'Лицензия на работу частным охранником.', price: 400 },
+    { id: 7, name: "Private Investigator License", slug: 'private-investigator', category: 'weapon', description: 'Лицензия на работу частным детективом.', price: 800 },
+    { id: 8, name: "BSIS Firearm Permit", slug: 'bsis-firearm', category: 'weapon', description: 'Разрешение охраннику на ношение огнестрельного оружия при исполнении обязанностей.', price: 600 },
+    // Алкоголь и каннабис
+    { id: 9, name: "ABC License (Type 20)", slug: 'abc-type-20', category: 'alcohol', description: 'Продажа пива и вина на вынос (магазин).', price: 2000 },
+    { id: 10, name: "ABC License (Type 21)", slug: 'abc-type-21', category: 'alcohol', description: 'Продажа крепкого алкоголя на вынос (ликёро-водочный магазин).', price: 3000 },
+    { id: 11, name: "ABC License (Type 41)", slug: 'abc-type-41', category: 'alcohol', description: 'Продажа пива и вина в ресторане (для употребления внутри).', price: 2500 },
+    { id: 12, name: "ABC License (Type 47)", slug: 'abc-type-47', category: 'alcohol', description: 'Продажа крепкого алкоголя в ресторане.', price: 3500 },
+    { id: 13, name: "ABC License (Type 48)", slug: 'abc-type-48', category: 'alcohol', description: 'Продажа крепкого алкоголя в баре (без требования кухни).', price: 4000 },
+    { id: 14, name: "ABC License (Type 58)", slug: 'abc-type-58', category: 'alcohol', description: 'Кейтеринг с алкоголем (выездное обслуживание банкетов).', price: 4500 },
+    { id: 15, name: "Cannabis Retail License", slug: 'cannabis-retail', category: 'cannabis', description: 'Розничная продажа марихуаны в лицензированном диспансере.', price: 10000 },
+    { id: 16, name: "Cannabis Cultivation License", slug: 'cannabis-cultivation', category: 'cannabis', description: 'Выращивание марихуаны (с градацией по размеру участка).', price: 8000 },
+    { id: 17, name: "Cannabis Manufacturing License", slug: 'cannabis-manufacturing', category: 'cannabis', description: 'Производство концентратов, масел и пищевых продуктов с ТГК.', price: 9000 },
+    { id: 18, name: "Cannabis Distribution License", slug: 'cannabis-distribution', category: 'cannabis', description: 'Транспортировка марихуаны между производителем и магазином.', price: 7000 },
+    { id: 19, name: "Cannabis Testing Laboratory License", slug: 'cannabis-testing', category: 'cannabis', description: 'Лабораторный анализ продукции на содержание ТГК и пестициды.', price: 12000 },
+    // Строительство (CSLB)
+    { id: 20, name: "Class A — General Engineering", slug: 'csls-class-a', category: 'construction', description: 'Строительство дорог, мостов, тоннелей и крупных инфраструктурных объектов.', price: 15000 },
+    { id: 21, name: "Class B — General Building", slug: 'csls-class-b', category: 'construction', description: 'Строительство жилых домов и каркасных коммерческих зданий (генподряд).', price: 12000 },
+    { id: 22, name: "Class C-33 — Painting", slug: 'csls-c33', category: 'construction', description: 'Малярные и покрасочные работы.', price: 500 },
+    { id: 23, name: "Class C-36 — Plumbing", slug: 'csls-c36', category: 'construction', description: 'Сантехнические работы.', price: 800 },
+    { id: 24, name: "Class C-10 — Electrical", slug: 'csls-c10', category: 'construction', description: 'Электромонтажные работы.', price: 1000 },
+    { id: 25, name: "Class C-20 — HVAC", slug: 'csls-c20', category: 'construction', description: 'Монтаж и ремонт отопления, вентиляции и кондиционирования.', price: 900 },
+    { id: 26, name: "Class C-27 — Landscaping", slug: 'csls-c27', category: 'construction', description: 'Ландшафтный дизайн и установка систем полива.', price: 400 },
+    { id: 27, name: "Class C-39 — Roofing", slug: 'csls-c39', category: 'construction', description: 'Кровельные работы.', price: 600 },
+    // Профессиональные
+    { id: 28, name: "Physician and Surgeon License", slug: 'physician', category: 'professional', description: 'Лицензия на медицинскую практику (врач).', price: 50000 },
+    { id: 29, name: "Registered Nurse (RN) License", slug: 'rn', category: 'professional', description: 'Лицензия дипломированной медсестры.', price: 10000 },
+    { id: 30, name: "Pharmacist License", slug: 'pharmacist', category: 'professional', description: 'Лицензия фармацевта на отпуск лекарств.', price: 8000 },
+    { id: 31, name: "State Bar License (Attorney)", slug: 'attorney', category: 'professional', description: 'Лицензия на адвокатскую и юридическую практику.', price: 15000 },
+    { id: 32, name: "Certified Public Accountant (CPA)", slug: 'cpa', category: 'professional', description: 'Лицензия на аудит и бухгалтерскую деятельность.', price: 3000 },
+    { id: 33, name: "Real Estate Salesperson License", slug: 'real-estate-sales', category: 'professional', description: 'Лицензия риэлтора на продажу недвижимости.', price: 2000 },
+    { id: 34, name: "Real Estate Broker License", slug: 'real-estate-broker', category: 'professional', description: 'Лицензия брокера на управление агентством недвижимости.', price: 4000 },
+    { id: 35, name: "Cosmetologist License", slug: 'cosmetologist', category: 'professional', description: 'Лицензия парикмахера-стилиста.', price: 300 },
+    { id: 36, name: "Barber License", slug: 'barber', category: 'professional', description: 'Лицензия барбера (мужского парикмахера).', price: 250 },
+    { id: 37, name: "Manicurist License", slug: 'manicurist', category: 'professional', description: 'Лицензия мастера ногтевого сервиса.', price: 200 },
+    { id: 38, name: "Professional Engineer (PE)", slug: 'pe', category: 'professional', description: 'Лицензия на проектирование и заверение инженерных чертежей.', price: 6000 },
+    { id: 39, name: "Notary Public Commission", slug: 'notary', category: 'professional', description: 'Лицензия на заверение подписей и копий документов.', price: 150 },
+    // Природа и досуг
+    { id: 40, name: "Resident Sport Fishing License", slug: 'fishing', category: 'nature', description: 'Любительская ловля рыбы в пресной и солёной воде (годовая).', price: 50 },
+    { id: 41, name: "Resident Hunting License", slug: 'hunting', category: 'nature', description: 'Любительская охота на дичь (требует сдачи экзамена по безопасности).', price: 200 },
+    { id: 42, name: "Ocean Enhancement Stamp", slug: 'ocean-stamp', category: 'nature', description: 'Обязательное дополнение к рыболовной лицензии для ловли в океане южнее мыса Аргуэльо.', price: 30 },
+    { id: 43, name: "Deer Tag", slug: 'deer-tag', category: 'nature', description: 'Разрешение-талон на отстрел одного оленя (покупается дополнительно к охотничьей лицензии).', price: 100 },
+    { id: 44, name: "Lifetime Fishing License", slug: 'lifetime-fishing', category: 'nature', description: 'Пожизненная рыболовная лицензия (единоразовая покупка).', price: 1000 },
+    // Семья и документы
+    { id: 45, name: "Marriage License", slug: 'marriage', category: 'family', description: 'Разрешение на заключение брака (выдаётся округом).', price: 100 },
+    { id: 46, name: "Confidential Marriage License", slug: 'confidential-marriage', category: 'family', description: 'Закрытое брачное свидетельство без публичного раскрытия записи.', price: 150 },
+    // Водительские
+    { id: 47, name: "Class C", slug: 'class-c', category: 'driver', description: 'Стандартные легковые автомобили.', price: 150 },
+    { id: 48, name: "Class A", slug: 'class-a', category: 'driver', description: 'Тягачи с тяжёлыми прицепами.', price: 500 },
+    { id: 49, name: "Class B", slug: 'class-b', category: 'driver', description: 'Автобусы и одиночные грузовики тяжелее 26 000 lbs.', price: 400 },
+    { id: 50, name: "Class M1", slug: 'class-m1', category: 'driver', description: 'Мотоциклы.', price: 200 },
+    { id: 51, name: "Class M2", slug: 'class-m2', category: 'driver', description: 'Мопеды и мотороллеры.', price: 100 },
+    { id: 52, name: "REAL ID", slug: 'real-id', category: 'driver', description: 'Права федерального образца для внутренних авиаперелётов без паспорта.', price: 50 },
+    { id: 53, name: "AB 60 License", slug: 'ab-60', category: 'driver', description: 'Водительские права для лиц без легального иммиграционного статуса.', price: 100 },
+  ];
   const [showVehicleModal, setShowVehicleModal] = useState(false);
   const [showWeaponModal, setShowWeaponModal] = useState(false);
   const [showLicenseModal, setShowLicenseModal] = useState(false);
@@ -250,7 +312,7 @@ export default function CitizenPage() {
 
       const apiUrl = getApiUrl();
 
-      const [vRes, wRes, lRes, aRes, fRes] = await Promise.allSettled([
+      const [vRes, wRes, lRes, fRes] = await Promise.allSettled([
         fetchWithTimeout(
           `${apiUrl}/api/civilian/characters/${charId}/vehicles`,
           { headers: { Authorization: `Bearer ${token}` }, timeout: 5000 },
@@ -263,10 +325,6 @@ export default function CitizenPage() {
           `${apiUrl}/api/civilian/characters/${charId}/licenses`,
           { headers: { Authorization: `Bearer ${token}` }, timeout: 5000 },
         ),
-        fetchWithTimeout(`${apiUrl}/api/civilian/licenses`, {
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 5000,
-        }),
         fetchWithTimeout(`${apiUrl}/api/fines/character/${charId}`, {
           headers: { Authorization: `Bearer ${token}` },
           timeout: 5000,
@@ -279,8 +337,6 @@ export default function CitizenPage() {
         setCharWeapons(await wRes.value.json());
       if (lRes.status === "fulfilled" && lRes.value.ok)
         setCharLicenses(await lRes.value.json());
-      if (aRes.status === "fulfilled" && aRes.value.ok)
-        setAvailableLicenses(await aRes.value.json());
       if (fRes.status === "fulfilled" && fRes.value.ok)
         setCharFines(await fRes.value.json());
     } catch (err) {
@@ -1423,57 +1479,74 @@ export default function CitizenPage() {
               </Button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-5 space-y-4">
-              {availableLicenses
-                .filter((license) => !charLicenses.some((cl) => cl.licenseId === license.id))
-                .map((license) => {
-                return (
-                  <div
-                    key={license.id}
-                    className="p-4 bg-zinc-900/40 border border-zinc-800/50 rounded-2xl hover:border-zinc-700/50 transition-all group"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="text-base font-bold text-zinc-100">
-                            {license.name}
-                          </p>
+            <div className="flex-1 overflow-y-auto p-5 space-y-6">
+              {(() => {
+                const categoryNames: Record<string, string> = {
+                  weapon: 'Оружие и безопасность',
+                  alcohol: 'Алкоголь',
+                  cannabis: 'Каннабис',
+                  construction: 'Строительство (CSLB)',
+                  professional: 'Профессиональные',
+                  nature: 'Природа и досуг',
+                  family: 'Семья и документы',
+                  driver: 'Водительские',
+                };
+
+                const filteredLicenses = availableLicenses.filter(
+                  (license) => !charLicenses.some((cl) => cl.licenseId === license.id)
+                );
+
+                const groupedLicenses = filteredLicenses.reduce((acc, license) => {
+                  if (!acc[license.category]) {
+                    acc[license.category] = [];
+                  }
+                  acc[license.category].push(license);
+                  return acc;
+                }, {} as Record<string, typeof availableLicenses>);
+
+                return Object.entries(groupedLicenses).map(([category, licenses]) => (
+                  <div key={category} className="space-y-3">
+                    <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-blue-500" />
+                      {categoryNames[category] || category}
+                    </h4>
+                    <div className="space-y-2">
+                      {licenses.map((license) => (
+                        <div
+                          key={license.id}
+                          className="p-4 bg-zinc-900/40 border border-zinc-800/50 rounded-2xl hover:border-zinc-700/50 transition-all group"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <p className="text-base font-bold text-zinc-100">
+                                  {license.name}
+                                </p>
+                              </div>
+                              <p className="text-xs text-zinc-500 leading-relaxed mb-3">
+                                {license.description}
+                              </p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className="bg-blue-600 hover:bg-blue-500 h-8 px-4 shadow-lg shadow-blue-900/20"
+                              onClick={() => handleLicenseAdd(license.id)}
+                            >
+                              Apply
+                            </Button>
+                          </div>
                         </div>
-                        <p className="text-xs text-zinc-500 leading-relaxed mb-3">
-                          {license.description}
-                        </p>
-                        <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-wider">
-                          <span className="text-zinc-400">
-                            Type:{" "}
-                            <span className="text-zinc-200">
-                              {license.type}
-                            </span>
-                          </span>
-                          <span className="text-zinc-400">
-                            Price:{" "}
-                            <span className="text-blue-400">
-                              ${license.price}
-                            </span>
-                          </span>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="default"
-                        className="bg-blue-600 hover:bg-blue-500 h-8 px-4 shadow-lg shadow-blue-900/20"
-                        onClick={() => handleLicenseAdd(license.id)}
-                      >
-                        Apply
-                      </Button>
+                      ))}
                     </div>
                   </div>
-                );
-              })}
-              {availableLicenses.length === 0 && (
+                ));
+              })()}
+              {availableLicenses.filter((license) => !charLicenses.some((cl) => cl.licenseId === license.id)).length === 0 && (
                 <div className="flex flex-col items-center justify-center py-12 text-zinc-600">
                   <BadgeCheck className="w-12 h-12 mb-3 opacity-20" />
                   <p className="text-sm italic">
-                    No licenses available at this time.
+                    Все лицензии уже получены
                   </p>
                 </div>
               )}
