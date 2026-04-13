@@ -722,7 +722,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             
             const mediaRecorder = new MediaRecorder(stream, {
                 mimeType: 'audio/webm; codecs=opus',
-                audioBitsPerSecond: 16000
+                audioBitsPerSecond: 32000
             });
             
             const chunks: Blob[] = [];
@@ -759,9 +759,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                         if (mediaRecorder.state === 'recording') {
                             mediaRecorder.stop();
                         }
-                    }, 300);
+                    }, 150);
                 }
-            }, 300);
+            }, 150);
             
             (window as any).recordInterval = recordInterval;
             
