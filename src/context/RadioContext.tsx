@@ -12,6 +12,8 @@ interface RadioChannel {
     frequency: string;
     participants: number;
     isActive: boolean;
+    panic?: boolean;
+    alert?: any;
 }
 
 interface RadioUser {

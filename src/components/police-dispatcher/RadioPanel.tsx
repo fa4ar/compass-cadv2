@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Radio, Users, Volume2, VolumeX, Signal, Mic, MicOff, Settings, Plus, Trash2, Ear, EarOff, AlertTriangle, Phone, User } from 'lucide-react';
+import { Radio, Users, Volume2, VolumeX, Signal, Mic, MicOff, Settings, Plus, Trash2, Ear, EarOff, AlertTriangle, Phone, User, MoreVertical } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -48,7 +48,7 @@ const DEFAULT_CHANNELS: ChannelConfig[] = [
 ];
 
 // Компонент для отображения пользователей на канале
-function ChannelUsers({ frequency, onDragStart, onDragEnd }: { frequency: string; onDragStart: (user: RadioUser) => void; onDragEnd: () => void }) {
+function ChannelUsers({ frequency, onDragStart, onDragEnd, onUserAlert }: { frequency: string; onDragStart: (user: RadioUser) => void; onDragEnd: () => void; onUserAlert: (user: RadioUser) => void }) {
     const { talkingUsers, channels } = useRadio();
 
     // Получаем информацию о канале из channelState
@@ -84,7 +84,7 @@ function ChannelUsers({ frequency, onDragStart, onDragEnd }: { frequency: string
                         {speakers.map(user => (
                             <div 
                                 key={user.id} 
-                                className="flex items-center gap-2 text-sm bg-green-950/20 px-2 py-1 rounded cursor-grab active:cursor-grabbing hover:bg-green-950/30 transition-colors"
+                                className="flex items-center justify-between gap-2 text-sm bg-green-950/20 px-2 py-1 rounded cursor-grab active:cursor-grabbing hover:bg-green-950/30 transition-colors"
                                 draggable
                                 onDragStart={(e) => {
                                     e.dataTransfer.setData('text/plain', JSON.stringify(user));
@@ -94,8 +94,21 @@ function ChannelUsers({ frequency, onDragStart, onDragEnd }: { frequency: string
                                     onDragEnd();
                                 }}
                             >
-                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                                <span className="text-zinc-300 font-mono font-bold">{user.name}</span>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                                    <span className="text-zinc-300 font-mono font-bold">{user.name}</span>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-5 w-5 p-0 hover:bg-green-900/50"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onUserAlert(user);
+                                    }}
+                                >
+                                    <MoreVertical className="w-3 h-3" />
+                                </Button>
                             </div>
                         ))}
                     </div>
@@ -112,7 +125,7 @@ function ChannelUsers({ frequency, onDragStart, onDragEnd }: { frequency: string
                         {listeners.map(user => (
                             <div 
                                 key={user.id} 
-                                className="flex items-center gap-2 text-sm bg-zinc-800/30 px-2 py-1 rounded cursor-grab active:cursor-grabbing hover:bg-zinc-700/50 transition-colors"
+                                className="flex items-center justify-between gap-2 text-sm bg-zinc-800/30 px-2 py-1 rounded cursor-grab active:cursor-grabbing hover:bg-zinc-700/50 transition-colors"
                                 draggable
                                 onDragStart={(e) => {
                                     e.dataTransfer.setData('text/plain', JSON.stringify(user));
@@ -122,8 +135,21 @@ function ChannelUsers({ frequency, onDragStart, onDragEnd }: { frequency: string
                                     onDragEnd();
                                 }}
                             >
-                                <div className="w-2 h-2 bg-zinc-500 rounded-full" />
-                                <span className="text-zinc-400 font-mono font-bold">{user.name}</span>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-zinc-500 rounded-full" />
+                                    <span className="text-zinc-400 font-mono font-bold">{user.name}</span>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-5 w-5 p-0 hover:bg-zinc-700"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onUserAlert(user);
+                                    }}
+                                >
+                                    <MoreVertical className="w-3 h-3" />
+                                </Button>
                             </div>
                         ))}
                     </div>
@@ -183,6 +209,10 @@ export default function RadioPanel() {
     const [draggedUser, setDraggedUser] = useState<RadioUser | null>(null);
     const [showBroadcastModal, setShowBroadcastModal] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
+    const [broadcastChannel, setBroadcastChannel] = useState<string>('');
+    const [showUserAlertModal, setShowUserAlertModal] = useState(false);
+    const [alertUser, setAlertUser] = useState<RadioUser | null>(null);
+    const [alertMessage, setAlertMessage] = useState('');
 
     // Загружаем позывной из localStorage
     useEffect(() => {
@@ -412,7 +442,7 @@ export default function RadioPanel() {
 
     // Broadcast alert
     const handleBroadcastAlert = () => {
-        if (!currentChannel) {
+        if (!broadcastChannel && !currentChannel) {
             toast({ 
                 title: 'Ошибка', 
                 description: 'Сначала выберите канал',
@@ -430,15 +460,18 @@ export default function RadioPanel() {
             return;
         }
 
+        const frequency = broadcastChannel || currentChannel;
+
         if (dispatchSessionId) {
             fetch('/radio/dispatch/broadcast', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': 'Bearer changeme',
                     'X-Session-Id': dispatchSessionId
                 },
                 body: JSON.stringify({
-                    frequency: currentChannel,
+                    frequency: frequency,
                     type: broadcastType,
                     message: broadcastMessage,
                     tone: broadcastTone
@@ -448,14 +481,67 @@ export default function RadioPanel() {
                   if (data.success) {
                       toast({
                           title: 'Broadcast отправлен',
-                          description: `${broadcastType} на канале ${currentChannel} MHz`
+                          description: `${broadcastType} на канале ${frequency} MHz`
                       });
                       setBroadcastMessage('');
                       setShowBroadcastModal(false);
+                      setBroadcastChannel('');
                   }
               })
               .catch(err => console.error('Failed to send broadcast:', err));
         }
+    };
+
+    const openBroadcastModal = (frequency: string) => {
+        setBroadcastChannel(frequency);
+        setShowBroadcastModal(true);
+    };
+
+    // Send user alert
+    const handleSendUserAlert = () => {
+        if (!alertUser) return;
+
+        if (!alertMessage.trim()) {
+            toast({ 
+                title: 'Ошибка', 
+                description: 'Введите сообщение',
+                variant: 'destructive' 
+            });
+            return;
+        }
+
+        if (dispatchSessionId) {
+            fetch('/dispatch/user/alert', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer changeme',
+                    'X-Session-Id': dispatchSessionId
+                },
+                body: JSON.stringify({
+                    userId: alertUser.id,
+                    message: alertMessage,
+                    frequency: alertUser.channel
+                })
+            }).then(res => res.json())
+              .then(data => {
+                  if (data.success) {
+                      toast({
+                          title: 'Алерт отправлен',
+                          description: `Сообщение отправлено ${alertUser.name}`
+                      });
+                      setAlertMessage('');
+                      setShowUserAlertModal(false);
+                      setAlertUser(null);
+                  }
+              })
+              .catch(err => console.error('Failed to send user alert:', err));
+        }
+    };
+
+    const openUserAlertModal = (user: RadioUser) => {
+        setAlertUser(user);
+        setShowUserAlertModal(true);
     };
 
     // Clear alert
@@ -474,6 +560,7 @@ export default function RadioPanel() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': 'Bearer changeme',
                     'X-Session-Id': dispatchSessionId
                 },
                 body: JSON.stringify({
@@ -550,6 +637,10 @@ export default function RadioPanel() {
                     title: 'Пользователь перемещен',
                     description: `${draggedUser.name} перемещен на канал ${targetFrequency} MHz`
                 });
+                // Добавляем канал в прослушиваемые чтобы видеть пользователя
+                if (!listeningChannels.includes(targetFrequency)) {
+                    addListeningChannel(targetFrequency);
+                }
             } else {
                 toast({
                     title: 'Ошибка',
@@ -801,6 +892,8 @@ export default function RadioPanel() {
                             const isActive = channel.frequency === localSelectedChannel;
                             const isListening = listeningChannels.includes(channel.frequency);
                             const participants = channels.find(ch => ch.frequency === channel.frequency)?.participants || 0;
+                            const channelInfo = channels.find(ch => ch.frequency === channel.frequency);
+                            const hasPanic = channelInfo?.panic || false;
 
                             return (
                                 <div
@@ -810,6 +903,7 @@ export default function RadioPanel() {
                                         ${isActive 
                                             ? 'bg-blue-950/20 border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.1)]' 
                                             : 'bg-zinc-800/30 border-zinc-700 hover:border-zinc-600'}
+                                        ${hasPanic ? 'border-red-500 bg-red-950/20' : ''}
                                         ${draggedUser ? 'border-dashed border-blue-400/50 hover:border-blue-400' : ''}
                                     `}
                                     onClick={() => handleChannelSelect(channel.frequency)}
@@ -817,7 +911,7 @@ export default function RadioPanel() {
                                     onDrop={(e) => handleDrop(e, channel.frequency)}
                                 >
                                     <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 flex-1" onClick={() => handleChannelSelect(channel.frequency)}>
                                             <div className={`
                                                 w-2 h-2 rounded-full
                                                 ${isActive ? 'bg-blue-500' : 'bg-zinc-600'}
@@ -830,14 +924,9 @@ export default function RadioPanel() {
                                                     <span className="text-xs text-zinc-500 font-mono">
                                                         {channel.frequency} MHz
                                                     </span>
-                                                    {channel.type && (
-                                                        <Badge variant="outline" className="text-xs bg-zinc-900 border-zinc-700 text-zinc-400">
-                                                            {channel.type === 'trunked' ? ' Trunked' : ' Conv'}
-                                                        </Badge>
-                                                    )}
-                                                    {channel.zone && selectedZone === 'all' && (
-                                                        <Badge variant="outline" className="text-xs bg-zinc-900 border-zinc-700 text-zinc-500">
-                                                            {channel.zone}
+                                                    {channel.type === 'trunked' && (
+                                                        <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-purple-950/30 border-purple-500/30 text-purple-400">
+                                                            TRUNKED
                                                         </Badge>
                                                     )}
                                                 </div>
@@ -854,7 +943,7 @@ export default function RadioPanel() {
                                                 variant="ghost"
                                                 size="sm"
                                                 className={`
-                                                    h-6 w-6 p-0
+                                                    h-6 w-6 p-0 hover:bg-zinc-700
                                                     ${isListening ? 'text-green-500' : 'text-zinc-600'}
                                                 `}
                                                 onClick={(e) => {
@@ -864,11 +953,22 @@ export default function RadioPanel() {
                                             >
                                                 {isListening ? <Ear className="w-3 h-3" /> : <EarOff className="w-3 h-3" />}
                                             </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-6 w-6 p-0 hover:bg-zinc-700 text-zinc-500"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openBroadcastModal(channel.frequency);
+                                                }}
+                                            >
+                                                <MoreVertical className="w-3 h-3" />
+                                            </Button>
                                         </div>
                                     </div>
                                     
                                     {/* Отображение пользователей на канале */}
-                                    <ChannelUsers frequency={channel.frequency} onDragStart={handleDragStart} onDragEnd={handleDragEnd} />
+                                    <ChannelUsers frequency={channel.frequency} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onUserAlert={openUserAlertModal} />
                                 </div>
                             );
                         })}
@@ -973,15 +1073,6 @@ export default function RadioPanel() {
                             ALERT C
                         </Button>
                     </div>
-
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full h-8 text-xs border-purple-600 text-purple-500 hover:bg-purple-950/20 mb-3"
-                        onClick={() => setShowBroadcastModal(true)}
-                    >
-                        📢 Broadcast Alert
-                    </Button>
                 </div>
 
                 {/* Broadcast Modal */}
@@ -990,6 +1081,11 @@ export default function RadioPanel() {
                         <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-6 w-full max-w-md">
                             <h3 className="text-lg font-semibold text-zinc-200 mb-4">Broadcast Alert</h3>
                             <div className="space-y-4">
+                                {broadcastChannel && (
+                                    <div className="text-sm text-zinc-400 mb-2">
+                                        Канал: <span className="text-zinc-200 font-mono">{broadcastChannel} MHz</span>
+                                    </div>
+                                )}
                                 <div className="grid grid-cols-2 gap-2">
                                     <select
                                         value={broadcastTone}
@@ -1024,7 +1120,10 @@ export default function RadioPanel() {
                                         variant="outline"
                                         size="sm"
                                         className="flex-1 h-8 text-xs border-zinc-700 bg-zinc-800 hover:bg-zinc-700"
-                                        onClick={() => setShowBroadcastModal(false)}
+                                        onClick={() => {
+                                            setShowBroadcastModal(false);
+                                            setBroadcastChannel('');
+                                        }}
                                     >
                                         Отмена
                                     </Button>
@@ -1033,6 +1132,50 @@ export default function RadioPanel() {
                                         size="sm"
                                         className="flex-1 h-8 text-xs border-green-600 text-green-500 hover:bg-green-950/20"
                                         onClick={handleBroadcastAlert}
+                                    >
+                                        Отправить
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* User Alert Modal */}
+                {showUserAlertModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-6 w-full max-w-md">
+                            <h3 className="text-lg font-semibold text-zinc-200 mb-4">Send Alert to Unit</h3>
+                            <div className="space-y-4">
+                                {alertUser && (
+                                    <div className="text-sm text-zinc-400 mb-2">
+                                        Юнит: <span className="text-zinc-200 font-mono font-bold">{alertUser.name}</span>
+                                    </div>
+                                )}
+                                <Input
+                                    placeholder="Введите сообщение..."
+                                    value={alertMessage}
+                                    onChange={(e) => setAlertMessage(e.target.value)}
+                                    className="h-8 text-sm bg-zinc-800 border-zinc-700"
+                                />
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex-1 h-8 text-xs border-zinc-700 bg-zinc-800 hover:bg-zinc-700"
+                                        onClick={() => {
+                                            setShowUserAlertModal(false);
+                                            setAlertUser(null);
+                                            setAlertMessage('');
+                                        }}
+                                    >
+                                        Отмена
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="flex-1 h-8 text-xs border-purple-600 text-purple-500 hover:bg-purple-950/20"
+                                        onClick={handleSendUserAlert}
                                     >
                                         Отправить
                                     </Button>
