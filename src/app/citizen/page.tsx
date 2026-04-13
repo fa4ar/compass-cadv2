@@ -26,6 +26,7 @@ import { CreateCharacterModal } from "./components/CreateCharacterModal";
 import { ViewCharacterModal } from "./components/ViewCharacterModal";
 import { ViewVehicleModal } from "./components/ViewVehicleModal";
 import { useAuth } from "@/context/AuthContext";
+import { useRadio } from "@/context/RadioContext";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -127,6 +128,7 @@ export default function CitizenPage() {
     isBanned: isUserBanned,
     isLoading: authLoading,
   } = useAuth();
+  const { channels, channelUsers } = useRadio();
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -1155,15 +1157,34 @@ export default function CitizenPage() {
                     ),
                 );
 
+                // Проверяем панику - ищем юзера на канале с паникой
+                const panicChannels = channels.filter(ch => ch.panic);
+                const isInPanic = channelUsers.some(u => {
+                  const charCallsign = char.nickname || `${char.firstName} ${char.lastName}`;
+                  const userCallsign = u.callsign || u.name;
+                  return panicChannels.some(pc => pc.frequency === u.channel) && 
+                         (userCallsign === charCallsign || userCallsign === char.nickname);
+                });
+
                 return (
                   <div
                     key={char.id}
-                    className="group relative bg-zinc-900/50 hover:bg-zinc-800/80 border border-zinc-800/50 hover:border-zinc-700/50 rounded-xl overflow-hidden transition-all duration-300 cursor-pointer h-[120px] flex items-center"
+                    className={`group relative bg-zinc-900/50 hover:bg-zinc-800/80 border rounded-xl overflow-hidden transition-all duration-300 cursor-pointer h-[120px] flex items-center ${
+                      isInPanic 
+                        ? 'border-red-500 bg-red-950/20 animate-pulse-slow shadow-[0_0_20px_rgba(239,68,68,0.3)]' 
+                        : 'border-zinc-800/50 hover:border-zinc-700/50'
+                    }`}
                     onClick={() => viewCharacter(char)}
                   >
                     {/* Status strip */}
                     <div
-                      className={`absolute left-0 top-0 bottom-0 w-1.5 ${isAlive ? "bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]" : "bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.3)]"}`}
+                      className={`absolute left-0 top-0 bottom-0 w-1.5 ${
+                        isInPanic 
+                          ? "bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]" 
+                          : isAlive 
+                            ? "bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]" 
+                            : "bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.3)]"
+                      }`}
                     />
 
                     <div className="flex items-center w-full px-4 gap-4">

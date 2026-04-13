@@ -280,7 +280,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                         name: data.name || `Channel ${data.frequency}`,
                         frequency: data.frequency.toString(),
                         participants: (data.speakers?.length || 0) + (data.listeners?.length || 0),
-                        isActive: currentChannel === data.frequency.toString()
+                        isActive: currentChannel === data.frequency.toString(),
+                        panic: data.panic || false
                     };
                     
                     if (existingIndex >= 0) {
@@ -730,7 +731,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             
             const mediaRecorder = new MediaRecorder(stream, {
                 mimeType: 'audio/webm; codecs=opus',
-                audioBitsPerSecond: 16000
+                audioBitsPerSecond: 24000
             });
             
             const chunks: Blob[] = [];
@@ -767,9 +768,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                         if (mediaRecorder.state === 'recording') {
                             mediaRecorder.stop();
                         }
-                    }, 300);
+                    }, 200);
                 }
-            }, 300);
+            }, 200);
             
             (window as any).recordInterval = recordInterval;
             
