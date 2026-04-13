@@ -426,55 +426,35 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                 
                 console.log('[RadioContext] 📦 Audio decoded, size:', bytes.length, 'bytes');
                 
-                const blob = new Blob([bytes], { type: 'audio/webm' });
-                const url = URL.createObjectURL(blob);
+                // Используем AudioContext для более стабильного воспроизведения
+                if (!audioContextRef.current) {
+                    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+                }
                 
-                console.log('[RadioContext] 🔊 Creating Howl with volume:', volume / 100);
+                const audioContext = audioContextRef.current;
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
                 
-                const sound = new Howl({
-                    src: [url],
-                    format: ['webm', 'opus'],
-                    volume: volume / 100,
-                    preload: true,
-                    html5: true,
-                    onend: () => {
+                audioContext.decodeAudioData(bytes.buffer).then(audioBuffer => {
+                    const source = audioContext.createBufferSource();
+                    const gainNode = audioContext.createGain();
+                    
+                    source.buffer = audioBuffer;
+                    gainNode.gain.value = volume / 100;
+                    
+                    source.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    source.start(0);
+                    console.log('[RadioContext] ▶️ Playing audio with AudioContext');
+                    
+                    source.onended = () => {
                         console.log('[RadioContext] ✅ Audio playback finished');
-                        URL.revokeObjectURL(url);
-                    },
-                    onload: () => {
-                        console.log('[RadioContext] ✅ Voice audio loaded successfully');
-                    },
-                    onloaderror: (id, error) => {
-                        console.error('[RadioContext] ❌ Howl load error:', error);
-                        URL.revokeObjectURL(url);
-                    },
-                    onplayerror: (id, error) => {
-                        console.error('[RadioContext] ❌ Howl play error:', error);
-                        setTimeout(() => {
-                            try {
-                                sound.play();
-                            } catch (retryError) {
-                                console.error('[RadioContext] ❌ Retry play failed:', retryError);
-                                URL.revokeObjectURL(url);
-                            }
-                        }, 100);
-                    }
+                    };
+                }).catch(error => {
+                    console.error('[RadioContext] ❌ Failed to decode audio:', error);
                 });
-                
-                sound.once('load', () => {
-                    console.log('[RadioContext] ▶️ Starting playback');
-                    const playResult = sound.play();
-                    if (typeof playResult === 'boolean' && !playResult) {
-                        console.error('[RadioContext] ❌ Browser autoplay policy blocked audio');
-                    }
-                });
-                
-                setTimeout(() => {
-                    if (sound.state() !== 'loaded') {
-                        console.warn('[RadioContext] ⏱️ Audio load timeout, attempting playback anyway');
-                        sound.play();
-                    }
-                }, 500);
                 
             } catch (error) {
                 console.error('[RadioContext] ❌ Failed to play voice:', error);
@@ -733,7 +713,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                     echoCancellation: true,
                     noiseSuppression: true,
                     autoGainControl: true,
-                    sampleRate: 48000,
+                    sampleRate: 16000,
                     channelCount: 1
                 } 
             });
@@ -779,9 +759,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
                         if (mediaRecorder.state === 'recording') {
                             mediaRecorder.stop();
                         }
-                    }, 100);
+                    }, 300);
                 }
-            }, 100);
+            }, 300);
             
             (window as any).recordInterval = recordInterval;
             
