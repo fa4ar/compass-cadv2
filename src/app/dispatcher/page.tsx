@@ -94,6 +94,8 @@ function DispatcherPageContent() {
             return Array.isArray(res.data) ? res.data : [];
         },
         refetchInterval: false,
+        staleTime: 0,
+        refetchOnWindowFocus: true,
     });
 
     // Tanstack Query для calls
@@ -212,9 +214,10 @@ function DispatcherPageContent() {
             const res = await api.patch('/api/units/status', { characterId, userId, status });
             return res.data;
         },
-        onSuccess: () => {
+        onSuccess: async () => {
             toast({ title: 'Статус обновлен', description: 'Статус юнита изменен' });
-            queryClient.invalidateQueries({ queryKey: ['units'] });
+            await queryClient.invalidateQueries({ queryKey: ['units'] });
+            await refetchUnits();
         },
         onError: (error: any) => {
             toast({ title: 'Ошибка', description: error.response?.data?.error || 'Не удалось обновить статус', variant: 'destructive' });
