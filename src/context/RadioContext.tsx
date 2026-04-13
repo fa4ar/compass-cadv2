@@ -249,6 +249,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             console.log('[RadioContext] data.callsign:', data.callsign);
             console.log('[RadioContext] data.name:', data.name);
             console.log('[RadioContext] data.userState:', data.userState);
+            console.log('[RadioContext] data.state (isTalking):', data.state);
+            console.log('[RadioContext] data.serverId:', data.serverId);
+            
+            // Если state=false, удаляем пользователя из списка говорящих
+            if (data.state === false) {
+                console.log('[RadioContext] User stopped talking, removing from talkingUsers');
+                setTalkingUsers(prev => prev.filter(u => u.id !== data.serverId?.toString()));
+                return;
+            }
             
             setTalkingUsers(prev => {
                 const existingIndex = prev.findIndex(u => u.id === data.serverId?.toString());

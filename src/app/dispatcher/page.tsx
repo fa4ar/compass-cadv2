@@ -357,9 +357,20 @@ function DispatcherPageContent() {
                 refetchUnits();
             },
             unit_status_changed: (data: { userId: number; status: string; unit?: string }) => {
-                queryClient.setQueryData(['units'], (prev: Unit[] = []) => prev.map(u =>
-                    u.userId === data.userId ? { ...u, status: data.status } : u
-                ));
+                queryClient.setQueryData(['units'], (prev: Unit[] = []) => {
+                    const updated = prev.map(u => {
+                        // Update the unit whose status changed
+                        if (u.userId === data.userId) {
+                            return { ...u, status: data.status };
+                        }
+                        // If this unit is a partner of the changed unit, also update its status
+                        if (u.partnerUserId === data.userId) {
+                            return { ...u, status: data.status };
+                        }
+                        return u;
+                    });
+                    return updated;
+                });
             },
             unit_attached_to_call: (data: any) => {
                 console.log('[SOCKET] unit_attached_to_call:', data);
