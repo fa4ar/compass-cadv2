@@ -500,6 +500,24 @@ export default function RadioPanel() {
                       setBroadcastMessage('');
                       setShowBroadcastModal(false);
                       setBroadcastChannel('');
+                      
+                      // Отправляем тон через /radio/dispatch/tone
+                      fetch('/radio/dispatch/tone', {
+                          method: 'POST',
+                          headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': 'Bearer changeme',
+                              'X-Session-Id': dispatchSessionId
+                          },
+                          body: JSON.stringify({
+                              frequency: frequency,
+                              tone: broadcastTone
+                          })
+                      }).then(res => res.json())
+                        .then(toneData => {
+                            console.log('Tone response data:', toneData);
+                        })
+                        .catch(err => console.error('Failed to send tone:', err));
                   } else {
                       toast({
                           title: 'Ошибка',

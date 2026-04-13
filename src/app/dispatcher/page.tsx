@@ -209,7 +209,7 @@ function DispatcherPageContent() {
             if (!characterId && !userId) {
                 throw new Error('Нет данных о юните');
             }
-            const res = await api.post('/api/units/status', { characterId, userId, status });
+            const res = await api.patch('/api/units/status', { characterId, userId, status });
             return res.data;
         },
         onSuccess: () => {
