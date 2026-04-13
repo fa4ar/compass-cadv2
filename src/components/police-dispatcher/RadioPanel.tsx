@@ -501,23 +501,9 @@ export default function RadioPanel() {
                       setShowBroadcastModal(false);
                       setBroadcastChannel('');
                       
-                      // Отправляем тон через /radio/dispatch/tone
-                      fetch('/radio/dispatch/tone', {
-                          method: 'POST',
-                          headers: {
-                              'Content-Type': 'application/json',
-                              'Authorization': 'Bearer changeme',
-                              'X-Session-Id': dispatchSessionId
-                          },
-                          body: JSON.stringify({
-                              frequency: frequency,
-                              tone: broadcastTone
-                          })
-                      }).then(res => res.json())
-                        .then(toneData => {
-                            console.log('Tone response data:', toneData);
-                        })
-                        .catch(err => console.error('Failed to send tone:', err));
+                      // Проигрываем тон локально для диспетчера
+                      console.log('Broadcast: Playing tone locally for dispatcher:', broadcastTone, '(monitoring channel', frequency, ')');
+                      playTone(broadcastTone);
                   } else {
                       toast({
                           title: 'Ошибка',
