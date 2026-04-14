@@ -818,24 +818,24 @@ export default function RadioPanel() {
             <CardContent className="flex-1 flex flex-col gap-3 p-3 overflow-hidden">
                 {/* Активные диспетчеры */}
                 {activeDispatchers.length > 0 && (
-                    <div className="bg-zinc-800/50 rounded-lg p-3 border border-zinc-700">
-                        <div className="flex items-center gap-2 mb-2">
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2">
                             <Users className="w-3 h-3 text-zinc-400" />
                             <span className="text-xs font-semibold text-zinc-400">
                                 Активные диспетчеры ({activeDispatchers.length})
                             </span>
                         </div>
-                        <div className="flex flex-wrap gap-1.5">
-                            {activeDispatchers.map(dispatcher => (
-                                <Badge 
-                                    key={dispatcher.userId}
-                                    variant="outline" 
-                                    className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-xs"
-                                >
+                        {activeDispatchers.map(dispatcher => (
+                            <div 
+                                key={dispatcher.userId}
+                                className="bg-purple-500/10 rounded-lg p-2 border border-purple-500/30 flex items-center gap-2"
+                            >
+                                <div className="w-2 h-2 rounded-full bg-purple-500" />
+                                <span className="text-sm text-purple-300 font-medium">
                                     {dispatcher.callSign}
-                                </Badge>
-                            ))}
-                        </div>
+                                </span>
+                            </div>
+                        ))}
                     </div>
                 )}
 
