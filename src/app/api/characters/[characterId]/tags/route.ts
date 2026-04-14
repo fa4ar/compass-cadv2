@@ -3,10 +3,10 @@ import api from '@/lib/axios';
 
 export async function GET(
     req: NextRequest,
-    { params }: { params: { characterId: string } }
+    { params }: { params: Promise<{ characterId: string }> }
 ) {
     try {
-        const { characterId } = params;
+        const { characterId } = await params;
         const token = req.headers.get('authorization')?.replace('Bearer ', '');
         
         if (!token) {
@@ -39,10 +39,10 @@ export async function GET(
 
 export async function POST(
     req: NextRequest,
-    { params }: { params: { characterId: string } }
+    { params }: { params: Promise<{ characterId: string }> }
 ) {
     try {
-        const { characterId } = params;
+        const { characterId } = await params;
         const token = req.headers.get('authorization')?.replace('Bearer ', '');
         
         if (!token) {
@@ -80,10 +80,10 @@ export async function POST(
 
 export async function DELETE(
     req: NextRequest,
-    { params }: { params: { characterId: string } }
+    { params }: { params: Promise<{ characterId: string }> }
 ) {
     try {
-        const { characterId } = params;
+        const { characterId } = await params;
         const token = req.headers.get('authorization')?.replace('Bearer ', '');
         
         if (!token) {
