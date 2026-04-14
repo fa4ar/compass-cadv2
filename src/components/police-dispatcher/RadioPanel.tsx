@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useRadio } from '@/context/RadioContext';
+import { useSound } from '@/hooks/useSound';
 import { toast } from '@/hooks/use-toast';
 
 interface RadioUser {
@@ -195,6 +196,8 @@ export default function RadioPanel() {
         setChannelAlert,
     } = useRadio();
 
+    const { playSound } = useSound();
+
     const [isTalking, setIsTalking] = useState(false);
     const [showVolumeControl, setShowVolumeControl] = useState(false);
     const [showChannelConfig, setShowChannelConfig] = useState(false);
@@ -315,7 +318,7 @@ export default function RadioPanel() {
         toast({ title: 'Тон воспроизведен', description: toneType });
     };
 
-    // 🚨 КОД 100 - ТРЕВОГА (исправлено: ALERT_A)
+    // 🚨 КОД 100 - ТРЕВОГА
     const handleCode100 = async () => {
         const frequency = broadcastChannel || currentChannel;
         if (!frequency) {
@@ -326,11 +329,11 @@ export default function RadioPanel() {
             });
             return;
         }
-        
+
         // Оптимистичное обновление локального статуса
         setChannelAlert(parseFloat(frequency), 'CODE_100');
 
-        playTone('ALERT_A');
+        playSound('code_100');
 
         if (dispatchSessionId) {
             fetch('/radio/dispatch/alert/trigger', {
@@ -376,16 +379,16 @@ export default function RadioPanel() {
     const handleCode3 = () => {
         const frequency = broadcastChannel || currentChannel;
         if (!frequency) {
-            toast({ 
-                title: 'Ошибка', 
+            toast({
+                title: 'Ошибка',
                 description: 'Сначала выберите канал',
-                variant: 'destructive' 
+                variant: 'destructive'
             });
             return;
         }
-        
-        playTone('ALERT_B');
-        
+
+        playSound('code_3');
+
         if (dispatchSessionId) {
             fetch('/radio/dispatch/alert/trigger', {
                 method: 'POST',
@@ -406,9 +409,9 @@ export default function RadioPanel() {
                 })
             }).catch(err => console.error('Failed to trigger alert:', err));
         }
-        
-        toast({ 
-            title: '⚠️ CODE 3', 
+
+        toast({
+            title: '⚠️ CODE 3',
             description: `Оповещение отправлено на канал ${frequency} MHz`,
             variant: 'default'
         });
@@ -1002,10 +1005,10 @@ export default function RadioPanel() {
                             // Определяем цвет и текст для бейджа алерта
                             const getAlertBadge = () => {
                                 if (alertStatus === 'CODE_100') {
-                                    return <Badge className="bg-yellow-500 text-black text-xs font-bold border-yellow-600">CODE 100</Badge>;
+                                    return <Badge className="bg-yellow-500 text-black text-xs font-bold border-yellow-600 animate-pulse shadow-[0_0_10px_rgba(234,179,8,0.5)]">🚨 CODE 100</Badge>;
                                 }
                                 if (alertStatus === 'CODE_3') {
-                                    return <Badge className="bg-blue-500 text-white text-xs font-bold border-blue-600">CODE 3</Badge>;
+                                    return <Badge className="bg-blue-500 text-white text-xs font-bold border-blue-600 animate-pulse shadow-[0_0_10px_rgba(59,130,246,0.5)]">📞 CODE 3</Badge>;
                                 }
                                 if (alertStatus === 'CODE_5') {
                                     return <Badge className="bg-orange-500 text-white text-xs font-bold border-orange-600">CODE 5</Badge>;

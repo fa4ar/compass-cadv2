@@ -9,7 +9,9 @@ type SoundType =
     | 'notification' 
     | 'supervisor_request'
     | 'message_received'
-    | 'message_sent';
+    | 'message_sent'
+    | 'code_100'
+    | 'code_3';
 
 const SOUNDS: Record<SoundType, string> = {
     search_success: '/sounds/search_success.mp3',
@@ -19,6 +21,8 @@ const SOUNDS: Record<SoundType, string> = {
     supervisor_request: '/sounds/supervisor.mp3',
     message_received: '/sounds/message.mp3',
     message_sent: '/sounds/message_sent.mp3',
+    code_100: '', // Используем Web Audio API
+    code_3: '', // Используем Web Audio API
 };
 
 // Web Audio API для генерации простых звуков
@@ -100,6 +104,20 @@ class SoundGenerator {
         await this.playTone(800, 0.08, 'sine', 0.15);
         setTimeout(() => this.playTone(1000, 0.1, 'sine', 0.15), 80);
     }
+
+    async playCode100() {
+        // Аналогично search_success, но более громко и настойчиво
+        await this.playTone(800, 0.15, 'sine', 0.4);
+        setTimeout(() => this.playTone(1000, 0.15, 'sine', 0.4), 150);
+        setTimeout(() => this.playTone(1200, 0.2, 'sine', 0.4), 300);
+    }
+
+    async playCode3() {
+        // Быстрый звук для Code 3
+        await this.playTone(600, 0.1, 'sine', 0.3);
+        setTimeout(() => this.playTone(800, 0.1, 'sine', 0.3), 100);
+        setTimeout(() => this.playTone(1000, 0.15, 'sine', 0.3), 200);
+    }
 }
 
 const soundGenerator = new SoundGenerator();
@@ -129,6 +147,12 @@ export function useSound() {
                     break;
                 case 'message_sent':
                     await soundGenerator.playMessageSent();
+                    break;
+                case 'code_100':
+                    await soundGenerator.playCode100();
+                    break;
+                case 'code_3':
+                    await soundGenerator.playCode3();
                     break;
             }
         } catch (e) {
