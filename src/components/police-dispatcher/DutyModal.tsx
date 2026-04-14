@@ -57,21 +57,14 @@ export const DutyModal: React.FC<DutyModalProps> = ({
         : characters;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onClick={(e) => {
-            if (e.target === e.currentTarget) {
-                onClose();
-            }
-        }}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
             <Card className="w-full max-w-sm bg-zinc-950 border-zinc-800">
                 <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-center">
                         <CardTitle className="text-lg font-bold text-white flex items-center gap-2">
                             <Shield className="w-5 h-5 text-blue-500" />
                             Выход на смену
                         </CardTitle>
-                        <Button variant="ghost" size="icon" onClick={onClose} className="text-zinc-500 hover:text-white">
-                            <X className="w-4 h-4" />
-                        </Button>
                     </div>
                 </CardHeader>
                 <CardContent className="p-4 space-y-4">
