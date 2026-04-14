@@ -166,6 +166,7 @@ export default function RadioPanel() {
         currentChannel,
         listeningChannels,
         talkingUsers,
+        channelUsers,
         channels,
         volume,
         toneVolume,
@@ -996,10 +997,11 @@ export default function RadioPanel() {
                             .map((channel) => {
                             const isActive = channel.frequency === localSelectedChannel;
                             const isListening = listeningChannels.includes(channel.frequency);
-                            const participants = channels.find(ch => ch.frequency === channel.frequency)?.participants || 0;
                             const channelInfo = channels.find(ch => ch.frequency === channel.frequency);
                             const hasPanic = channelInfo?.panic || false;
                             const alertStatus = channelInfo?.alert;
+                            const usersOnChannel = channelUsers.filter(u => u.channel === channel.frequency);
+                            const participants = usersOnChannel.length;
 
                             // Определяем цвет и текст для бейджа алерта
                             const getAlertBadge = () => {
