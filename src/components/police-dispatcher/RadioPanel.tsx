@@ -171,6 +171,7 @@ export default function RadioPanel() {
         microphoneEnabled,
         isRecording,
         dispatchSessionId,
+        activeDispatchers,
         connect,
         disconnect,
         enableMicrophone,
@@ -812,6 +813,29 @@ export default function RadioPanel() {
             </CardHeader>
 
             <CardContent className="flex-1 flex flex-col gap-3 p-3 overflow-hidden">
+                {/* Активные диспетчеры */}
+                {activeDispatchers.length > 0 && (
+                    <div className="bg-zinc-800/50 rounded-lg p-3 border border-zinc-700">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Users className="w-3 h-3 text-zinc-400" />
+                            <span className="text-xs font-semibold text-zinc-400">
+                                Активные диспетчеры ({activeDispatchers.length})
+                            </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                            {activeDispatchers.map(dispatcher => (
+                                <Badge 
+                                    key={dispatcher.userId}
+                                    variant="outline" 
+                                    className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-xs"
+                                >
+                                    {dispatcher.callSign}
+                                </Badge>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Текущий канал */}
                 <div className="bg-zinc-800/50 rounded-lg p-3 border border-zinc-700">
                     <div className="flex items-center justify-between mb-2">
@@ -975,6 +999,20 @@ export default function RadioPanel() {
                             const hasPanic = channelInfo?.panic || false;
                             const alertStatus = channelInfo?.alert;
 
+                            // Определяем цвет и текст для бейджа алерта
+                            const getAlertBadge = () => {
+                                if (alertStatus === 'CODE_100') {
+                                    return <Badge className="bg-yellow-500 text-black text-xs font-bold border-yellow-600">CODE 100</Badge>;
+                                }
+                                if (alertStatus === 'CODE_3') {
+                                    return <Badge className="bg-blue-500 text-white text-xs font-bold border-blue-600">CODE 3</Badge>;
+                                }
+                                if (alertStatus === 'CODE_5') {
+                                    return <Badge className="bg-orange-500 text-white text-xs font-bold border-orange-600">CODE 5</Badge>;
+                                }
+                                return null;
+                            };
+
                             return (
                                 <div
                                     key={channel.id}
@@ -986,6 +1024,7 @@ export default function RadioPanel() {
                                             : 'bg-zinc-800/30 border-zinc-700 hover:border-zinc-600'}
                                         ${hasPanic ? 'border-red-500 bg-red-950/20' : ''}
                                         ${alertStatus === 'CODE_100' ? 'border-yellow-500 bg-yellow-950/20' : ''}
+                                        ${alertStatus === 'CODE_3' ? 'border-blue-500 bg-blue-950/20' : ''}
                                         ${alertStatus === 'CODE_5' ? 'border-orange-500 bg-orange-950/20' : ''}
                                         ${draggedUser ? 'border-dashed border-blue-400/50 hover:border-blue-400' : ''}
                                         ${hoveredChannel === channel.frequency && isDragging ? 'bg-green-950/30 border-green-500/50 shadow-[0_0_20px_rgba(34,197,94,0.3)]' : ''}
@@ -1014,16 +1053,7 @@ export default function RadioPanel() {
                                                             TRUNKED
                                                         </Badge>
                                                     )}
-                                                    {alertStatus === 'CODE_100' && (
-                                                        <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-yellow-950/30 border-yellow-500/30 text-yellow-400">
-                                                            CODE 100
-                                                        </Badge>
-                                                    )}
-                                                    {alertStatus === 'CODE_5' && (
-                                                        <Badge variant="outline" className="text-xs px-1 py-0 h-4 bg-orange-950/30 border-orange-500/30 text-orange-400">
-                                                            CODE 3
-                                                        </Badge>
-                                                    )}
+                                                    {getAlertBadge()}
                                                 </div>
                                             </div>
                                         </div>
@@ -1171,47 +1201,6 @@ export default function RadioPanel() {
                         </div>
                     </div>
                 )}
-
-                {/* Тоны */}
-                <div className="bg-zinc-800/50 rounded-lg p-3 border border-zinc-700">
-                    <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider block mb-2">
-                        Тоны
-                    </span>
-                    <div className="grid grid-cols-4 gap-2 mb-3">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs border-zinc-700 bg-zinc-800 hover:bg-zinc-700"
-                            onClick={() => handlePlayTone('BEEP')}
-                        >
-                            BEEP
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs border-zinc-700 bg-zinc-800 hover:bg-zinc-700"
-                            onClick={() => handlePlayTone('BOOP')}
-                        >
-                            BOOP
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs border-zinc-700 bg-zinc-800 hover:bg-zinc-700"
-                            onClick={() => handlePlayTone('CHIRP')}
-                        >
-                            CHIRP
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs border-zinc-700 bg-zinc-800 hover:bg-zinc-700"
-                            onClick={() => handlePlayTone('ALERT_C')}
-                        >
-                            ALERT C
-                        </Button>
-                    </div>
-                </div>
 
                 {/* Broadcast Modal */}
                 {showBroadcastModal && (

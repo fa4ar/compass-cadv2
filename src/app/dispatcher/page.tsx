@@ -482,7 +482,7 @@ function DispatcherPageContent() {
         };
     }, [socket, isConnected, selectedCall]);
 
-    const handleDutyStart = async () => {
+    const handleGoOnDuty = async () => {
         if (!callSign.trim()) {
             toast({ title: 'Ошибка', description: 'Введите позывной', variant: 'destructive' });
             return;
@@ -497,6 +497,14 @@ function DispatcherPageContent() {
             setShowDutyModal(false);
             localStorage.setItem('dispatcherCallSign', callSign.toUpperCase());
             localStorage.setItem('dispatcherOnDuty', 'true');
+            
+            // Emit socket event for dispatcher presence
+            if (socket) {
+                socket.emit('dispatcher_joined', {
+                    callSign: callSign.toUpperCase(),
+                    userId: user?.id
+                });
+            }
         } catch (error) {
             console.error('Failed to authenticate dispatch:', error);
             toast({ title: 'Ошибка авторизации', description: 'Не удалось авторизоваться в радио системе', variant: 'destructive' });
@@ -508,6 +516,14 @@ function DispatcherPageContent() {
         setShowDutyModal(true);
         localStorage.setItem('dispatcherOnDuty', 'false');
         toast({ title: 'Статус диспетчера', description: 'Вы вышли со смены.' });
+        
+        // Emit socket event for dispatcher presence
+        if (socket) {
+            socket.emit('dispatcher_left', {
+                callSign: callSign.toUpperCase(),
+                userId: user?.id
+            });
+        }
     };
 
     // Drag and drop handlers for pair creation
@@ -1309,7 +1325,7 @@ function DispatcherPageContent() {
             <DutyModal
                 isOpen={showDutyModal}
                 onClose={() => setShowDutyModal(false)}
-                onStart={handleDutyStart}
+                onStart={handleGoOnDuty}
                 characters={[]}
                 isLoading={false}
                 callSign={callSign}

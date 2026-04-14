@@ -37,6 +37,7 @@ interface RadioContextType {
     microphoneEnabled: boolean;
     isRecording: boolean;
     dispatchSessionId: string | null;
+    activeDispatchers: Array<{ callSign: string; userId: number }>;
     connect: () => void;
     disconnect: () => void;
     enableMicrophone: () => Promise<void>;
@@ -76,6 +77,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const [microphoneEnabled, setMicrophoneEnabled] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
     const [dispatchSessionId, setDispatchSessionId] = useState<string | null>(null);
+    const [activeDispatchers, setActiveDispatchers] = useState<Array<{ callSign: string; userId: number }>>([]);
     
     const socketRef = useRef<any>(null);
     const cleanupRef = useRef<(() => void)[]>([]);
@@ -387,9 +389,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const handleServerTone = (data: any) => {
             console.log('[RadioContext] Server tone received:', data);
             
-            // Не воспроизводим если не подключены к сокету или не авторизованы как диспетчер
-            if (!socketRef.current?.connected || !dispatchSessionId) {
-                console.log('[RadioContext] ⏭️ Ignoring server tone - not connected or not authenticated as dispatcher');
+            // Воспроизводим если подключены к сокету
+            if (!socketRef.current?.connected) {
+                console.log('[RadioContext] ⏭️ Ignoring server tone - not connected');
                 return;
             }
             
@@ -466,9 +468,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const handleGunshotDuringTransmission = (data: any) => {
             console.log('[RadioContext] 🔫 Gunshot received:', data);
             
-            // Не воспроизводим если не подключены к сокету или не авторизованы как диспетчер
-            if (!socketRef.current?.connected || !dispatchSessionId) {
-                console.log('[RadioContext] ⏭️ Ignoring gunshot - not connected or not authenticated as dispatcher');
+            // Воспроизводим если подключены к сокету
+            if (!socketRef.current?.connected) {
+                console.log('[RadioContext] ⏭️ Ignoring gunshot - not connected');
                 return;
             }
             
@@ -494,32 +496,28 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             console.log('[RadioContext] Channel alert received:', data);
             console.log('[RadioContext] Current channels:', channels);
             
-            // Обновляем статус алерта в канале
-            if (data.frequency) {
-                const freqStr = data.frequency.toString();
-                console.log('[RadioContext] Looking for channel with frequency:', freqStr);
-                
-                setChannels(prev => {
-                    const updated = prev.map(ch => {
-                        console.log('[RadioContext] Checking channel:', ch.frequency, 'vs', freqStr, 'match:', ch.frequency === freqStr);
-                        if (ch.frequency === freqStr) {
-                            const alertType = data.type === 'SIGNAL_100' ? 'CODE_100' : data.type || 'CODE_5';
-                            console.log('[RadioContext] Updating alert for channel', ch.frequency, 'to', alertType);
-                            return {
-                                ...ch,
-                                alert: alertType
-                            };
-                        }
-                        return ch;
-                    });
-                    console.log('[RadioContext] Updated channels:', updated);
-                    return updated;
-                });
-            }
+            if (!data.frequency) return;
             
-            // Не воспроизводим если не подключены к сокету или не авторизованы как диспетчер
-            if (!socketRef.current?.connected || !dispatchSessionId) {
-                console.log('[RadioContext] ⏭️ Ignoring channel alert - not connected or not authenticated as dispatcher');
+            const freqStr = data.frequency.toString();
+            setChannels(prev => {
+                const updated = prev.map(ch => {
+                    if (ch.frequency === freqStr) {
+                        const alertType = data.alert === 'SIGNAL_100' ? 'CODE_100' : data.alert || 'CODE_5';
+                        console.log('[RadioContext] Updating alert for channel', ch.frequency, 'to', alertType);
+                        return {
+                            ...ch,
+                            alert: alertType
+                        };
+                    }
+                    return ch;
+                });
+                console.log('[RadioContext] Updated channels:', updated);
+                return updated;
+            });
+            
+            // Воспроизводим если подключены к сокету
+            if (!socketRef.current?.connected) {
+                console.log('[RadioContext] ⏭️ Ignoring channel alert - not connected');
                 return;
             }
             
@@ -532,9 +530,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const handleDispatchAlert = (data: any) => {
             console.log('[RadioContext] Dispatch alert received:', data);
             
-            // Не воспроизводим если не подключены к сокету или не авторизованы как диспетчер
-            if (!socketRef.current?.connected || !dispatchSessionId) {
-                console.log('[RadioContext] ⏭️ Ignoring dispatch alert - not connected or not authenticated as dispatcher');
+            // Воспроизводим если подключены к сокету
+            if (!socketRef.current?.connected) {
+                console.log('[RadioContext] ⏭️ Ignoring dispatch alert - not connected');
                 return;
             }
             
@@ -565,6 +563,21 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             }
         };
 
+        const handleDispatcherJoined = (data: { callSign: string; userId: number }) => {
+            console.log('[RadioContext] Dispatcher joined:', data);
+            setActiveDispatchers(prev => {
+                if (!prev.find(d => d.userId === data.userId)) {
+                    return [...prev, data];
+                }
+                return prev;
+            });
+        };
+
+        const handleDispatcherLeft = (data: { callSign: string; userId: number }) => {
+            console.log('[RadioContext] Dispatcher left:', data);
+            setActiveDispatchers(prev => prev.filter(d => d.userId !== data.userId));
+        };
+
         socket.on('connect', handleConnect);
         socket.on('disconnect', handleDisconnect);
         socket.on('connect_error', handleConnectError);
@@ -582,6 +595,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         socket.on('channelAlert', handleChannelAlert);
         socket.on('dispatchAlert', handleDispatchAlert);
         socket.on('dispatchNotification', handleDispatchNotification);
+        socket.on('dispatcher_joined', handleDispatcherJoined);
+        socket.on('dispatcher_left', handleDispatcherLeft);
 
         // Catch-all listener для отладки
         const onevent = socket.onevent;
@@ -611,6 +626,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             () => socket.off('channelAlert', handleChannelAlert),
             () => socket.off('dispatchAlert', handleDispatchAlert),
             () => socket.off('dispatchNotification', handleDispatchNotification),
+            () => socket.off('dispatcher_joined', handleDispatcherJoined),
+            () => socket.off('dispatcher_left', handleDispatcherLeft),
         ];
 
         setIsInitialized(true);
@@ -942,6 +959,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             microphoneEnabled,
             isRecording,
             dispatchSessionId,
+            activeDispatchers,
             connect,
             disconnect,
             enableMicrophone,

@@ -142,12 +142,7 @@ router.post('/:id/tags', authMiddleware as RequestHandler, async (req, res) => {
             return res.status(404).json({ error: 'Character not found' });
         }
 
-        const isAdmin = userRoles.includes('admin');
-        const isOwner = character.userId === userId;
-
-        if (!isOwner && !isAdmin) {
-            return res.status(403).json({ error: 'You can only add tags to your own characters' });
-        }
+        // Разрешаем добавлять теги любому авторизованному пользователю
 
         // Handle custom tags (no pre-existing definition required)
         if (isCustom) {
@@ -189,10 +184,7 @@ router.post('/:id/tags', authMiddleware as RequestHandler, async (req, res) => {
             return res.status(404).json({ error: 'Tag definition not found' });
         }
 
-        // Check if self-application is allowed
-        if (!tagDefinition.canBeSelfApplied && !isAdmin) {
-            return res.status(403).json({ error: 'This tag cannot be self-applied' });
-        }
+        // Check if self-application is allowed (removed restriction)
 
         // Check max instances
         const existingTags = await (prisma as any).characterRoleplayTag.count({
@@ -242,8 +234,6 @@ router.post('/:id/tags', authMiddleware as RequestHandler, async (req, res) => {
 router.get('/:id/tags', authMiddleware as RequestHandler, async (req, res) => {
     try {
         const { id } = req.params;
-        const userId = (req as any).user?.userId;
-        const userRoles = (req as any).user?.roles || [];
 
         const character = await (prisma as any).character.findUnique({
             where: { id: parseInt(id) },
@@ -254,12 +244,7 @@ router.get('/:id/tags', authMiddleware as RequestHandler, async (req, res) => {
             return res.status(404).json({ error: 'Character not found' });
         }
 
-        const isAdmin = userRoles.includes('admin');
-        const isOwner = character.userId === userId;
-
-        if (!isOwner && !isAdmin) {
-            return res.status(403).json({ error: 'You can only view tags for your own characters' });
-        }
+        // Разрешаем просматривать теги любому авторизованному пользователю
 
         const tags = await (prisma as any).characterRoleplayTag.findMany({
             where: {
