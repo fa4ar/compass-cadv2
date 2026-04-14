@@ -1,7 +1,7 @@
 // components/police-dispatcher/RadioPanel.tsx
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Radio, Users, Volume2, VolumeX, Signal, Mic, MicOff, Settings, Plus, Trash2, Ear, EarOff, AlertTriangle, Phone, User, MoreVertical, ChevronUp, ChevronDown } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -233,10 +233,9 @@ export default function RadioPanel() {
 
     // Получаем список уникальных зон
     const zones = Array.from(new Set(customChannels.map(ch => ch.zone).filter(Boolean))) as string[];
-    const allZones = ['all', ...zones];
 
     // Обработка PTT (Push-to-Talk)
-    const handlePTTDown = () => {
+    const handlePTTDown = useCallback(() => {
         if (!currentChannel) {
             toast({ 
                 title: 'Ошибка', 
@@ -249,13 +248,13 @@ export default function RadioPanel() {
         setIsPTTPressed(true);
         setTalking(true);
         startRecording();
-    };
+    }, [currentChannel, setTalking, startRecording]);
 
-    const handlePTTUp = () => {
+    const handlePTTUp = useCallback(() => {
         setIsPTTPressed(false);
         setTalking(false);
         stopRecording();
-    };
+    }, [setTalking, stopRecording]);
 
     // Поддержка клавиши T для PTT
     useEffect(() => {
@@ -319,7 +318,7 @@ export default function RadioPanel() {
     };
 
     // 🚨 КОД 100 - ТРЕВОГА
-    const handleCode100 = async () => {
+    const handleCode100 = useCallback(async () => {
         const frequency = broadcastChannel || currentChannel;
         if (!frequency) {
             toast({
@@ -373,10 +372,10 @@ export default function RadioPanel() {
 
         // Отправляем сигнал через сокет
         sendCode100(parseFloat(frequency));
-    };
+    }, [broadcastChannel, currentChannel, dispatchSessionId, setChannelAlert, playSound, clearChannelAlert, sendCode100]);
 
     // CODE 3
-    const handleCode3 = () => {
+    const handleCode3 = useCallback(() => {
         const frequency = broadcastChannel || currentChannel;
         if (!frequency) {
             toast({
@@ -415,10 +414,47 @@ export default function RadioPanel() {
             description: `Оповещение отправлено на канал ${frequency} MHz`,
             variant: 'default'
         });
-    };
+    }, [broadcastChannel, currentChannel, dispatchSessionId, playSound]);
+
+    // Очистка алерта
+    const handleClearAlert = useCallback(() => {
+        const frequency = broadcastChannel || currentChannel;
+        if (!frequency) {
+            toast({
+                title: 'Ошибка',
+                description: 'Сначала выберите канал',
+                variant: 'destructive'
+            });
+            return;
+        }
+
+        playSound('code_clear');
+
+        clearChannelAlert(parseFloat(frequency));
+
+        if (dispatchSessionId) {
+            fetch('/radio/dispatch/alert/clear', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer changeme',
+                    'X-Session-Id': dispatchSessionId
+                },
+                body: JSON.stringify({
+                    frequency: frequency
+                })
+            }).catch(err => console.error('Failed to clear alert:', err));
+        }
+
+        toast({
+            title: '✅ Алерт очищен',
+            description: `Алерт на канале ${frequency} MHz очищен`,
+            variant: 'default'
+        });
+    }, [broadcastChannel, currentChannel, dispatchSessionId, clearChannelAlert, playSound]);
 
     // Oneshot tones (beeps/bops)
-    const handleOneshotTone = () => {
+    const handleOneshotTone = useCallback(() => {
         if (!currentChannel) {
             toast({ 
                 title: 'Ошибка', 
@@ -455,20 +491,22 @@ export default function RadioPanel() {
               })
               .catch(err => console.error('Failed to send oneshot tone:', err));
         }
-    };
+    }, [currentChannel, dispatchSessionId, selectedOneshotTone]);
 
     // Broadcast alert
-    const handleBroadcastAlert = () => {
+    const handleBroadcastAlert = useCallback(() => {
         console.log('handleBroadcastAlert called:', { broadcastChannel, currentChannel, broadcastMessage, broadcastType, broadcastTone, dispatchSessionId });
-        
+
         if (!broadcastChannel && !currentChannel) {
-            toast({ 
-                title: 'Ошибка', 
+            toast({
+                title: 'Ошибка',
                 description: 'Сначала выберите канал',
-                variant: 'destructive' 
+                variant: 'destructive'
             });
             return;
         }
+
+        playSound('broadcast');
 
         if (!broadcastMessage.trim()) {
             toast({ 
@@ -533,7 +571,7 @@ export default function RadioPanel() {
         } else {
             console.error('No dispatchSessionId');
         }
-    };
+    }, [broadcastChannel, currentChannel, broadcastMessage, broadcastType, broadcastTone, dispatchSessionId, playSound, playTone]);
 
     const openBroadcastModal = (frequency: string) => {
         setBroadcastChannel(frequency);
@@ -610,45 +648,6 @@ export default function RadioPanel() {
             }
             return newSet;
         });
-    };
-
-    // Clear alert
-    const handleClearAlert = () => {
-        const frequency = broadcastChannel || currentChannel;
-        if (!frequency) {
-            toast({ 
-                title: 'Ошибка', 
-                description: 'Сначала выберите канал',
-                variant: 'destructive' 
-            });
-            return;
-        }
-
-        // Очищаем локальный статус алерта
-        clearChannelAlert(parseFloat(frequency));
-
-        if (dispatchSessionId) {
-            fetch('/radio/dispatch/alert/clear', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer changeme',
-                    'X-Session-Id': dispatchSessionId
-                },
-                body: JSON.stringify({
-                    frequency: frequency
-                })
-            }).then(res => res.json())
-              .then(data => {
-                  if (data.success) {
-                      toast({
-                          title: 'Алерт очищен',
-                          description: `Код очищен на канале ${frequency} MHz`
-                      });
-                  }
-              })
-              .catch(err => console.error('Failed to clear alert:', err));
-        }
     };
 
     // DND handlers
@@ -1005,10 +1004,10 @@ export default function RadioPanel() {
                             // Определяем цвет и текст для бейджа алерта
                             const getAlertBadge = () => {
                                 if (alertStatus === 'CODE_100') {
-                                    return <Badge className="bg-yellow-500 text-black text-xs font-bold border-yellow-600 animate-pulse shadow-[0_0_10px_rgba(234,179,8,0.5)]">🚨 CODE 100</Badge>;
+                                    return <Badge className="bg-yellow-500 text-black text-xs font-bold border-yellow-600 animate-pulse shadow-[0_0_10px_rgba(234,179,8,0.5)]">CODE 100</Badge>;
                                 }
                                 if (alertStatus === 'CODE_3') {
-                                    return <Badge className="bg-blue-500 text-white text-xs font-bold border-blue-600 animate-pulse shadow-[0_0_10px_rgba(59,130,246,0.5)]">📞 CODE 3</Badge>;
+                                    return <Badge className="bg-blue-500 text-white text-xs font-bold border-blue-600 animate-pulse shadow-[0_0_10px_rgba(59,130,246,0.5)]">CODE 3</Badge>;
                                 }
                                 if (alertStatus === 'CODE_5') {
                                     return <Badge className="bg-orange-500 text-white text-xs font-bold border-orange-600">CODE 5</Badge>;
@@ -1038,7 +1037,7 @@ export default function RadioPanel() {
                                     onDrop={(e) => handleDrop(e, channel.frequency)}
                                 >
                                     <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2 flex-1" onClick={() => handleChannelSelect(channel.frequency)}>
+                                        <div className="flex items-center gap-2 flex-1">
                                             <div className={`
                                                 w-2 h-2 rounded-full
                                                 ${isActive ? 'bg-blue-500' : 'bg-zinc-600'}
@@ -1098,7 +1097,7 @@ export default function RadioPanel() {
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
-                                                    className="h-6 w-6 p-0 hover:bg-zinc-700 text-zinc-500 z-10"
+                                                    className="h-6 w-6 p-0 hover:bg-zinc-700 text-zinc-500"
                                                     onClick={(e) => {
                                                         e.preventDefault();
                                                         e.stopPropagation();

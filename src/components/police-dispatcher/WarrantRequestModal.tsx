@@ -65,7 +65,8 @@ export const WarrantRequestModal: React.FC<WarrantRequestModalProps> = ({
 
     useEffect(() => {
         if (isOpen) {
-            fetchRateLimit();
+            // Rate limit check temporarily disabled - endpoint not implemented
+            // fetchRateLimit();
         }
     }, [isOpen]);
 

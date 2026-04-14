@@ -11,7 +11,9 @@ type SoundType =
     | 'message_received'
     | 'message_sent'
     | 'code_100'
-    | 'code_3';
+    | 'code_3'
+    | 'code_clear'
+    | 'broadcast';
 
 const SOUNDS: Record<SoundType, string> = {
     search_success: '/sounds/search_success.mp3',
@@ -23,6 +25,8 @@ const SOUNDS: Record<SoundType, string> = {
     message_sent: '/sounds/message_sent.mp3',
     code_100: '', // Используем Web Audio API
     code_3: '', // Используем Web Audio API
+    code_clear: '', // Используем Web Audio API
+    broadcast: '', // Используем Web Audio API
 };
 
 // Web Audio API для генерации простых звуков
@@ -106,17 +110,30 @@ class SoundGenerator {
     }
 
     async playCode100() {
-        // Аналогично search_success, но более громко и настойчиво
-        await this.playTone(800, 0.15, 'sine', 0.4);
-        setTimeout(() => this.playTone(1000, 0.15, 'sine', 0.4), 150);
-        setTimeout(() => this.playTone(1200, 0.2, 'sine', 0.4), 300);
+        // Жесткий и понятный звук для CODE 100 - тройной тревожный сигнал
+        await this.playTone(600, 0.25, 'square', 0.5);
+        setTimeout(() => this.playTone(600, 0.25, 'square', 0.5), 300);
+        setTimeout(() => this.playTone(600, 0.4, 'square', 0.5), 600);
     }
 
     async playCode3() {
-        // Быстрый звук для Code 3
-        await this.playTone(600, 0.1, 'sine', 0.3);
-        setTimeout(() => this.playTone(800, 0.1, 'sine', 0.3), 100);
-        setTimeout(() => this.playTone(1000, 0.15, 'sine', 0.3), 200);
+        // Звук для Code 3 - быстрый двойной сигнал
+        await this.playTone(500, 0.15, 'sine', 0.4);
+        setTimeout(() => this.playTone(700, 0.15, 'sine', 0.4), 150);
+    }
+
+    async playCodeClear() {
+        // Звук для сброса кода - нисходящий тон
+        await this.playTone(800, 0.1, 'sine', 0.3);
+        setTimeout(() => this.playTone(600, 0.1, 'sine', 0.3), 100);
+        setTimeout(() => this.playTone(400, 0.2, 'sine', 0.3), 200);
+    }
+
+    async playBroadcast() {
+        // Звук для Broadcast - тройной пульс
+        await this.playTone(400, 0.2, 'triangle', 0.35);
+        setTimeout(() => this.playTone(400, 0.2, 'triangle', 0.35), 250);
+        setTimeout(() => this.playTone(400, 0.3, 'triangle', 0.35), 500);
     }
 }
 
@@ -153,6 +170,12 @@ export function useSound() {
                     break;
                 case 'code_3':
                     await soundGenerator.playCode3();
+                    break;
+                case 'code_clear':
+                    await soundGenerator.playCodeClear();
+                    break;
+                case 'broadcast':
+                    await soundGenerator.playBroadcast();
                     break;
             }
         } catch (e) {

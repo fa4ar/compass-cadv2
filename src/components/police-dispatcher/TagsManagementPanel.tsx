@@ -68,7 +68,8 @@ export const TagsManagementPanel: React.FC<TagsManagementPanelProps> = ({
 
     useEffect(() => {
         if (characterId) {
-            fetchRateLimit();
+            // Rate limit check temporarily disabled - endpoint not implemented
+            // fetchRateLimit();
         }
     }, [characterId]);
 
@@ -116,8 +117,8 @@ export const TagsManagementPanel: React.FC<TagsManagementPanelProps> = ({
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    tagType: selectedPredefinedTag,
-                    tagName: tagConfig.label,
+                    tagKey: selectedPredefinedTag,
+                    label: tagConfig.label,
                     tagValue: tagConfig.requiresValue ? tagValue : undefined,
                     color: tagConfig.color,
                     isCustom: false

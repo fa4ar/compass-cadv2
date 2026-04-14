@@ -495,14 +495,19 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const handleChannelAlert = (data: any) => {
             console.log('[RadioContext] Channel alert received:', data);
             console.log('[RadioContext] Current channels:', channels);
-            
+
             if (!data.frequency) return;
-            
+
             const freqStr = data.frequency.toString();
             setChannels(prev => {
                 const updated = prev.map(ch => {
                     if (ch.frequency === freqStr) {
-                        const alertType = data.alert === 'SIGNAL_100' ? 'CODE_100' : data.alert || 'CODE_5';
+                        let alertType = data.alert || 'CODE_5';
+                        if (data.alert === 'SIGNAL_100') {
+                            alertType = 'CODE_100';
+                        } else if (data.alert === 'CODE 3' || data.alert === 'CODE_3') {
+                            alertType = 'CODE_3';
+                        }
                         console.log('[RadioContext] Updating alert for channel', ch.frequency, 'to', alertType);
                         return {
                             ...ch,
